@@ -145,6 +145,81 @@
                 </StackPanel>
             </Border>
 
+            <!-- Answer file -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE8A5;" FontSize="16"
+                                  Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                        <TextBlock Text="Fichier de réponse (unattend.xml)" FontWeight="SemiBold" FontSize="15"/>
+                    </StackPanel>
+
+                    <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                             Message="Le fichier unattend.xml sera injecté dans le disque différentiel de la VM au moment de sa création."/>
+
+                    <ToggleSwitch Header="Utiliser un fichier de réponse"
+                                  IsOn="{x:Bind ViewModel.UseAnswerFile, Mode=TwoWay}"/>
+
+                    <StackPanel Spacing="12"
+                                Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                              Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Nom de l'ordinateur (15 car. max)" FontSize="12"/>
+                                <TextBox Text="{x:Bind ViewModel.ComputerName, Mode=TwoWay}"
+                                         MaxLength="15" PlaceholderText="LAB-VM"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="Mot de passe Administrateur" FontSize="12"/>
+                                <PasswordBox Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
+                                             PlaceholderText="P@ssw0rd!"/>
+                            </StackPanel>
+                        </Grid>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Langue / Locale" FontSize="12"/>
+                                <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
+                                          SelectedItem="{x:Bind ViewModel.UiLanguage, Mode=TwoWay}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="Fuseau horaire" FontSize="12"/>
+                                <ComboBox ItemsSource="{x:Bind ViewModel.TimeZones}"
+                                          SelectedItem="{x:Bind ViewModel.TimeZone, Mode=TwoWay}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Clé produit (optionnel)" FontSize="12"/>
+                            <TextBox Text="{x:Bind ViewModel.ProductKey, Mode=TwoWay}"
+                                     PlaceholderText="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
+                                     FontFamily="Consolas"/>
+                        </StackPanel>
+                        <Expander Header="Aperçu unattend.xml" HorizontalAlignment="Stretch">
+                            <StackPanel Spacing="8">
+                                <ScrollViewer Height="180">
+                                    <TextBlock Text="{x:Bind ViewModel.AnswerFilePreview, Mode=OneWay}"
+                                               FontFamily="Consolas" FontSize="11"
+                                               IsTextSelectionEnabled="True" TextWrapping="NoWrap"/>
+                                </ScrollViewer>
+                                <Button Content="Mettre à jour l'aperçu"
+                                        Command="{x:Bind ViewModel.UpdateAnswerPreviewCommand}"/>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- Create button -->
             <Button Command="{x:Bind ViewModel.CreateVmCommand}"
                     Style="{StaticResource AccentButtonStyle}"

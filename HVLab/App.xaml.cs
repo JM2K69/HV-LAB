@@ -11,8 +11,6 @@ public partial class App : Application
     {
         InitializeComponent();
         // Load persisted settings before any ViewModel reads them.
-        // Must be synchronous — the constructor runs on the dispatcher thread;
-        // blocking on an async task here causes a deadlock.
         AppSettings.Load();
     }
 
@@ -20,5 +18,9 @@ public partial class App : Application
     {
         MainAppWindow = new MainWindow();
         MainAppWindow.Activate();
+
+        // Apply persisted theme immediately after the window is live
+        if (MainAppWindow.Content is FrameworkElement root)
+            ThemeService.ApplyCurrent(root);
     }
 }

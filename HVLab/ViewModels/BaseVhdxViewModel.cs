@@ -40,16 +40,8 @@ public partial class BaseVhdxViewModel : ObservableObject
 
     // ─── Answer file ─────────────────────────────────────────────────────────
 
-    [ObservableProperty] private bool   useAnswerFile  = true;
     [ObservableProperty] private bool   isCreating;
-    [ObservableProperty] private string buildStatus    = "";
-
-    [ObservableProperty] private string computerName       = "LAB-VM";
-    [ObservableProperty] private string adminPassword      = "P@ssw0rd!";
-    [ObservableProperty] private string productKey         = "";
-    [ObservableProperty] private string uiLanguage         = "fr-FR";
-    [ObservableProperty] private string timeZone           = "Romance Standard Time";
-    [ObservableProperty] private string answerFilePreview  = "";
+    [ObservableProperty] private string buildStatus = "";
 
     // ─── Dynamic edition list ─────────────────────────────────────────────────
 
@@ -191,7 +183,6 @@ public partial class BaseVhdxViewModel : ObservableObject
     {
         baseFolder = AppSettings.Current.BaseImagesFolder;
         RefreshEditions();
-        UpdateAnswerPreview();
     }
 
     // ─── Commands ────────────────────────────────────────────────────────────
@@ -264,13 +255,6 @@ public partial class BaseVhdxViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void UpdateAnswerPreview()
-    {
-        if (!UseAnswerFile) { AnswerFilePreview = "(fichier de réponse désactivé)"; return; }
-        AnswerFilePreview = AnswerFileGenerator.Generate(BuildConfig());
-    }
-
-    [RelayCommand]
     public async Task CreateBaseVhdxAsync()
     {
         if (string.IsNullOrWhiteSpace(OsVersion))
@@ -285,10 +269,10 @@ public partial class BaseVhdxViewModel : ObservableObject
             BuildStatus = $"Création du VHDX : {System.IO.Path.GetFileName(vhdxPath)}…";
             await _vhdxService.CreateBaseVhdxAsync(vhdxPath, SizeGB);
 
-            string? answerXml = UseAnswerFile ? AnswerFileGenerator.Generate(BuildConfig()) : null;
-
             BuildStatus = "Application de l'image Windows (quelques minutes)…";
-            await _vhdxService.ApplyWindowsImageAsync(vhdxPath, WimPath, ImageIndex, Generation, answerXml);
+            // No answer file on the base image — it must stay in generalized/sysprep state.
+            // unattend.xml will be injected at VM creation time (into the differencing disk).
+            await _vhdxService.ApplyWindowsImageAsync(vhdxPath, WimPath, ImageIndex, Generation, answerFileContent: null);
 
             BuildStatus = "✓ Image créée avec succès !";
             Status = $"Image créée : {vhdxPath}";
@@ -314,17 +298,4 @@ public partial class BaseVhdxViewModel : ObservableObject
         }
         catch (Exception ex) { Status = $"Erreur : {ex.Message}"; IsLoading = false; }
     }
-
-    private AnswerFileConfig BuildConfig() => new()
-    {
-        ComputerName  = ComputerName,
-        AdminPassword = AdminPassword,
-        ProductKey    = ProductKey,
-        UILanguage    = UiLanguage,
-        InputLocale   = AnswerFileGenerator.GetInputLocale(UiLanguage),
-        SystemLocale  = UiLanguage,
-        UserLocale    = UiLanguage,
-        TimeZone      = TimeZone,
-        ImageIndex    = ImageIndex,
-    };
 }

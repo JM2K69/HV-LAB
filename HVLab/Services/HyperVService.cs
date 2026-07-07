@@ -217,37 +217,75 @@ public class HyperVService
 
     public async Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
-        long memoryMB, int cpuCount, int generation, string vmFolder)
+        long memoryMB, int cpuCount, int generation, string vmFolder,
+        string? answerFileContent = null)
     {
-        var script = $$"""
-            $vmName       = '{{Esc(vmName)}}'
-            $parentVhdx   = '{{Esc(parentVhdxPath)}}'
-            $switchName   = '{{Esc(switchName)}}'
-            $memoryBytes  = {{memoryMB}}MB
-            $cpuCount     = {{cpuCount}}
-            $generation   = {{generation}}
-            $vmFolder     = '{{Esc(vmFolder)}}'
+        // Write the answer file to a temp path if provided
+        string? answerTemp = null;
+        if (!string.IsNullOrWhiteSpace(answerFileContent))
+        {
+            answerTemp = Path.Combine(Path.GetTempPath(), $"hvlab_unattend_{Guid.NewGuid():N}.xml");
+            await File.WriteAllTextAsync(answerTemp, answerFileContent, System.Text.Encoding.UTF8);
+        }
 
-            $vmPath    = Join-Path $vmFolder $vmName
-            $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
-            New-Item -Path $vmPath    -ItemType Directory -Force | Out-Null
-            New-Item -Path $vhdFolder -ItemType Directory -Force | Out-Null
+        try
+        {
+            var isGen2   = generation == 2 ? "$true" : "$false";
+            var script   = $$"""
+                $vmName       = '{{Esc(vmName)}}'
+                $parentVhdx   = '{{Esc(parentVhdxPath)}}'
+                $switchName   = '{{Esc(switchName)}}'
+                $memoryBytes  = {{memoryMB}}MB
+                $cpuCount     = {{cpuCount}}
+                $generation   = {{generation}}
+                $vmFolder     = '{{Esc(vmFolder)}}'
+                $answerFile   = '{{Esc(answerTemp ?? "")}}'
+                $isGen2       = {{isGen2}}
 
-            $diffVhd = Join-Path $vhdFolder "$vmName.vhdx"
-            New-VHD -Path $diffVhd -ParentPath $parentVhdx -Differencing -ErrorAction Stop | Out-Null
+                $vmPath    = Join-Path $vmFolder $vmName
+                $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
+                New-Item -Path $vmPath    -ItemType Directory -Force | Out-Null
+                New-Item -Path $vhdFolder -ItemType Directory -Force | Out-Null
 
-            New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
-                   -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
+                $diffVhd = Join-Path $vhdFolder "$vmName.vhdx"
+                New-VHD -Path $diffVhd -ParentPath $parentVhdx -Differencing -ErrorAction Stop | Out-Null
 
-            Set-VM -Name $vmName -ProcessorCount $cpuCount -ErrorAction Stop
-            Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
+                # Inject unattend.xml into the differencing disk before first boot
+                if ($answerFile -and (Test-Path $answerFile)) {
+                    Write-Output "Injection du fichier de réponse dans le disque différentiel..."
+                    $mount   = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
+                    $disk    = $mount | Get-Disk
+                    $parts   = $disk | Get-Partition | Where-Object { $_.Type -eq 'Basic' -or $_.IsActive }
+                    $winPart = $parts | Where-Object { $_.Size -gt 1GB } | Select-Object -First 1
+                    if (-not $winPart) { $winPart = $parts | Select-Object -Last 1 }
+                    $letter  = ($winPart | Add-PartitionAccessPath -AssignDriveLetter -PassThru -ErrorAction SilentlyContinue).DriveLetter
+                    if ($letter) {
+                        $panther = "${letter}:\Windows\Panther"
+                        if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
+                        Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
+                        Write-Output "unattend.xml injecté dans $panther"
+                    }
+                    Dismount-DiskImage -ImagePath $diffVhd | Out-Null
+                }
 
-            if ($generation -eq 2) {
-                Set-VMFirmware -VMName $vmName -EnableSecureBoot Off -ErrorAction SilentlyContinue
-            }
-            Write-Output "VM '$vmName' créée avec succès"
-            """;
-        await RunScriptAsync(script);
+                New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
+                       -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
+
+                Set-VM -Name $vmName -ProcessorCount $cpuCount -ErrorAction Stop
+                Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
+
+                if ($generation -eq 2) {
+                    Set-VMFirmware -VMName $vmName -EnableSecureBoot Off -ErrorAction SilentlyContinue
+                }
+                Write-Output "VM '$vmName' créée avec succès"
+                """;
+            await RunScriptAsync(script);
+        }
+        finally
+        {
+            if (answerTemp is not null)
+                try { File.Delete(answerTemp); } catch { /* ignore */ }
+        }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
