@@ -1,9 +1,107 @@
+using System.Text.Json;
 using HVLab.Models;
 
 namespace HVLab.Services;
 
 public class VhdxService
 {
+    // ─── WIM / DISM analysis ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Lists all image indexes in a WIM/ESD file using Get-WindowsImage (DISM PowerShell module).
+    /// Returns each entry as a <see cref="WimImageInfo"/>.
+    /// </summary>
+    public async Task<List<WimImageInfo>> GetWimImagesAsync(string wimPath)
+    {
+        if (string.IsNullOrWhiteSpace(wimPath) || !File.Exists(wimPath))
+            return [];
+
+        // Get-WindowsImage returns an array; we also pull the build version
+        // via Get-WindowsImageContent which needs mounting — too slow.
+        // Instead we grab Version from each ImageInfo object (available without mounting).
+        var script = $$"""
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            try {
+                $imgs = @(Get-WindowsImage -ImagePath '{{Esc(wimPath)}}' -ErrorAction Stop | ForEach-Object {
+                    [PSCustomObject]@{
+                        ImageIndex = $_.ImageIndex
+                        ImageName  = $_.ImageName
+                        Version    = if ($_.Version) { $_.Version } else { '' }
+                        ImageSize  = $_.ImageSize
+                    }
+                })
+                if ($imgs.Count -gt 0) { ConvertTo-Json -InputObject $imgs -Depth 2 } else { '[]' }
+            } catch {
+                Write-Error $_.Exception.Message
+                exit 1
+            }
+            """;
+
+        var json = await HyperVService.RunScriptAsync(script);
+        if (string.IsNullOrWhiteSpace(json)) return [];
+
+        try
+        {
+            var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            // PowerShell may return a single object (not array) for 1-index WIMs
+            json = json.Trim();
+            if (json.StartsWith('{')) json = $"[{json}]";
+            var raw = JsonSerializer.Deserialize<List<WimImageRaw>>(json, opts) ?? [];
+
+            var result = raw.Select(r => new WimImageInfo
+            {
+                ImageIndex = r.ImageIndex,
+                ImageName  = r.ImageName ?? string.Empty,
+                Version    = r.Version   ?? string.Empty,
+                ImageSize  = r.ImageSize,
+            }).ToList();
+
+            // If DISM didn't return a version, fall back to querying index 1 via WMI/DISM
+            if (result.Count > 0 && string.IsNullOrWhiteSpace(result[0].Version))
+            {
+                var ver = await GetWimVersionAsync(wimPath);
+                foreach (var img in result)
+                    img.Version = ver;
+            }
+
+            return result;
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Reads the Windows build version from WIM index 1 using DISM /Get-WimInfo.
+    /// Parses the "Version :" line from the text output.
+    /// </summary>
+    private static async Task<string> GetWimVersionAsync(string wimPath)
+    {
+        var script = $$"""
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            $out = & dism.exe /Get-WimInfo /WimFile:'{{Esc(wimPath)}}' /Index:1 2>&1
+            $vline = $out | Where-Object { $_ -match '^\s*Version\s*:' } | Select-Object -First 1
+            if ($vline) { ($vline -split ':',2)[1].Trim() } else { '' }
+            """;
+        try
+        {
+            var result = await HyperVService.RunScriptAsync(script);
+            return result.Trim();
+        }
+        catch { return string.Empty; }
+    }
+
+    // JSON deserialization shim (matches PowerShell property names exactly)
+    private sealed class WimImageRaw
+    {
+        public int    ImageIndex { get; set; }
+        public string? ImageName { get; set; }
+        public string? Version   { get; set; }
+        public long   ImageSize  { get; set; }
+    }
+
+
     public async Task<List<BaseVhdx>> GetBaseVhdxListAsync(string folder)
     {
         var result = new List<BaseVhdx>();

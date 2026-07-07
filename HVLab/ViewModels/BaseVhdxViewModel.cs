@@ -11,7 +11,7 @@ public partial class BaseVhdxViewModel : ObservableObject
     private readonly VhdxService _vhdxService = new();
 
     [ObservableProperty] private ObservableCollection<BaseVhdx> baseVhdxList = [];
-    [ObservableProperty] private bool isLoading;
+    [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = "Prêt";
     [ObservableProperty] private string baseFolder;
 
@@ -26,12 +26,24 @@ public partial class BaseVhdxViewModel : ObservableObject
     [ObservableProperty] private int    imageIndex        = 1;
     [ObservableProperty] private string wimPath           = "";
 
-    // Answer file
+    // ─── WIM analysis results ────────────────────────────────────────────────
+
+    /// <summary>All image entries found in the selected WIM/ESD file.</summary>
+    public ObservableCollection<WimImageInfo> WimImages { get; } = [];
+
+    [ObservableProperty] private bool   isAnalyzingWim;
+    [ObservableProperty] private string wimAnalysisStatus = "";
+    [ObservableProperty] private bool   wimAnalyzed;
+
+    /// <summary>The WIM entry that currently matches the selected edition.</summary>
+    [ObservableProperty] private WimImageInfo? matchedWimImage;
+
+    // ─── Answer file ─────────────────────────────────────────────────────────
+
     [ObservableProperty] private bool   useAnswerFile  = true;
     [ObservableProperty] private bool   isCreating;
     [ObservableProperty] private string buildStatus    = "";
 
-    // Answer file fields
     [ObservableProperty] private string computerName       = "LAB-VM";
     [ObservableProperty] private string adminPassword      = "P@ssw0rd!";
     [ObservableProperty] private string productKey         = "";
@@ -41,13 +53,10 @@ public partial class BaseVhdxViewModel : ObservableObject
 
     // ─── Dynamic edition list ─────────────────────────────────────────────────
 
-    /// <summary>Editions available for the currently selected OS family.</summary>
     public ObservableCollection<string> AvailableEditions { get; } = [];
-
-    /// <summary>True when Desktop Experience makes sense for this OS/edition combo.</summary>
     public bool ShowDesktopExperience { get; private set; }
 
-    // OS-family catalogue ─────────────────────────────────────────────────────
+    // ─── OS catalogue ────────────────────────────────────────────────────────
 
     public List<string> OsFamilies { get; } =
     [
@@ -59,35 +68,29 @@ public partial class BaseVhdxViewModel : ObservableObject
         "WindowsServer2016",
     ];
 
-    // All editions grouped by OS type
-    private static readonly string[] ClientEditions  = ["Pro", "Enterprise", "Education", "ProEducation", "ProWorkstation"];
-    private static readonly string[] ServerEditions  = ["Standard", "Datacenter", "StandardCore", "DatacenterCore"];
+    private static readonly string[] ClientEditions = ["Pro", "Enterprise", "Education", "ProEducation", "ProWorkstation"];
+    private static readonly string[] ServerEditions = ["Standard", "Datacenter", "StandardCore", "DatacenterCore"];
 
     private static bool IsServerFamily(string family) =>
         family.StartsWith("WindowsServer", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// Whether Desktop Experience is applicable:
-    ///  - Only for Server families
-    ///  - And only when the selected edition is not a Core edition
-    /// </summary>
     private bool ComputeShowDesktopExperience() =>
         IsServerFamily(SelectedOsFamily) && !SelectedEdition.EndsWith("Core");
 
     private void RefreshEditions()
     {
         var editions = IsServerFamily(SelectedOsFamily) ? ServerEditions : ClientEditions;
-
         AvailableEditions.Clear();
         foreach (var e in editions) AvailableEditions.Add(e);
 
-        // Keep the selection valid
         if (!AvailableEditions.Contains(SelectedEdition))
             SelectedEdition = AvailableEditions.FirstOrDefault() ?? "";
 
         ShowDesktopExperience = ComputeShowDesktopExperience();
         OnPropertyChanged(nameof(ShowDesktopExperience));
         OnPropertyChanged(nameof(PreviewFileName));
+
+        if (WimAnalyzed) AutoMatchWimIndex();
     }
 
     // ─── Option lists ─────────────────────────────────────────────────────────
@@ -118,23 +121,71 @@ public partial class BaseVhdxViewModel : ObservableObject
         }
     }
 
+    // ─── WIM auto-match ───────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Finds the best WIM index for the current edition/desktop-experience and
+    /// updates <see cref="ImageIndex"/>, <see cref="OsVersion"/>, and status.
+    /// </summary>
+    private void AutoMatchWimIndex()
+    {
+        if (WimImages.Count == 0) { MatchedWimImage = null; return; }
+
+        var match = WimImages.FirstOrDefault(img =>
+            img.MatchesEdition(SelectedEdition, DesktopExperience && ShowDesktopExperience));
+
+        if (match is not null)
+        {
+            MatchedWimImage = match;
+            ImageIndex      = match.ImageIndex;
+
+            if (string.IsNullOrWhiteSpace(OsVersion) || OsVersion == "0.0.0.0")
+                OsVersion = match.Version;
+
+            WimAnalysisStatus = $"✓ Index {match.ImageIndex} — {match.ImageName}";
+        }
+        else
+        {
+            MatchedWimImage   = null;
+            WimAnalysisStatus = $"⚠ Aucun index trouvé pour « {SelectedEdition} »" +
+                                (ShowDesktopExperience ? $" (Desktop Experience : {DesktopExperience})" : "");
+        }
+    }
+
     // ─── Property change hooks ────────────────────────────────────────────────
 
-    partial void OnSelectedOsFamilyChanged(string value)
-    {
-        RefreshEditions();
-    }
+    partial void OnSelectedOsFamilyChanged(string value) => RefreshEditions();
 
     partial void OnSelectedEditionChanged(string value)
     {
         ShowDesktopExperience = ComputeShowDesktopExperience();
         OnPropertyChanged(nameof(ShowDesktopExperience));
         OnPropertyChanged(nameof(PreviewFileName));
+        if (WimAnalyzed) AutoMatchWimIndex();
     }
 
-    partial void OnDesktopExperienceChanged(bool value) => OnPropertyChanged(nameof(PreviewFileName));
-    partial void OnOsVersionChanged(string value)       => OnPropertyChanged(nameof(PreviewFileName));
-    partial void OnSizeGBChanged(int value)             => OnPropertyChanged(nameof(PreviewFileName));
+    partial void OnDesktopExperienceChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PreviewFileName));
+        if (WimAnalyzed) AutoMatchWimIndex();
+    }
+
+    partial void OnOsVersionChanged(string value) => OnPropertyChanged(nameof(PreviewFileName));
+    partial void OnSizeGBChanged(int value)        => OnPropertyChanged(nameof(PreviewFileName));
+
+    /// <summary>Trigger WIM analysis automatically when a file path is set.</summary>
+    partial void OnWimPathChanged(string value)
+    {
+        WimAnalyzed       = false;
+        WimAnalysisStatus = "";
+        MatchedWimImage   = null;
+        WimImages.Clear();
+
+        if (!string.IsNullOrWhiteSpace(value) && File.Exists(value))
+            _ = AnalyzeWimAsync();
+    }
+
+    // ─── Constructor ──────────────────────────────────────────────────────────
 
     public BaseVhdxViewModel()
     {
@@ -161,6 +212,57 @@ public partial class BaseVhdxViewModel : ObservableObject
         finally { IsLoading = false; }
     }
 
+    /// <summary>
+    /// Analyses the WIM/ESD file: populates <see cref="WimImages"/>,
+    /// fills <see cref="OsVersion"/> and auto-selects <see cref="ImageIndex"/>.
+    /// </summary>
+    [RelayCommand]
+    public async Task AnalyzeWimAsync()
+    {
+        if (string.IsNullOrWhiteSpace(WimPath) || !File.Exists(WimPath))
+        {
+            WimAnalysisStatus = "Sélectionnez d'abord un fichier WIM/ESD.";
+            return;
+        }
+
+        IsAnalyzingWim    = true;
+        WimAnalysisStatus = "Analyse du fichier WIM en cours…";
+        WimAnalyzed       = false;
+        WimImages.Clear();
+        MatchedWimImage   = null;
+
+        try
+        {
+            var images = await _vhdxService.GetWimImagesAsync(WimPath);
+            foreach (var img in images) WimImages.Add(img);
+
+            if (images.Count == 0)
+            {
+                WimAnalysisStatus = "⚠ Aucune image trouvée dans ce fichier.";
+                return;
+            }
+
+            // Version is the same for all indexes in one WIM
+            var detectedVersion = images
+                .FirstOrDefault(i => !string.IsNullOrWhiteSpace(i.Version))?.Version
+                ?? string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(detectedVersion))
+                OsVersion = detectedVersion;
+
+            WimAnalyzed = true;
+            AutoMatchWimIndex();
+        }
+        catch (Exception ex)
+        {
+            WimAnalysisStatus = $"✗ Erreur d'analyse : {ex.Message}";
+        }
+        finally
+        {
+            IsAnalyzingWim = false;
+        }
+    }
+
     [RelayCommand]
     public void UpdateAnswerPreview()
     {
@@ -172,7 +274,7 @@ public partial class BaseVhdxViewModel : ObservableObject
     public async Task CreateBaseVhdxAsync()
     {
         if (string.IsNullOrWhiteSpace(OsVersion))
-            { Status = "Saisissez la version de l'OS (ex : 10.0.26100.4652)."; return; }
+            { Status = "La version OS n'a pas pu être détectée — saisissez-la manuellement."; return; }
         if (string.IsNullOrWhiteSpace(WimPath) || !File.Exists(WimPath))
             { Status = "Sélectionnez un fichier WIM/ESD valide."; return; }
 
