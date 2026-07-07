@@ -3,11 +3,15 @@ namespace HVLab.Models;
 public class VirtualMachine
 {
     public string Name { get; set; } = string.Empty;
-    public string State { get; set; } = "Off";
-    public long MemoryMB { get; set; }
+    public string State { get; set; } = string.Empty;
     public int ProcessorCount { get; set; }
-    public string VSwitchName { get; set; } = string.Empty;
-    public string BaseVhdxPath { get; set; } = string.Empty;
-    public string DifferentialDiskPath { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
+    public long MemoryMB { get; set; }
+    public int Generation { get; set; } = 2;
+    public string SwitchName { get; set; } = string.Empty;
+    public string Uptime { get; set; } = string.Empty;
+
+    public bool IsRunning => State == "Running";
+    public string MemoryDisplay => $"{MemoryMB} MB";
+    public string GenDisplay => $"Gen {Generation}";
+    public string StateIcon => IsRunning ? "▶" : "⏹";
 }

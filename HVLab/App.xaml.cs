@@ -4,6 +4,8 @@ namespace HVLab;
 
 public partial class App : Application
 {
+    public static MainWindow? MainAppWindow { get; private set; }
+
     public App()
     {
         InitializeComponent();
@@ -11,7 +13,7 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        MainWindow = new MainWindow();
-        MainWindow.Activate();
+        MainAppWindow = new MainWindow();
+        MainAppWindow.Activate();
     }
 }
