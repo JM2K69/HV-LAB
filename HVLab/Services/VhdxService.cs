@@ -8,19 +8,14 @@ public class VhdxService
     {
         var result = new List<BaseVhdx>();
         if (!Directory.Exists(folder)) return result;
-        var files = await Task.Run(() => Directory.GetFiles(folder, "*.vhdx", SearchOption.TopDirectoryOnly));
+        var files = await Task.Run(() =>
+            Directory.GetFiles(folder, "BASE_*.vhdx", SearchOption.TopDirectoryOnly));
         foreach (var f in files)
-        {
-            var info = new FileInfo(f);
-            result.Add(new BaseVhdx
-            {
-                Name      = Path.GetFileNameWithoutExtension(f),
-                Path      = f,
-                SizeGB    = info.Length / (1024L * 1024 * 1024),
-                IsBuilt   = true,
-                CreatedAt = info.CreationTime,
-            });
-        }
+            result.Add(BaseVhdx.FromFile(f));
+        // Sort by OS identifier then version descending
+        result.Sort((a, b) => string.Compare(a.OsIdentifier + a.OsVersion,
+                                              b.OsIdentifier + b.OsVersion,
+                                              StringComparison.OrdinalIgnoreCase));
         return result;
     }
 

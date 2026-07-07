@@ -22,12 +22,18 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private long memoryMB = 2048;
     [ObservableProperty] private int cpuCount = 2;
     [ObservableProperty] private int generation = 2;
-    [ObservableProperty] private string vmFolder = @"C:\HV-LAB\VMs";
-    [ObservableProperty] private string baseVhdxFolder = @"C:\HV-LAB\BaseImages";
+    [ObservableProperty] private string vmFolder;
+    [ObservableProperty] private string baseVhdxFolder;
 
     public List<int>  Generations   { get; } = [1, 2];
     public List<long> MemoryOptions { get; } = [512, 1024, 2048, 4096, 8192, 16384];
     public List<int>  CpuOptions    { get; } = [1, 2, 4, 8, 12, 16];
+
+    public CreateVmViewModel()
+    {
+        vmFolder       = AppSettings.Current.VmsFolder;
+        baseVhdxFolder = AppSettings.Current.BaseImagesFolder;
+    }
 
     [RelayCommand]
     public async Task LoadDataAsync()
@@ -42,7 +48,7 @@ public partial class CreateVmViewModel : ObservableObject
 
             var images = await _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
             BaseVhdxList.Clear();
-            foreach (var img in images) BaseVhdxList.Add(img.Path);
+            foreach (var img in images) BaseVhdxList.Add(img.FilePath);
 
             Status = "Prêt";
         }

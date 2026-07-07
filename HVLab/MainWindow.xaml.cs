@@ -27,6 +27,7 @@ public sealed partial class MainWindow : Window
                 "switches"  => typeof(VirtualSwitchesPage),
                 "basevhdx"  => typeof(BaseVhdxPage),
                 "createvm"  => typeof(CreateVmPage),
+                "settings"  => typeof(SettingsPage),
                 _           => (Type?)null
             };
             if (pageType is not null)

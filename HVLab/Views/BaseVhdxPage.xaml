@@ -12,7 +12,6 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -43,8 +42,8 @@
                  Message="{x:Bind ViewModel.BuildStatus, Mode=OneWay}"
                  IsClosable="False"/>
 
-        <!-- Existing images list -->
-        <Grid Grid.Row="3" RowSpacing="8">
+        <!-- Main content -->
+        <Grid Grid.Row="3" RowSpacing="12">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -56,17 +55,19 @@
                   Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                   Padding="12,6" CornerRadius="6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="180"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="140"/>
-                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="120"/>
+                    <ColumnDefinition Width="100"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="60"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="Nom"       FontWeight="SemiBold"/>
-                <TextBlock Grid.Column="1" Text="Chemin"    FontWeight="SemiBold"/>
-                <TextBlock Grid.Column="2" Text="Taille"    FontWeight="SemiBold"/>
-                <TextBlock Grid.Column="3" Text="Créé le"   FontWeight="SemiBold"/>
-                <TextBlock Grid.Column="4" Text="Action"    FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="0" Text="Système d'exploitation" FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="1" Text="Version OS"             FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="2" Text="Édition"                FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="3" Text="Taille"                 FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="4" Text="Créé le"                FontWeight="SemiBold"/>
+                <TextBlock Grid.Column="5" Text="Action"                 FontWeight="SemiBold"/>
             </Grid>
 
             <ListView Grid.Row="1"
@@ -76,33 +77,54 @@
                     <Style TargetType="ListViewItem">
                         <Setter Property="Padding"                    Value="12,0"/>
                         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="MinHeight"                  Value="42"/>
+                        <Setter Property="MinHeight"                  Value="44"/>
                     </Style>
                 </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="models:BaseVhdx">
                         <Grid ColumnSpacing="8" VerticalAlignment="Center">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="180"/>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="80"/>
-                                <ColumnDefinition Width="140"/>
-                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="130"/>
+                                <ColumnDefinition Width="60"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <TextBlock Text="{x:Bind StatusIcon}" FontSize="14"/>
-                                <TextBlock Text="{x:Bind Name}" TextTrimming="CharacterEllipsis"
-                                           ToolTipService.ToolTip="{x:Bind Name}"/>
+
+                            <!-- OS label + icon -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind StatusIcon}" FontSize="16"/>
+                                <StackPanel>
+                                    <TextBlock Text="{x:Bind OsLabel}"
+                                               FontWeight="SemiBold" FontSize="13"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTipService.ToolTip="{x:Bind Name}"/>
+                                    <TextBlock Text="{x:Bind FilePath}"
+                                               FontFamily="Consolas" FontSize="10"
+                                               Foreground="{ThemeResource SystemBaseMediumColor}"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTipService.ToolTip="{x:Bind FilePath}"/>
+                                </StackPanel>
                             </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{x:Bind Path}"
-                                       FontFamily="Consolas" FontSize="11"
-                                       TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
-                                       ToolTipService.ToolTip="{x:Bind Path}"/>
-                            <TextBlock Grid.Column="2" Text="{x:Bind SizeDisplay}"
+
+                            <TextBlock Grid.Column="1" Text="{x:Bind OsVersion}"
+                                       FontFamily="Consolas" FontSize="12"
+                                       VerticalAlignment="Center"
+                                       ToolTipService.ToolTip="{x:Bind OsVersion}"/>
+
+                            <TextBlock Grid.Column="2" Text="{x:Bind OsIdentifier}"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTipService.ToolTip="{x:Bind OsIdentifier}"/>
+
+                            <TextBlock Grid.Column="3" Text="{x:Bind SizeDisplay}"
                                        VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="3" Text="{x:Bind CreatedAtDisplay}"
-                                       VerticalAlignment="Center"/>
-                            <Button Grid.Column="4" Tag="{x:Bind}" Click="DeleteVhdx_Click"
+
+                            <TextBlock Grid.Column="4" Text="{x:Bind CreatedAtDisplay}"
+                                       VerticalAlignment="Center" FontSize="12"/>
+
+                            <Button Grid.Column="5" Tag="{x:Bind}" Click="DeleteVhdx_Click"
                                     Width="32" Height="32" Padding="0"
                                     ToolTipService.ToolTip="Supprimer">
                                 <FontIcon Glyph="&#xE74D;" FontSize="12"/>
@@ -115,35 +137,89 @@
             <!-- Create VHDX expander -->
             <Expander Grid.Row="2" Header="➕  Créer une nouvelle image de base"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <ScrollViewer MaxHeight="520">
-                    <StackPanel Spacing="14" Padding="0,8,0,4">
+                <ScrollViewer MaxHeight="560">
+                    <StackPanel Spacing="16" Padding="0,10,0,6">
 
-                        <!-- VHDX settings -->
-                        <TextBlock Text="Paramètres du disque" FontWeight="SemiBold" FontSize="14"/>
+                        <!-- Section: OS Identity -->
+                        <TextBlock Text="Identité de l'image" FontWeight="SemiBold" FontSize="14"/>
+
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="Famille OS" FontSize="12"/>
+                                <ComboBox ItemsSource="{x:Bind ViewModel.OsFamilies}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedOsFamily, Mode=TwoWay}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="Édition" FontSize="12"/>
+                                <ComboBox ItemsSource="{x:Bind ViewModel.AvailableEditions}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedEdition, Mode=TwoWay}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Bottom"
+                                        Visibility="{x:Bind ViewModel.ShowDesktopExperience, Mode=OneWay,
+                                                      Converter={StaticResource BoolToVisibilityConverter}}">
+                                <CheckBox Content="Desktop Experience"
+                                          IsChecked="{x:Bind ViewModel.DesktopExperience, Mode=TwoWay}"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Version de l'OS (ex : 10.0.26100.4652)" FontSize="12"/>
+                            <TextBox Text="{x:Bind ViewModel.OsVersion, Mode=TwoWay}"
+                                     PlaceholderText="10.0.26100.4652"
+                                     FontFamily="Consolas"/>
+                        </StackPanel>
+
+                        <!-- Filename preview -->
+                        <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                                CornerRadius="6" Padding="12,8">
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="Nom de fichier généré" FontSize="11"
+                                           Foreground="{ThemeResource SystemBaseMediumColor}"/>
+                                <TextBlock Text="{x:Bind ViewModel.PreviewFileName, Mode=OneWay}"
+                                           FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                           IsTextSelectionEnabled="True"
+                                           TextWrapping="Wrap"/>
+                                <TextBlock FontSize="11" Foreground="{ThemeResource SystemBaseMediumColor}">
+                                    <Run Text="→ Chemin complet : "/>
+                                    <Run Text="{x:Bind ViewModel.BaseFolder, Mode=OneWay}"/>
+                                    <Run Text="\"/>\
+                                    <Run Text="{x:Bind ViewModel.PreviewFileName, Mode=OneWay}"/>
+                                    <Run Text=".vhdx"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Section: Disk settings -->
+                        <TextBlock Text="Paramètres du disque" FontWeight="SemiBold" FontSize="14"/>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="100"/>
                                 <ColumnDefinition Width="90"/>
+                                <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="Nom du VHDX" FontSize="12"/>
-                                <TextBox Text="{x:Bind ViewModel.VhdxName, Mode=TwoWay}"
-                                         PlaceholderText="Win11-Base"/>
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="Taille (Go)" FontSize="12"/>
                                 <NumberBox Value="{x:Bind ViewModel.SizeGB, Mode=TwoWay}"
                                            Minimum="20" Maximum="500" SpinButtonPlacementMode="Inline"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="2" Spacing="4">
+                            <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="Génération" FontSize="12"/>
                                 <ComboBox ItemsSource="{x:Bind ViewModel.Generations}"
                                           SelectedItem="{x:Bind ViewModel.Generation, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
-                            <StackPanel Grid.Column="3" Spacing="4">
+                            <StackPanel Grid.Column="2" Spacing="4">
                                 <TextBlock Text="Index image" FontSize="12"/>
                                 <NumberBox Value="{x:Bind ViewModel.ImageIndex, Mode=TwoWay}"
                                            Minimum="1" Maximum="20" SpinButtonPlacementMode="Inline"/>
@@ -173,7 +249,8 @@
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox Grid.Column="0" Text="{x:Bind ViewModel.WimPath, Mode=TwoWay}"
-                                         PlaceholderText="D:\sources\install.wim" FontFamily="Consolas" FontSize="12"/>
+                                         PlaceholderText="D:\sources\install.wim"
+                                         FontFamily="Consolas" FontSize="12"/>
                                 <Button Grid.Column="1" Content="Parcourir…" Click="BrowseWim_Click"/>
                             </Grid>
                             <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
@@ -251,10 +328,5 @@
             </Expander>
 
         </Grid>
-
-        <!-- Status bar -->
-        <TextBlock Grid.Row="4"
-                   Text="{x:Bind ViewModel.Status, Mode=OneWay}"
-                   FontSize="12" Foreground="{ThemeResource SystemBaseMediumColor}"/>
     </Grid>
 </Page>
