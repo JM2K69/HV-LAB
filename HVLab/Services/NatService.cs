@@ -10,15 +10,18 @@ public class NatService
         const string script = """
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             try {
-                $nats = Get-NetNat -ErrorAction SilentlyContinue | ForEach-Object {
+                $nats = @(Get-NetNat -ErrorAction Stop | ForEach-Object {
                     [PSCustomObject]@{
                         Name                              = $_.Name
                         InternalIPInterfaceAddressPrefix  = $_.InternalIPInterfaceAddressPrefix
-                        Active                            = $_.Active
+                        Active                            = [bool]$_.Active
                     }
-                }
-                if ($nats) { $nats | ConvertTo-Json -AsArray -Depth 2 } else { '[]' }
-            } catch { '[]' }
+                })
+                if ($nats.Count -gt 0) { ConvertTo-Json -InputObject $nats -Depth 2 } else { '[]' }
+            } catch {
+                Write-Error $_.Exception.Message
+                exit 1
+            }
             """;
         var output = await HyperVService.RunScriptAsync(script);
         return ParseNats(output.Trim());

@@ -6,6 +6,15 @@ namespace HVLab.Services;
 
 public class HyperVService
 {
+    // ─── PowerShell runner ──────────────────────────────────────────────────
+
+    // Full path to Windows PowerShell (always present on Windows, required for Hyper-V cmdlets).
+    // pwsh.exe (PowerShell 7) does NOT have the Hyper-V module; use powershell.exe.
+    private static readonly string PowerShellExe =
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            @"WindowsPowerShell\v1.0\powershell.exe");
+
     internal static async Task<string> RunScriptAsync(string script)
     {
         var path = Path.Combine(Path.GetTempPath(), $"hvlab_{Guid.NewGuid():N}.ps1");
@@ -14,22 +23,31 @@ public class HyperVService
             await File.WriteAllTextAsync(path, script, System.Text.Encoding.UTF8);
             var psi = new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{path}\"",
+                FileName               = PowerShellExe,
+                Arguments              = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{path}\"",
                 RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
+                RedirectStandardError  = true,
+                UseShellExecute        = false,
+                CreateNoWindow         = true,
                 StandardOutputEncoding = System.Text.Encoding.UTF8,
-                StandardErrorEncoding = System.Text.Encoding.UTF8
+                StandardErrorEncoding  = System.Text.Encoding.UTF8
             };
             using var proc = Process.Start(psi)
                 ?? throw new InvalidOperationException("Impossible de démarrer powershell.exe");
-            var stdout = await proc.StandardOutput.ReadToEndAsync();
-            var stderr = await proc.StandardError.ReadToEndAsync();
+
+            // Read both streams concurrently to prevent deadlocks on large output.
+            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
+            var stderrTask = proc.StandardError.ReadToEndAsync();
             await proc.WaitForExitAsync();
-            if (proc.ExitCode != 0 && !string.IsNullOrWhiteSpace(stderr))
-                throw new InvalidOperationException(stderr.Trim());
+            var stdout = await stdoutTask;
+            var stderr = await stderrTask;
+
+            if (proc.ExitCode != 0)
+            {
+                var msg = !string.IsNullOrWhiteSpace(stderr) ? stderr.Trim() : stdout.Trim();
+                throw new InvalidOperationException(
+                    string.IsNullOrEmpty(msg) ? $"PowerShell a retourné le code {proc.ExitCode}." : msg);
+            }
             return stdout;
         }
         finally
@@ -45,7 +63,8 @@ public class HyperVService
         const string script = """
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             try {
-                $vms = Get-VM -ErrorAction Stop | ForEach-Object {
+                Import-Module Hyper-V -ErrorAction Stop
+                $vms = @(Get-VM -ErrorAction Stop | ForEach-Object {
                     $vm = $_
                     $nic = Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction SilentlyContinue | Select-Object -First 1
                     [PSCustomObject]@{
@@ -57,9 +76,12 @@ public class HyperVService
                         SwitchName     = if ($nic) { $nic.SwitchName } else { '' }
                         Uptime         = $vm.Uptime.ToString()
                     }
-                }
-                if ($vms) { $vms | ConvertTo-Json -AsArray -Depth 2 } else { '[]' }
-            } catch { '[]' }
+                })
+                if ($vms.Count -gt 0) { ConvertTo-Json -InputObject $vms -Depth 2 } else { '[]' }
+            } catch {
+                Write-Error $_.Exception.Message
+                exit 1
+            }
             """;
         var output = await RunScriptAsync(script);
         return ParseVMs(output.Trim());
@@ -104,17 +126,21 @@ public class HyperVService
         const string script = """
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             try {
-                $switches = Get-VMSwitch -ErrorAction Stop | ForEach-Object {
+                Import-Module Hyper-V -ErrorAction Stop
+                $switches = @(Get-VMSwitch -ErrorAction Stop | ForEach-Object {
                     [PSCustomObject]@{
-                        Name             = $_.Name
-                        SwitchType       = $_.SwitchType.ToString()
-                        Notes            = if ($_.Notes) { $_.Notes } else { '' }
-                        NetAdapterName   = if ($_.NetAdapterInterfaceDescription) { $_.NetAdapterInterfaceDescription } else { '' }
+                        Name              = $_.Name
+                        SwitchType        = $_.SwitchType.ToString()
+                        Notes             = if ($_.Notes) { $_.Notes } else { '' }
+                        NetAdapterName    = if ($_.NetAdapterName) { $_.NetAdapterName } else { '' }
                         AllowManagementOS = $_.AllowManagementOS
                     }
-                }
-                if ($switches) { $switches | ConvertTo-Json -AsArray -Depth 2 } else { '[]' }
-            } catch { '[]' }
+                })
+                if ($switches.Count -gt 0) { ConvertTo-Json -InputObject $switches -Depth 2 } else { '[]' }
+            } catch {
+                Write-Error $_.Exception.Message
+                exit 1
+            }
             """;
         var output = await RunScriptAsync(script);
         return ParseSwitches(output.Trim());
@@ -163,7 +189,13 @@ public class HyperVService
     {
         const string script = """
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -ExpandProperty Name | ConvertTo-Json -AsArray
+            try {
+                $names = @(Get-NetAdapter -ErrorAction Stop | Where-Object { $_.Status -eq 'Up' } | Select-Object -ExpandProperty Name)
+                if ($names.Count -gt 0) { ConvertTo-Json -InputObject $names } else { '[]' }
+            } catch {
+                Write-Error $_.Exception.Message
+                exit 1
+            }
             """;
         var output = await RunScriptAsync(script);
         var result = new List<string>();
