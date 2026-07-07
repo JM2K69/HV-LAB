@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="HVLab.Views.VirtualMachinesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:models="using:HVLab.Models"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid Padding="28,20,28,20" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Grid Grid.Row="0">
+            <StackPanel>
+                <TextBlock Text="Machines Virtuelles" FontSize="26" FontWeight="SemiBold"/>
+                <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                           FontSize="13" Foreground="{ThemeResource SystemBaseMediumColor}"/>
+            </StackPanel>
+            <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                    Command="{x:Bind ViewModel.RefreshCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <FontIcon Glyph="&#xE72C;" FontSize="14"/>
+                    <TextBlock Text="Actualiser"/>
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Progress -->
+        <ProgressBar Grid.Row="1" IsIndeterminate="True"
+                     Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
+                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+        <!-- Column headers -->
+        <Grid Grid.Row="2"
+              Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+              Padding="12,6" CornerRadius="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="180"/>
+                <ColumnDefinition Width="90"/>
+                <ColumnDefinition Width="55"/>
+                <ColumnDefinition Width="80"/>
+                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="110"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="Nom"          FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="État"         FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="2" Text="Gén."         FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="3" Text="RAM"          FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="4" Text="CPU"          FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="5" Text="Commutateur"  FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="6" Text="Actions"      FontWeight="SemiBold"/>
+        </Grid>
+
+        <!-- VM list -->
+        <ListView Grid.Row="3"
+                  ItemsSource="{x:Bind ViewModel.VirtualMachines, Mode=OneWay}"
+                  SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding"                    Value="12,0"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="MinHeight"                  Value="44"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="models:VirtualMachine">
+                    <Grid ColumnSpacing="8" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="55"/>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="{x:Bind Name}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                   ToolTipService.ToolTip="{x:Bind Name}"/>
+                        <TextBlock Grid.Column="1" Text="{x:Bind State}"
+                                   VerticalAlignment="Center" FontWeight="SemiBold"
+                                   Foreground="{x:Bind State, Converter={StaticResource StateToColorConverter}}"/>
+                        <TextBlock Grid.Column="2" Text="{x:Bind GenDisplay}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="3" Text="{x:Bind MemoryDisplay}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="4" Text="{x:Bind ProcessorCount}"
+                                   VerticalAlignment="Center"/>
+                        <TextBlock Grid.Column="5" Text="{x:Bind SwitchName}"
+                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+
+                        <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <Button Tag="{x:Bind}" Click="StartVm_Click"
+                                    Width="32" Height="32" Padding="0"
+                                    ToolTipService.ToolTip="Démarrer">
+                                <FontIcon Glyph="&#xE768;" FontSize="12"/>
+                            </Button>
+                            <Button Tag="{x:Bind}" Click="StopVm_Click"
+                                    Width="32" Height="32" Padding="0"
+                                    ToolTipService.ToolTip="Arrêter">
+                                <FontIcon Glyph="&#xE71A;" FontSize="12"/>
+                            </Button>
+                            <Button Tag="{x:Bind}" Click="RemoveVm_Click"
+                                    Width="32" Height="32" Padding="0"
+                                    ToolTipService.ToolTip="Supprimer">
+                                <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+
+        <!-- Status bar -->
+        <TextBlock Grid.Row="4"
+                   Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                   FontSize="12" Foreground="{ThemeResource SystemBaseMediumColor}"/>
+    </Grid>
+</Page>

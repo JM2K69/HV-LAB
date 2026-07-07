@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="HVLab.Views.CreateVmPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <ScrollViewer Padding="28,20,28,28">
+        <StackPanel Spacing="20" MaxWidth="760">
+
+            <!-- Header -->
+            <StackPanel>
+                <TextBlock Text="Créer une Machine Virtuelle" FontSize="26" FontWeight="SemiBold"/>
+                <TextBlock Text="La VM sera créée avec un disque différentiel basé sur une image VHDX de base."
+                           FontSize="13" Foreground="{ThemeResource SystemBaseMediumColor}"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+
+            <ProgressBar IsIndeterminate="True"
+                         Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
+                                       Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <!-- Status InfoBar -->
+            <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Success"/>
+
+            <!-- VM Identity -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Identité de la VM" FontWeight="SemiBold" FontSize="15"/>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Nom de la machine virtuelle" FontSize="12"/>
+                        <TextBox Text="{x:Bind ViewModel.VmName, Mode=TwoWay}"
+                                 PlaceholderText="Ex. : WIN11-LAB-01"/>
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="120"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Image VHDX de base (disque parent)" FontSize="12"/>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedBaseVhdx, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      PlaceholderText="Sélectionnez une image…"
+                                      FontFamily="Consolas" FontSize="12"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Génération" FontSize="12"/>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.Generations}"
+                                      SelectedItem="{x:Bind ViewModel.Generation, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Hardware -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Ressources matérielles" FontWeight="SemiBold" FontSize="15"/>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="RAM (Mo)" FontSize="12"/>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.MemoryOptions}"
+                                      SelectedItem="{x:Bind ViewModel.MemoryMB, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Processeurs virtuels" FontSize="12"/>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.CpuOptions}"
+                                      SelectedItem="{x:Bind ViewModel.CpuCount, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Network -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Réseau" FontWeight="SemiBold" FontSize="15"/>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Commutateur virtuel" FontSize="12"/>
+                        <ComboBox ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedSwitch, Mode=TwoWay}"
+                                  HorizontalAlignment="Stretch"
+                                  PlaceholderText="Sélectionnez un commutateur…"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Storage -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="14">
+                    <TextBlock Text="Stockage" FontWeight="SemiBold" FontSize="15"/>
+                    <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                             Message="Le disque différentiel sera créé automatiquement dans un sous-dossier du dossier VMs."/>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Dossier des VMs" FontSize="12"/>
+                            <TextBox Text="{x:Bind ViewModel.VmFolder, Mode=TwoWay}"
+                                     PlaceholderText="C:\HV-LAB\VMs"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
+                            <Button Content="Parcourir…" Click="BrowseVmFolder_Click"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Dossier images de base" FontSize="12"/>
+                            <TextBox Text="{x:Bind ViewModel.BaseVhdxFolder, Mode=TwoWay}"
+                                     PlaceholderText="C:\HV-LAB\BaseImages"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
+                            <Button Content="Recharger" Click="ReloadData_Click"/>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Create button -->
+            <Button Content="⚡  Créer la VM avec disque différentiel"
+                    Command="{x:Bind ViewModel.CreateVmCommand}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    HorizontalAlignment="Stretch"
+                    Padding="0,14"/>
+
+            <!-- Status -->
+            <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                       FontSize="13" HorizontalAlignment="Center"
+                       Foreground="{ThemeResource SystemBaseMediumColor}"
+                       TextWrapping="Wrap"/>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

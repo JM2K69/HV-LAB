@@ -6,168 +6,228 @@ namespace HVLab.Services;
 
 public class HyperVService
 {
-    private const string PowerShellExe = "powershell.exe";
-
-    private async Task<string> ExecutePowerShellAsync(string script)
+    internal static async Task<string> RunScriptAsync(string script)
     {
+        var path = Path.Combine(Path.GetTempPath(), $"hvlab_{Guid.NewGuid():N}.ps1");
         try
         {
-            var processInfo = new ProcessStartInfo
+            await File.WriteAllTextAsync(path, script, System.Text.Encoding.UTF8);
+            var psi = new ProcessStartInfo
             {
-                FileName = PowerShellExe,
-                Arguments = $"-NoProfile -Command \"{script}\"",
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{path}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = true
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8,
+                StandardErrorEncoding = System.Text.Encoding.UTF8
             };
-
-            using var process = Process.Start(processInfo);
-            if (process == null)
-                return string.Empty;
-
-            var output = await process.StandardOutput.ReadToEndAsync();
-            var error = await process.StandardError.ReadToEndAsync();
-            await Task.Run(() => process.WaitForExit());
-
-            if (!string.IsNullOrEmpty(error))
-                throw new Exception($"PowerShell error: {error}");
-
-            return output;
+            using var proc = Process.Start(psi)
+                ?? throw new InvalidOperationException("Impossible de démarrer powershell.exe");
+            var stdout = await proc.StandardOutput.ReadToEndAsync();
+            var stderr = await proc.StandardError.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+            if (proc.ExitCode != 0 && !string.IsNullOrWhiteSpace(stderr))
+                throw new InvalidOperationException(stderr.Trim());
+            return stdout;
         }
-        catch (Exception ex)
+        finally
         {
-            throw new InvalidOperationException($"Failed to execute PowerShell: {ex.Message}", ex);
+            try { File.Delete(path); } catch { /* ignore */ }
         }
     }
 
-    public async Task<List<VirtualSwitch>> GetVirtualSwitchesAsync()
-    {
-        try
-        {
-            var script = "Get-VMSwitch | ConvertTo-Json -AsArray";
-            var output = await ExecutePowerShellAsync(script);
-            return ParseVirtualSwitches(output);
-        }
-        catch
-        {
-            return new List<VirtualSwitch>();
-        }
-    }
-
-    public async Task CreateVSwitchNATAsync(string name, string ipAddress, string subnetMask)
-    {
-        var script = $@"
-            New-VMSwitch -Name '{name}' -SwitchType NAT -ErrorAction Stop
-            New-NetIPAddress -IPAddress '{ipAddress}' -PrefixLength 24 -AddressFamily IPv4
-        ";
-        await ExecutePowerShellAsync(script);
-    }
+    // ─── Virtual Machines ───────────────────────────────────────────────────
 
     public async Task<List<VirtualMachine>> GetVirtualMachinesAsync()
     {
+        const string script = """
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            try {
+                $vms = Get-VM -ErrorAction Stop | ForEach-Object {
+                    $vm = $_
+                    $nic = Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+                    [PSCustomObject]@{
+                        Name           = $vm.Name
+                        State          = $vm.State.ToString()
+                        ProcessorCount = $vm.ProcessorCount
+                        MemoryMB       = [Math]::Round($vm.MemoryStartup / 1MB, 0)
+                        Generation     = $vm.Generation
+                        SwitchName     = if ($nic) { $nic.SwitchName } else { '' }
+                        Uptime         = $vm.Uptime.ToString()
+                    }
+                }
+                if ($vms) { $vms | ConvertTo-Json -AsArray -Depth 2 } else { '[]' }
+            } catch { '[]' }
+            """;
+        var output = await RunScriptAsync(script);
+        return ParseVMs(output.Trim());
+    }
+
+    private static List<VirtualMachine> ParseVMs(string json)
+    {
+        var result = new List<VirtualMachine>();
+        if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
         try
         {
-            var script = "Get-VM | ConvertTo-Json -AsArray";
-            var output = await ExecutePowerShellAsync(script);
-            return ParseVirtualMachines(output);
-        }
-        catch
-        {
-            return new List<VirtualMachine>();
-        }
-    }
-
-    public async Task CreateVirtualMachineAsync(string name, long memoryMB, int processors, string switchName)
-    {
-        var script = $@"
-            New-VM -Name '{name}' -MemoryStartupBytes {memoryMB * 1024 * 1024} -ProcessorCount {processors} -SwitchName '{switchName}' -ErrorAction Stop
-        ";
-        await ExecutePowerShellAsync(script);
-    }
-
-    public async Task StartVMAsync(string vmName)
-    {
-        var script = $"Start-VM -Name '{vmName}' -ErrorAction Stop";
-        await ExecutePowerShellAsync(script);
-    }
-
-    public async Task StopVMAsync(string vmName)
-    {
-        var script = $"Stop-VM -Name '{vmName}' -Force -ErrorAction Stop";
-        await ExecutePowerShellAsync(script);
-    }
-
-    public async Task RemoveVMAsync(string vmName)
-    {
-        var script = $"Remove-VM -Name '{vmName}' -Force -ErrorAction Stop";
-        await ExecutePowerShellAsync(script);
-    }
-
-    public async Task CreateDifferentialDiskAsync(string basePath, string diffPath)
-    {
-        var script = $@"
-            New-VHD -Path '{diffPath}' -ParentPath '{basePath}' -Differencing -ErrorAction Stop
-        ";
-        await ExecutePowerShellAsync(script);
-    }
-
-    private List<VirtualSwitch> ParseVirtualSwitches(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return new List<VirtualSwitch>();
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            var switches = new List<VirtualSwitch>();
-
-            foreach (var element in doc.RootElement.EnumerateArray())
-            {
-                switches.Add(new VirtualSwitch
+            var doc = JsonDocument.Parse(json);
+            foreach (var el in doc.RootElement.EnumerateArray())
+                result.Add(new VirtualMachine
                 {
-                    Name = element.GetProperty("Name").GetString() ?? string.Empty,
-                    SwitchType = element.GetProperty("SwitchType").GetString() ?? "NAT",
-                    Description = element.TryGetProperty("Notes", out var notes) ? notes.GetString() ?? string.Empty : string.Empty,
-                    Enabled = true
+                    Name           = GetStr(el, "Name"),
+                    State          = GetStr(el, "State"),
+                    ProcessorCount = GetInt(el, "ProcessorCount", 1),
+                    MemoryMB       = GetLong(el, "MemoryMB"),
+                    Generation     = GetInt(el, "Generation", 2),
+                    SwitchName     = GetStr(el, "SwitchName"),
+                    Uptime         = GetStr(el, "Uptime"),
                 });
-            }
-
-            return switches;
         }
-        catch
-        {
-            return new List<VirtualSwitch>();
-        }
+        catch { /* return empty on parse error */ }
+        return result;
     }
 
-    private List<VirtualMachine> ParseVirtualMachines(string json)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-            return new List<VirtualMachine>();
+    public async Task StartVMAsync(string name)
+        => await RunScriptAsync($"Start-VM -Name '{Esc(name)}' -ErrorAction Stop");
 
+    public async Task StopVMAsync(string name)
+        => await RunScriptAsync($"Stop-VM -Name '{Esc(name)}' -Force -ErrorAction Stop");
+
+    public async Task RemoveVMAsync(string name)
+        => await RunScriptAsync($"Remove-VM -Name '{Esc(name)}' -Force -ErrorAction Stop");
+
+    // ─── Virtual Switches ───────────────────────────────────────────────────
+
+    public async Task<List<VirtualSwitch>> GetVirtualSwitchesAsync()
+    {
+        const string script = """
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            try {
+                $switches = Get-VMSwitch -ErrorAction Stop | ForEach-Object {
+                    [PSCustomObject]@{
+                        Name             = $_.Name
+                        SwitchType       = $_.SwitchType.ToString()
+                        Notes            = if ($_.Notes) { $_.Notes } else { '' }
+                        NetAdapterName   = if ($_.NetAdapterInterfaceDescription) { $_.NetAdapterInterfaceDescription } else { '' }
+                        AllowManagementOS = $_.AllowManagementOS
+                    }
+                }
+                if ($switches) { $switches | ConvertTo-Json -AsArray -Depth 2 } else { '[]' }
+            } catch { '[]' }
+            """;
+        var output = await RunScriptAsync(script);
+        return ParseSwitches(output.Trim());
+    }
+
+    private static List<VirtualSwitch> ParseSwitches(string json)
+    {
+        var result = new List<VirtualSwitch>();
+        if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
         try
         {
-            using var doc = JsonDocument.Parse(json);
-            var vms = new List<VirtualMachine>();
-
-            foreach (var element in doc.RootElement.EnumerateArray())
-            {
-                vms.Add(new VirtualMachine
+            var doc = JsonDocument.Parse(json);
+            foreach (var el in doc.RootElement.EnumerateArray())
+                result.Add(new VirtualSwitch
                 {
-                    Name = element.GetProperty("Name").GetString() ?? string.Empty,
-                    State = element.GetProperty("State").GetString() ?? "Off",
-                    MemoryMB = element.TryGetProperty("MemoryAssigned", out var mem) ? mem.GetInt64() / (1024 * 1024) : 0,
-                    ProcessorCount = element.TryGetProperty("ProcessorCount", out var cpu) ? cpu.GetInt32() : 0,
-                    CreatedAt = DateTime.Now
+                    Name              = GetStr(el, "Name"),
+                    SwitchType        = GetStr(el, "SwitchType"),
+                    Notes             = GetStr(el, "Notes"),
+                    NetAdapterName    = GetStr(el, "NetAdapterName"),
+                    AllowManagementOS = el.TryGetProperty("AllowManagementOS", out var v) && v.GetBoolean(),
                 });
-            }
-
-            return vms;
         }
-        catch
-        {
-            return new List<VirtualMachine>();
-        }
+        catch { }
+        return result;
     }
+
+    public async Task CreateExternalSwitchAsync(string name, string netAdapter)
+        => await RunScriptAsync(
+            $"New-VMSwitch -Name '{Esc(name)}' -NetAdapterName '{Esc(netAdapter)}' -AllowManagementOS $true -ErrorAction Stop");
+
+    public async Task CreateInternalSwitchAsync(string name)
+        => await RunScriptAsync(
+            $"New-VMSwitch -Name '{Esc(name)}' -SwitchType Internal -ErrorAction Stop");
+
+    public async Task CreatePrivateSwitchAsync(string name)
+        => await RunScriptAsync(
+            $"New-VMSwitch -Name '{Esc(name)}' -SwitchType Private -ErrorAction Stop");
+
+    public async Task RemoveVSwitchAsync(string name)
+        => await RunScriptAsync(
+            $"Remove-VMSwitch -Name '{Esc(name)}' -Force -ErrorAction Stop");
+
+    // ─── Network Adapters ───────────────────────────────────────────────────
+
+    public async Task<List<string>> GetNetworkAdaptersAsync()
+    {
+        const string script = """
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+            Get-NetAdapter | Where-Object { $_.Status -eq 'Up' } | Select-Object -ExpandProperty Name | ConvertTo-Json -AsArray
+            """;
+        var output = await RunScriptAsync(script);
+        var result = new List<string>();
+        if (string.IsNullOrWhiteSpace(output)) return result;
+        try
+        {
+            var doc = JsonDocument.Parse(output.Trim());
+            foreach (var el in doc.RootElement.EnumerateArray())
+            {
+                var n = el.GetString();
+                if (!string.IsNullOrEmpty(n)) result.Add(n);
+            }
+        }
+        catch { }
+        return result;
+    }
+
+    // ─── Create VM with differencing disk ───────────────────────────────────
+
+    public async Task CreateVMWithDifferencingDiskAsync(
+        string vmName, string parentVhdxPath, string switchName,
+        long memoryMB, int cpuCount, int generation, string vmFolder)
+    {
+        var script = $$"""
+            $vmName       = '{{Esc(vmName)}}'
+            $parentVhdx   = '{{Esc(parentVhdxPath)}}'
+            $switchName   = '{{Esc(switchName)}}'
+            $memoryBytes  = {{memoryMB}}MB
+            $cpuCount     = {{cpuCount}}
+            $generation   = {{generation}}
+            $vmFolder     = '{{Esc(vmFolder)}}'
+
+            $vmPath    = Join-Path $vmFolder $vmName
+            $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
+            New-Item -Path $vmPath    -ItemType Directory -Force | Out-Null
+            New-Item -Path $vhdFolder -ItemType Directory -Force | Out-Null
+
+            $diffVhd = Join-Path $vhdFolder "$vmName.vhdx"
+            New-VHD -Path $diffVhd -ParentPath $parentVhdx -Differencing -ErrorAction Stop | Out-Null
+
+            New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
+                   -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
+
+            Set-VM -Name $vmName -ProcessorCount $cpuCount -ErrorAction Stop
+            Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
+
+            if ($generation -eq 2) {
+                Set-VMFirmware -VMName $vmName -EnableSecureBoot Off -ErrorAction SilentlyContinue
+            }
+            Write-Output "VM '$vmName' créée avec succès"
+            """;
+        await RunScriptAsync(script);
+    }
+
+    // ─── Helpers ────────────────────────────────────────────────────────────
+
+    private static string Esc(string s) => s.Replace("'", "''");
+
+    private static string GetStr(JsonElement el, string key)
+        => el.TryGetProperty(key, out var v) ? v.GetString() ?? "" : "";
+
+    private static int GetInt(JsonElement el, string key, int def = 0)
+        => el.TryGetProperty(key, out var v) && v.TryGetInt32(out var n) ? n : def;
+
+    private static long GetLong(JsonElement el, string key, long def = 0)
+        => el.TryGetProperty(key, out var v) && v.TryGetInt64(out var n) ? n : def;
 }
