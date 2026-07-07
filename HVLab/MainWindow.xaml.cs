@@ -1,6 +1,7 @@
 using HVLab.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
 
 namespace HVLab;
 
@@ -9,6 +10,16 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+
+        // ── Mica backdrop (Windows 11 Fluent material) ──────────────────────
+        SystemBackdrop = new MicaBackdrop();
+
+        // ── Extend content into title bar (custom drag region) ──────────────
+        ExtendsContentIntoTitleBar = true;
+        SetTitleBar(AppTitleBar);
+
+        // ── Window size ──────────────────────────────────────────────────────
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 800));
     }
 
     private void NavView_Loaded(object sender, RoutedEventArgs e)
