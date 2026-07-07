@@ -6,13 +6,40 @@
     Title="HV-LAB Manager">
 
     <Grid>
+        <!-- Custom TitleBar drag region (invisible, just defines the draggable area) -->
+        <Grid x:Name="AppTitleBar"
+              Height="40"
+              VerticalAlignment="Top"
+              HorizontalAlignment="Stretch"
+              Canvas.ZIndex="1"
+              IsHitTestVisible="True"/>
+
         <NavigationView
             x:Name="NavView"
             IsSettingsVisible="False"
             IsBackButtonVisible="Collapsed"
-            PaneTitle="HV-LAB"
+            CompactModeThresholdWidth="0"
+            ExpandedModeThresholdWidth="0"
+            PaneDisplayMode="Left"
+            OpenPaneLength="220"
             SelectionChanged="NavView_SelectionChanged"
             Loaded="NavView_Loaded">
+
+            <!-- Pane header: app title inside pane -->
+            <NavigationView.PaneHeader>
+                <StackPanel Orientation="Horizontal" Spacing="10"
+                            Margin="14,12,0,4">
+                    <Border Width="32" Height="32" CornerRadius="6"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}">
+                        <FontIcon Glyph="&#xE7F8;" FontSize="16" Foreground="White"/>
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="0">
+                        <TextBlock Text="HV-LAB" FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="Manager" FontSize="11"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </StackPanel>
+            </NavigationView.PaneHeader>
 
             <NavigationView.MenuItems>
                 <NavigationViewItem Tag="dashboard" Content="Tableau de bord">

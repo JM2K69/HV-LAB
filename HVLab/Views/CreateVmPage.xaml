@@ -3,16 +3,16 @@
     x:Class="HVLab.Views.CreateVmPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    Background="Transparent">
 
-    <ScrollViewer Padding="28,20,28,28">
+    <ScrollViewer Padding="36,24,36,28">
         <StackPanel Spacing="20" MaxWidth="760">
 
             <!-- Header -->
-            <StackPanel>
-                <TextBlock Text="Créer une Machine Virtuelle" FontSize="26" FontWeight="SemiBold"/>
+            <StackPanel Spacing="2">
+                <TextBlock Text="Créer une Machine Virtuelle" FontSize="28" FontWeight="SemiBold"/>
                 <TextBlock Text="La VM sera créée avec un disque différentiel basé sur une image VHDX de base."
-                           FontSize="13" Foreground="{ThemeResource SystemBaseMediumColor}"
+                           FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap"/>
             </StackPanel>
 
@@ -146,16 +146,20 @@
             </Border>
 
             <!-- Create button -->
-            <Button Content="⚡  Créer la VM avec disque différentiel"
-                    Command="{x:Bind ViewModel.CreateVmCommand}"
+            <Button Command="{x:Bind ViewModel.CreateVmCommand}"
                     Style="{StaticResource AccentButtonStyle}"
                     HorizontalAlignment="Stretch"
-                    Padding="0,14"/>
+                    Padding="0,14">
+                <StackPanel Orientation="Horizontal" Spacing="10">
+                    <FontIcon Glyph="&#xE945;" FontSize="16"/>
+                    <TextBlock Text="Créer la VM avec disque différentiel" FontSize="14"/>
+                </StackPanel>
+            </Button>
 
             <!-- Status -->
             <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
                        FontSize="13" HorizontalAlignment="Center"
-                       Foreground="{ThemeResource SystemBaseMediumColor}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        TextWrapping="Wrap"/>
 
         </StackPanel>
