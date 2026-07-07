@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,20 +10,19 @@
 
             <!-- Header -->
             <StackPanel Spacing="4">
-                <TextBlock Text="Parametres" FontSize="26" FontWeight="SemiBold"/>
-                <TextBlock Text="Configuration de HV-LAB Manager"
+                <TextBlock Text="Paramètres" FontSize="26" FontWeight="SemiBold"/>
+                <TextBlock Text="Configuration de l'application HV-LAB Manager"
                            Foreground="{ThemeResource SystemBaseMediumColor}" FontSize="13"/>
             </StackPanel>
 
-            <!-- Section: Emplacements -->
+            <!-- Section: Emplacements des fichiers -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20,16">
                 <StackPanel Spacing="16">
-
                     <StackPanel Spacing="2">
                         <TextBlock Text="Emplacements des fichiers" FontSize="16" FontWeight="SemiBold"/>
-                        <TextBlock Text="Dossiers utilises par defaut pour les images de base et les VMs."
+                        <TextBlock Text="Dossiers utilisés par défaut pour les images de base et les machines virtuelles."
                                    FontSize="12" Foreground="{ThemeResource SystemBaseMediumColor}"/>
                     </StackPanel>
 
@@ -39,10 +38,10 @@
                                      Text="{x:Bind ViewModel.BaseImagesFolder, Mode=TwoWay}"
                                      PlaceholderText="C:\HV-LAB\BaseImages"
                                      FontFamily="Consolas" FontSize="13"/>
-                            <Button Grid.Column="1" Content="Parcourir..."
+                            <Button Grid.Column="1" Content="Parcourir…"
                                     Click="BrowseBaseImages_Click"/>
                         </Grid>
-                        <TextBlock Text="Ce dossier est scanne pour afficher et creer les images de base."
+                        <TextBlock Text="Ce dossier est scanné pour afficher et créer les images de base."
                                    FontSize="11" Foreground="{ThemeResource SystemBaseMediumColor}"/>
                     </StackPanel>
 
@@ -58,13 +57,12 @@
                                      Text="{x:Bind ViewModel.VmsFolder, Mode=TwoWay}"
                                      PlaceholderText="C:\HV-LAB\VMs"
                                      FontFamily="Consolas" FontSize="13"/>
-                            <Button Grid.Column="1" Content="Parcourir..."
+                            <Button Grid.Column="1" Content="Parcourir…"
                                     Click="BrowseVms_Click"/>
                         </Grid>
-                        <TextBlock Text="Les disques differentiels et configurations des VMs seront crees ici."
+                        <TextBlock Text="Les disques différentiels et configurations des VMs seront créés ici."
                                    FontSize="11" Foreground="{ThemeResource SystemBaseMediumColor}"/>
                     </StackPanel>
-
                 </StackPanel>
             </Border>
 
@@ -73,7 +71,6 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20,16">
                 <StackPanel Spacing="16">
-
                     <StackPanel Spacing="2">
                         <TextBlock Text="Moteur PowerShell" FontSize="16" FontWeight="SemiBold"/>
                         <TextBlock Text="Windows PowerShell 5.1 est requis pour le module Hyper-V."
@@ -91,17 +88,16 @@
                                      Text="{x:Bind ViewModel.PowerShellPath, Mode=TwoWay}"
                                      PlaceholderText="C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
                                      FontFamily="Consolas" FontSize="13"/>
-                            <Button Grid.Column="1" Content="Parcourir..."
+                            <Button Grid.Column="1" Content="Parcourir…"
                                     Click="BrowsePowerShell_Click"/>
                         </Grid>
                     </StackPanel>
-
                 </StackPanel>
             </Border>
 
             <!-- Save + status -->
             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                <Button Content="Enregistrer les parametres"
+                <Button Content="💾  Enregistrer les paramètres"
                         Command="{x:Bind ViewModel.SaveCommand}"
                         Style="{StaticResource AccentButtonStyle}"/>
                 <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
@@ -109,10 +105,10 @@
                            Foreground="{ThemeResource SystemBaseMediumColor}"/>
             </StackPanel>
 
-            <!-- Info -->
+            <!-- Info note -->
             <InfoBar IsOpen="True" IsClosable="False" Severity="Informational"
                      Title="Persistance"
-                     Message="Les parametres sont sauvegardes dans %LocalAppData%\HV-LAB\settings.json"/>
+                     Message="Les paramètres sont sauvegardés dans %LocalAppData%\HV-LAB\settings.json"/>
 
         </StackPanel>
     </ScrollViewer>
