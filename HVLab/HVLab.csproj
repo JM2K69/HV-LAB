@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+ï»¿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -21,8 +21,8 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <Company>HV-LAB</Company>
     <Product>HV-LAB Manager</Product>
-    <Description>Gestionnaire Hyper-V — VM, vSwitch, NAT, VHDX</Description>
-    <Copyright>Copyright © 2026</Copyright>
+    <Description>Gestionnaire Hyper-V ï¿½ VM, vSwitch, NAT, VHDX</Description>
+    <Copyright>Copyright ï¿½ 2026</Copyright>
   </PropertyGroup>
 
   <!-- Release: single-file, optimized, no debug symbols -->
@@ -35,7 +35,6 @@
     <WindowsPackageType>None</WindowsPackageType>
     <PublishDir>publish\</PublishDir>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.240829007" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />

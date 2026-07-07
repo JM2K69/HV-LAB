@@ -10,8 +10,10 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        // Load persisted settings synchronously before any VM/service reads them
-        AppSettings.LoadAsync().GetAwaiter().GetResult();
+        // Load persisted settings before any ViewModel reads them.
+        // Must be synchronous — the constructor runs on the dispatcher thread;
+        // blocking on an async task here causes a deadlock.
+        AppSettings.Load();
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
