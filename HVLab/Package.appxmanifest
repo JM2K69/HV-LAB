@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" IgnorableNamespaces="mp rescap">
+  <Identity Name="HVLab" Publisher="CN=HVLab" Version="1.0.0.0" />
+  <Properties>
+    <DisplayName>HyperV Lab Manager</DisplayName>
+    <PublisherDisplayName>HyperV Lab</PublisherDisplayName>
+    <Logo>Images\StoreLogo.png</Logo>
+  </Properties>
+  <Applications>
+    <Application Id="App" StartPage="HVLab.App">
+      <uap:VisualElements DisplayName="HyperV Lab Manager" Square150x150Logo="Images\Square150x150Logo.png" Square44x44Logo="Images\Square44x44Logo.png" Description="Manage Hyper-V infrastructure" BackgroundColor="transparent">
+        <uap:SplashScreen Image="Images\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
+  </Applications>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
