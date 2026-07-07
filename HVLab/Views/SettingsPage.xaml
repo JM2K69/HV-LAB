@@ -11,80 +11,79 @@
 
             <!-- Page header -->
             <TextBlock Text="Paramètres" FontSize="28" FontWeight="SemiBold"
-                       Margin="0,0,0,16"/>
+                       Margin="0,0,0,20"/>
 
-            <!-- ═══ Emplacements ═════════════════════════════════════════════ -->
-            <TextBlock Text="Emplacements des fichiers" FontSize="14"
+            <!-- ══ Emplacements ══════════════════════════════════════════════ -->
+            <TextBlock Text="Emplacements des fichiers" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Margin="0,8,0,4"/>
+                       Margin="0,0,0,4"/>
 
-            <ctk:SettingsExpander Header="Images de base VHDX"
-                                  Description="Dossier contenant les fichiers BASE_*.vhdx"
-                                  IsExpanded="True">
-                <ctk:SettingsExpander.HeaderIcon>
+            <ctk:SettingsCard Header="Images de base VHDX"
+                              Description="Dossier contenant les fichiers BASE_*.vhdx">
+                <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xEDA2;"/>
-                </ctk:SettingsExpander.HeaderIcon>
-                <ctk:SettingsCard Header="Chemin du dossier"
-                                  Description="Ce dossier est scanné pour afficher et créer les images de base.">
-                    <ctk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE8B7;"/>
-                    </ctk:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBox Text="{x:Bind ViewModel.BaseImagesFolder, Mode=TwoWay}"
-                                 PlaceholderText="C:\HV-LAB\BaseImages"
-                                 Width="360" FontFamily="Consolas" FontSize="13"/>
-                        <Button Content="Parcourir…" Click="BrowseBaseImages_Click"/>
-                    </StackPanel>
-                </ctk:SettingsCard>
-            </ctk:SettingsExpander>
+                </ctk:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox Text="{x:Bind ViewModel.BaseImagesFolder, Mode=TwoWay}"
+                             PlaceholderText="C:\HV-LAB\BaseImages"
+                             Width="320" FontFamily="Consolas" FontSize="12"/>
+                    <Button Content="Parcourir…" Click="BrowseBaseImages_Click"/>
+                </StackPanel>
+            </ctk:SettingsCard>
 
-            <ctk:SettingsExpander Header="Machines virtuelles"
-                                  Description="Dossier où les disques différentiels et configs des VMs sont créés"
-                                  IsExpanded="True">
-                <ctk:SettingsExpander.HeaderIcon>
+            <ctk:SettingsCard Header="Machines virtuelles"
+                              Description="Dossier où les disques différentiels et configs des VMs sont créés">
+                <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE7F8;"/>
-                </ctk:SettingsExpander.HeaderIcon>
-                <ctk:SettingsCard Header="Chemin du dossier"
-                                  Description="Les sous-dossiers de chaque VM seront créés ici.">
-                    <ctk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE8B7;"/>
-                    </ctk:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBox Text="{x:Bind ViewModel.VmsFolder, Mode=TwoWay}"
-                                 PlaceholderText="C:\HV-LAB\VMs"
-                                 Width="360" FontFamily="Consolas" FontSize="13"/>
-                        <Button Content="Parcourir…" Click="BrowseVms_Click"/>
-                    </StackPanel>
-                </ctk:SettingsCard>
-            </ctk:SettingsExpander>
+                </ctk:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox Text="{x:Bind ViewModel.VmsFolder, Mode=TwoWay}"
+                             PlaceholderText="C:\HV-LAB\VMs"
+                             Width="320" FontFamily="Consolas" FontSize="12"/>
+                    <Button Content="Parcourir…" Click="BrowseVms_Click"/>
+                </StackPanel>
+            </ctk:SettingsCard>
 
-            <!-- ═══ Système ══════════════════════════════════════════════════ -->
-            <TextBlock Text="Système" FontSize="14"
+            <!-- ══ Système ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="Système" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,20,0,4"/>
 
-            <ctk:SettingsExpander Header="Moteur PowerShell"
-                                  Description="Windows PowerShell 5.1 est requis pour le module Hyper-V"
-                                  IsExpanded="True">
-                <ctk:SettingsExpander.HeaderIcon>
+            <ctk:SettingsCard Header="Moteur PowerShell"
+                              Description="Windows PowerShell 5.1 est requis pour le module Hyper-V.">
+                <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE756;"/>
-                </ctk:SettingsExpander.HeaderIcon>
-                <ctk:SettingsCard Header="Chemin powershell.exe"
-                                  Description="Utiliser System32\WindowsPowerShell\v1.0\powershell.exe pour Hyper-V.">
-                    <ctk:SettingsCard.HeaderIcon>
-                        <FontIcon Glyph="&#xE8A5;"/>
-                    </ctk:SettingsCard.HeaderIcon>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBox Text="{x:Bind ViewModel.PowerShellPath, Mode=TwoWay}"
-                                 PlaceholderText="C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
-                                 Width="340" FontFamily="Consolas" FontSize="12"/>
-                        <Button Content="Parcourir…" Click="BrowsePowerShell_Click"/>
-                    </StackPanel>
-                </ctk:SettingsCard>
-            </ctk:SettingsExpander>
+                </ctk:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBox Text="{x:Bind ViewModel.PowerShellPath, Mode=TwoWay}"
+                             PlaceholderText="C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+                             Width="320" FontFamily="Consolas" FontSize="11"/>
+                    <Button Content="Parcourir…" Click="BrowsePowerShell_Click"/>
+                </StackPanel>
+            </ctk:SettingsCard>
 
-            <!-- ═══ À propos ═════════════════════════════════════════════════ -->
-            <TextBlock Text="À propos" FontSize="14"
+            <!-- ══ Apparence ══════════════════════════════════════════════════ -->
+            <TextBlock Text="Apparence" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,20,0,4"/>
+
+            <ctk:SettingsCard Header="Thème de l'application"
+                              Description="Par défaut, l'application suit le thème configuré dans Windows.">
+                <ctk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE771;"/>
+                </ctk:SettingsCard.HeaderIcon>
+                <RadioButtons SelectedItem="{x:Bind ViewModel.SelectedTheme, Mode=TwoWay}"
+                              ItemsSource="{x:Bind ViewModel.Themes}">
+                    <RadioButtons.ItemTemplate>
+                        <DataTemplate x:DataType="x:String">
+                            <RadioButton Content="{x:Bind}" Margin="0,0,16,0"/>
+                        </DataTemplate>
+                    </RadioButtons.ItemTemplate>
+                </RadioButtons>
+            </ctk:SettingsCard>
+
+            <!-- ══ À propos ═══════════════════════════════════════════════════ -->
+            <TextBlock Text="À propos" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,20,0,4"/>
 

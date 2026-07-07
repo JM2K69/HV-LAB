@@ -35,6 +35,11 @@ public sealed class AppSettings
     public string PowerShellPath { get; set; } =
         @"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe";
 
+    /// <summary>
+    /// Application theme preference: "System" (default), "Light", or "Dark".
+    /// </summary>
+    public string Theme { get; set; } = "System";
+
     // ─── Load / Save ──────────────────────────────────────────────────────────
 
     /// <summary>
