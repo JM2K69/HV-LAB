@@ -1,8 +1,8 @@
+using HVLab.Helpers;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Storage.Pickers;
 
 namespace HVLab.Views;
 
@@ -18,15 +18,11 @@ public sealed partial class CreateVmPage : Page
         _ = ViewModel.LoadDataAsync();
     }
 
-    private async void BrowseVmFolder_Click(object sender, RoutedEventArgs e)
+    private void BrowseVmFolder_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FolderPicker();
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-        picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-        picker.FileTypeFilter.Add("*");
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is not null) ViewModel.VmFolder = folder.Path;
+        var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier des machines virtuelles");
+        if (folder is not null) ViewModel.VmFolder = folder;
     }
 
     private async void ReloadData_Click(object sender, RoutedEventArgs e)
