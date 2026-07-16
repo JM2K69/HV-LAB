@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -24,7 +24,6 @@
     <Description>Gestionnaire Hyper-V � VM, vSwitch, NAT, VHDX</Description>
     <Copyright>Copyright � 2026</Copyright>
   </PropertyGroup>
-
   <!-- Release: single-file, optimized, no debug symbols -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
@@ -35,21 +34,7 @@
     <WindowsPackageType>None</WindowsPackageType>
     <PublishDir>publish\</PublishDir>
   </PropertyGroup>
-
   <!-- MSIX packaging configuration -->
-  <PropertyGroup Condition="'$(Configuration)' == 'Package'">
-    <Optimize>true</Optimize>
-    <DebugType>none</DebugType>
-    <DebugSymbols>false</DebugSymbols>
-    <EnableMsixTooling>true</EnableMsixTooling>
-    <WindowsPackageType>MSIX</WindowsPackageType>
-    <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
-    <AppxPackageDir>AppPackages\</AppxPackageDir>
-    <AppxBundle>Never</AppxBundle>
-    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
-    <AppxPackageSigningEnabled>true</AppxPackageSigningEnabled>
-    <PackageCertificateThumbprint>B49A6AF5FC3FAFF7DF3C345EF80F604C2C026234</PackageCertificateThumbprint>
-  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
@@ -57,14 +42,4 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="Images\**">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <AppxManifest Include="Package.appxmanifest">
-      <SubType>Designer</SubType>
-    </AppxManifest>
-  </ItemGroup>
 </Project>
-
