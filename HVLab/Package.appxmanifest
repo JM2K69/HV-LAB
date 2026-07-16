@@ -1,19 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" IgnorableNamespaces="mp rescap">
-  <Identity Name="HVLab" Publisher="CN=HVLab" Version="1.0.0.0" />
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="mp uap rescap">
+
+  <Identity
+    Name="HVLab.HyperVLabManager"
+    Publisher="CN=HVLab"
+    Version="1.0.0.0"
+    ProcessorArchitecture="x64" />
+
   <Properties>
     <DisplayName>HyperV Lab Manager</DisplayName>
     <PublisherDisplayName>HyperV Lab</PublisherDisplayName>
     <Logo>Images\StoreLogo.png</Logo>
   </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="fr-FR"/>
+    <Resource Language="en-US"/>
+  </Resources>
+
   <Applications>
-    <Application Id="App" StartPage="HVLab.App">
-      <uap:VisualElements DisplayName="HyperV Lab Manager" Square150x150Logo="Images\Square150x150Logo.png" Square44x44Logo="Images\Square44x44Logo.png" Description="Manage Hyper-V infrastructure" BackgroundColor="transparent">
-        <uap:SplashScreen Image="Images\SplashScreen.png" />
+    <Application Id="App"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="HyperV Lab Manager"
+        Square150x150Logo="Images\Square150x150Logo.png"
+        Square44x44Logo="Images\Square44x44Logo.png"
+        Description="Manage Hyper-V infrastructure"
+        BackgroundColor="transparent">
+        <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"/>
+        <uap:SplashScreen Image="Images\SplashScreen.png"/>
       </uap:VisualElements>
     </Application>
   </Applications>
+
   <Capabilities>
-    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="runFullTrust"/>
   </Capabilities>
+
 </Package>
