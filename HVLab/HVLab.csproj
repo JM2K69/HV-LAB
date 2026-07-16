@@ -34,7 +34,6 @@
     <WindowsPackageType>None</WindowsPackageType>
     <PublishDir>publish\</PublishDir>
   </PropertyGroup>
-  <!-- MSIX packaging configuration -->
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.22621.756" />
@@ -42,4 +41,11 @@
     <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Images\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>
 </Project>
