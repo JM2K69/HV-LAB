@@ -59,3 +59,5 @@ Thumbs.db
 .env.local
 
 HVLab/publish/
+
+AppPackages/
