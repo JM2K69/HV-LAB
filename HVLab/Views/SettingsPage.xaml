@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,16 +10,16 @@
         <StackPanel Padding="36,24,36,32" Spacing="4" MaxWidth="860">
 
             <!-- Page header -->
-            <TextBlock Text="Paramètres" FontSize="28" FontWeight="SemiBold"
+            <TextBlock Text="{Binding [SET_Title], Source={StaticResource Loc}}" FontSize="28" FontWeight="SemiBold"
                        Margin="0,0,0,20"/>
 
             <!-- ══ Emplacements ══════════════════════════════════════════════ -->
-            <TextBlock Text="Emplacements des fichiers" FontSize="14" FontWeight="SemiBold"
+            <TextBlock Text="{Binding [SET_SecFiles], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,0,0,4"/>
 
-            <ctk:SettingsCard Header="Images de base VHDX"
-                              Description="Dossier contenant les fichiers BASE_*.vhdx">
+            <ctk:SettingsCard Header="{Binding [SET_BaseImages], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_BaseImagesDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xEDA2;"/>
                 </ctk:SettingsCard.HeaderIcon>
@@ -27,12 +27,12 @@
                     <TextBox Text="{x:Bind ViewModel.BaseImagesFolder, Mode=TwoWay}"
                              PlaceholderText="C:\HV-LAB\BaseImages"
                              Width="320" FontFamily="Consolas" FontSize="12"/>
-                    <Button Content="Parcourir…" Click="BrowseBaseImages_Click"/>
+                    <Button Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseBaseImages_Click"/>
                 </StackPanel>
             </ctk:SettingsCard>
 
-            <ctk:SettingsCard Header="Machines virtuelles"
-                              Description="Dossier où les disques différentiels et configs des VMs sont créés">
+            <ctk:SettingsCard Header="{Binding [SET_VMs], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_VMsDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE7F8;"/>
                 </ctk:SettingsCard.HeaderIcon>
@@ -40,17 +40,17 @@
                     <TextBox Text="{x:Bind ViewModel.VmsFolder, Mode=TwoWay}"
                              PlaceholderText="C:\HV-LAB\VMs"
                              Width="320" FontFamily="Consolas" FontSize="12"/>
-                    <Button Content="Parcourir…" Click="BrowseVms_Click"/>
+                    <Button Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseVms_Click"/>
                 </StackPanel>
             </ctk:SettingsCard>
 
-            <!-- ══ Système ═══════════════════════════════════════════════════ -->
-            <TextBlock Text="Système" FontSize="14" FontWeight="SemiBold"
+            <!-- ══ Système ══════════════════════════════════════════════════ -->
+            <TextBlock Text="{Binding [SET_SecSystem], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,20,0,4"/>
 
-            <ctk:SettingsCard Header="Moteur PowerShell"
-                              Description="Windows PowerShell 5.1 est requis pour le module Hyper-V.">
+            <ctk:SettingsCard Header="{Binding [SET_PSEngine], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_PSEngineDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE756;"/>
                 </ctk:SettingsCard.HeaderIcon>
@@ -58,17 +58,17 @@
                     <TextBox Text="{x:Bind ViewModel.PowerShellPath, Mode=TwoWay}"
                              PlaceholderText="C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
                              Width="320" FontFamily="Consolas" FontSize="11"/>
-                    <Button Content="Parcourir…" Click="BrowsePowerShell_Click"/>
+                    <Button Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowsePowerShell_Click"/>
                 </StackPanel>
             </ctk:SettingsCard>
 
-            <!-- ══ Apparence ══════════════════════════════════════════════════ -->
-            <TextBlock Text="Apparence" FontSize="14" FontWeight="SemiBold"
+            <!-- ══ Apparence ════════════════════════════════════════════════ -->
+            <TextBlock Text="{Binding [SET_SecAppearance], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,20,0,4"/>
 
-            <ctk:SettingsCard Header="Thème de l'application"
-                              Description="Par défaut, l'application suit le thème configuré dans Windows.">
+            <ctk:SettingsCard Header="{Binding [SET_Theme], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_ThemeDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE771;"/>
                 </ctk:SettingsCard.HeaderIcon>
@@ -82,13 +82,24 @@
                 </RadioButtons>
             </ctk:SettingsCard>
 
-            <!-- ══ À propos ═══════════════════════════════════════════════════ -->
-            <TextBlock Text="À propos" FontSize="14" FontWeight="SemiBold"
+            <!-- Language card -->
+            <ctk:SettingsCard Header="{Binding [SET_Language], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_LanguageDesc], Source={StaticResource Loc}}">
+                <ctk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xF2B7;"/>
+                </ctk:SettingsCard.HeaderIcon>
+                <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
+                          SelectedItem="{x:Bind ViewModel.SelectedLanguage, Mode=TwoWay}"
+                          MinWidth="120"/>
+            </ctk:SettingsCard>
+
+            <!-- ══ À propos ═════════════════════════════════════════════════ -->
+            <TextBlock Text="{Binding [SET_SecAbout], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,20,0,4"/>
 
-            <ctk:SettingsCard Header="HV-LAB Manager"
-                              Description="Gestionnaire Hyper-V · VMs, vSwitch, NAT, VHDX · .NET 8 + WinUI 3">
+            <ctk:SettingsCard Header="{Binding [SET_AppName], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_AppDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE946;"/>
                 </ctk:SettingsCard.HeaderIcon>
@@ -97,8 +108,8 @@
                            VerticalAlignment="Center"/>
             </ctk:SettingsCard>
 
-            <ctk:SettingsCard Header="Persistance"
-                              Description="Paramètres sauvegardés dans %LocalAppData%\HV-LAB\settings.json">
+            <ctk:SettingsCard Header="{Binding [SET_Persistence], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_PersistDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xE74E;"/>
                 </ctk:SettingsCard.HeaderIcon>
@@ -106,7 +117,7 @@
 
             <!-- Bouton enregistrer -->
             <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,20,0,0">
-                <Button Content="Enregistrer les paramètres"
+                <Button Content="{Binding [Btn_Save], Source={StaticResource Loc}}"
                         Command="{x:Bind ViewModel.SaveCommand}"
                         Style="{StaticResource AccentButtonStyle}"/>
                 <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"

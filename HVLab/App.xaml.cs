@@ -12,6 +12,8 @@ public partial class App : Application
         InitializeComponent();
         // Load persisted settings before any ViewModel reads them.
         AppSettings.Load();
+        // Apply persisted language
+        LocalizationService.Instance.SetLanguage(AppSettings.Current.Language);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

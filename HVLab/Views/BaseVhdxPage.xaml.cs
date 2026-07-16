@@ -1,5 +1,6 @@
-using HVLab.Helpers;
+﻿using HVLab.Helpers;
 using HVLab.Models;
+using HVLab.Services;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -10,6 +11,7 @@ namespace HVLab.Views;
 public sealed partial class BaseVhdxPage : Page
 {
     public BaseVhdxViewModel ViewModel { get; } = new();
+    public LocalizationService Loc => LocalizationService.Instance;
 
     public BaseVhdxPage() => InitializeComponent();
 
@@ -38,10 +40,10 @@ public sealed partial class BaseVhdxPage : Page
         if (sender is not Button { Tag: BaseVhdx vhdx }) return;
         var dialog = new ContentDialog
         {
-            Title   = "Supprimer l'image",
-            Content = $"Supprimer définitivement « {vhdx.Name}.vhdx » ?",
-            PrimaryButtonText = "Supprimer",
-            CloseButtonText   = "Annuler",
+            Title   = Loc["BV_DeleteTitle"],
+            Content = $"{Loc["BV_DeleteConfirm"]} \u00ab {vhdx.Name}.vhdx \u00bb ?",
+            PrimaryButtonText = Loc["Btn_Delete"],
+            CloseButtonText   = Loc["Btn_Cancel"],
             DefaultButton     = ContentDialogButton.Close,
             XamlRoot          = XamlRoot
         };

@@ -1,4 +1,5 @@
 using HVLab.Helpers;
+using HVLab.Services;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,6 +9,7 @@ namespace HVLab.Views;
 public sealed partial class SettingsPage : Page
 {
     public SettingsViewModel ViewModel { get; } = new();
+    public LocalizationService Loc => LocalizationService.Instance;
 
     public SettingsPage() => InitializeComponent();
 
