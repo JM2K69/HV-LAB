@@ -59,3 +59,8 @@ Thumbs.db
 .env.local
 
 HVLab/publish/
+
+# Certificates & signing keys
+*.pfx
+*.cer
+*.p12
