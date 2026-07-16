@@ -1,9 +1,9 @@
+using HVLab.Helpers;
 using HVLab.Models;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
-using Windows.Storage.Pickers;
 
 namespace HVLab.Views;
 
@@ -19,27 +19,18 @@ public sealed partial class BaseVhdxPage : Page
         _ = ViewModel.RefreshAsync();
     }
 
-    private async void BrowseWim_Click(object sender, RoutedEventArgs e)
+    private void BrowseWim_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FileOpenPicker();
-        var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-        picker.FileTypeFilter.Add(".wim");
-        picker.FileTypeFilter.Add(".esd");
-        picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-        var file = await picker.PickSingleFileAsync();
-        if (file is not null) ViewModel.WimPath = file.Path;
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
+        var file = Win32FolderPicker.PickFile(hwnd, "Sélectionner un fichier WIM ou ESD");
+        if (file is not null) ViewModel.WimPath = file;
     }
 
-    private async void BrowseBaseFolder_Click(object sender, RoutedEventArgs e)
+    private void BrowseBaseFolder_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new FolderPicker();
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-        picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-        picker.FileTypeFilter.Add("*");
-        var folder = await picker.PickSingleFolderAsync();
-        if (folder is not null) ViewModel.BaseFolder = folder.Path;
+        var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier de destination des images de base");
+        if (folder is not null) ViewModel.BaseFolder = folder;
     }
 
     private async void DeleteVhdx_Click(object sender, RoutedEventArgs e)
