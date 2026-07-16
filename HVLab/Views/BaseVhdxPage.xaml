@@ -6,7 +6,8 @@
     xmlns:models="using:HVLab.Models"
     Background="Transparent">
 
-    <Grid Padding="36,24,36,20" RowSpacing="12">
+    <ScrollViewer>
+        <Grid Padding="36,24,36,20" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -142,7 +143,7 @@
                         <TextBlock Text="Créer une nouvelle image de base" FontSize="14"/>
                     </StackPanel>
                 </Expander.Header>
-                <ScrollViewer MaxHeight="640">
+                <ScrollViewer>
                     <StackPanel Spacing="16" Padding="0,10,0,6">
 
                         <!-- ══ Étape 1 : Fichier source WIM/ESD ══════════════════════════════ -->
@@ -385,5 +386,6 @@
             </Expander>
 
         </Grid>
-    </Grid>
+        </Grid>
+    </ScrollViewer>
 </Page>

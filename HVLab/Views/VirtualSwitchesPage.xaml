@@ -6,7 +6,8 @@
     xmlns:models="using:HVLab.Models"
     Background="Transparent">
 
-    <Grid Padding="36,24,36,20" RowSpacing="12">
+    <ScrollViewer>
+        <Grid Padding="36,24,36,20" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -249,5 +250,6 @@
             </PivotItem>
 
         </Pivot>
-    </Grid>
+        </Grid>
+    </ScrollViewer>
 </Page>
