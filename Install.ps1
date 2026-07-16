@@ -1,14 +1,16 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-	Installe HyperV Lab Manager (MSIX) sur la machine locale.
+	Installe HyperV Lab Manager sur la machine locale.
 
 .DESCRIPTION
 	Ce script :
 	  1. Vérifie que Windows est en version Pro/Enterprise/Education (requis pour Hyper-V)
-	  2. Active Hyper-V si ce n'est pas déjà fait
-	  3. Extrait et installe le certificat de signature depuis le .msix
-	  4. Installe le package MSIX
+	  2. Installe le runtime .NET 8 Desktop si absent
+	  3. Installe le Windows App SDK 1.6 Runtime si absent
+	  4. Active Hyper-V si ce n'est pas déjà fait
+	  5. Lance HVLab.exe (build framework-dependent)
+		 OU installe le MSIX si présent dans le même dossier
 
 .NOTES
 	Doit être exécuté en tant qu'Administrateur.
@@ -55,7 +57,37 @@ if ($caption -match "Home") {
 }
 Write-OK "Édition compatible : $caption"
 
-# ── 3. Activer Hyper-V si absent ─────────────────────────────────────────────
+# ── 2. Installer .NET 8 Desktop Runtime si absent ────────────────────────────
+Write-Step "Vérification du runtime .NET 8 Desktop..."
+$dotnet8 = dotnet --list-runtimes 2>$null | Where-Object { $_ -match "Microsoft\.WindowsDesktop\.App 8\." }
+if (-not $dotnet8) {
+    Write-Warn ".NET 8 Desktop Runtime non trouvé — téléchargement..."
+    $dotnetUrl = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
+    $dotnetInstaller = "$env:TEMP\dotnet8-desktop-runtime.exe"
+    Invoke-WebRequest -Uri $dotnetUrl -OutFile $dotnetInstaller -UseBasicParsing
+    Start-Process -FilePath $dotnetInstaller -ArgumentList "/quiet /norestart" -Wait
+    Remove-Item $dotnetInstaller -Force
+    Write-OK ".NET 8 Desktop Runtime installé."
+} else {
+    Write-OK ".NET 8 Desktop Runtime déjà présent : $($dotnet8 | Select-Object -First 1)"
+}
+
+# ── 3. Installer Windows App SDK 1.6 Runtime si absent ───────────────────────
+Write-Step "Vérification du Windows App SDK 1.6 Runtime..."
+$wasdk = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -ErrorAction SilentlyContinue
+if (-not $wasdk) {
+    Write-Warn "Windows App SDK 1.6 non trouvé — téléchargement..."
+    $wasdkUrl = "https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe"
+    $wasdkInstaller = "$env:TEMP\windowsappsdk-runtime.exe"
+    Invoke-WebRequest -Uri $wasdkUrl -OutFile $wasdkInstaller -UseBasicParsing
+    Start-Process -FilePath $wasdkInstaller -ArgumentList "--quiet" -Wait
+    Remove-Item $wasdkInstaller -Force
+    Write-OK "Windows App SDK 1.6 Runtime installé."
+} else {
+    Write-OK "Windows App SDK 1.6 Runtime déjà présent : $($wasdk.Version)"
+}
+
+# ── 4. Activer Hyper-V si absent ─────────────────────────────────────────────
 Write-Step "Vérification de Hyper-V..."
 $hyperv = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -ErrorAction SilentlyContinue
 
