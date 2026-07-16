@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.CreateVmPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,8 +10,8 @@
 
             <!-- Header -->
             <StackPanel Spacing="2">
-                <TextBlock Text="Créer une Machine Virtuelle" FontSize="28" FontWeight="SemiBold"/>
-                <TextBlock Text="La VM sera créée avec un disque différentiel basé sur une image VHDX de base."
+                <TextBlock Text="{Binding [CVM_Title], Source={StaticResource Loc}}" FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding [CVM_AnswerInfo], Source={StaticResource Loc}}"
                            FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap"/>
             </StackPanel>
@@ -28,10 +28,10 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="14">
-                    <TextBlock Text="Identité de la VM" FontWeight="SemiBold" FontSize="15"/>
+                    <TextBlock Text="{Binding [CVM_Identity], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Nom de la machine virtuelle" FontSize="12"/>
+                        <TextBlock Text="{Binding [CVM_VmName], Source={StaticResource Loc}}" FontSize="12"/>
                         <TextBox Text="{x:Bind ViewModel.VmName, Mode=TwoWay}"
                                  PlaceholderText="Ex. : WIN11-LAB-01"/>
                     </StackPanel>
@@ -42,7 +42,7 @@
                             <ColumnDefinition Width="120"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Image VHDX de base (disque parent)" FontSize="12"/>
+                            <TextBlock Text="{Binding [CVM_BaseImage], Source={StaticResource Loc}}" FontSize="12"/>
                             <ComboBox ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
                                       SelectedItem="{x:Bind ViewModel.SelectedBaseVhdx, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
@@ -50,7 +50,7 @@
                                       FontFamily="Consolas" FontSize="12"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
-                            <TextBlock Text="Génération" FontSize="12"/>
+                            <TextBlock Text="{Binding [CVM_Generation], Source={StaticResource Loc}}" FontSize="12"/>
                             <ComboBox ItemsSource="{x:Bind ViewModel.Generations}"
                                       SelectedItem="{x:Bind ViewModel.Generation, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
@@ -64,7 +64,7 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="14">
-                    <TextBlock Text="Ressources matérielles" FontWeight="SemiBold" FontSize="15"/>
+                    <TextBlock Text="{Binding [CVM_Hardware], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
 
                     <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
@@ -72,13 +72,13 @@
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="RAM (Mo)" FontSize="12"/>
+                            <TextBlock Text="{Binding [CVM_RAM], Source={StaticResource Loc}}" FontSize="12"/>
                             <ComboBox ItemsSource="{x:Bind ViewModel.MemoryOptions}"
                                       SelectedItem="{x:Bind ViewModel.MemoryMB, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
-                            <TextBlock Text="Processeurs virtuels" FontSize="12"/>
+                            <TextBlock Text="{Binding [CVM_CPU], Source={StaticResource Loc}}" FontSize="12"/>
                             <ComboBox ItemsSource="{x:Bind ViewModel.CpuOptions}"
                                       SelectedItem="{x:Bind ViewModel.CpuCount, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
@@ -92,10 +92,10 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="14">
-                    <TextBlock Text="Réseau" FontWeight="SemiBold" FontSize="15"/>
+                    <TextBlock Text="{Binding [CVM_Network], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
 
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Commutateur virtuel" FontSize="12"/>
+                        <TextBlock Text="{Binding [CVM_Switch], Source={StaticResource Loc}}" FontSize="12"/>
                         <ComboBox ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedSwitch, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch"
@@ -109,9 +109,9 @@
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1" CornerRadius="8" Padding="20">
                 <StackPanel Spacing="14">
-                    <TextBlock Text="Stockage" FontWeight="SemiBold" FontSize="15"/>
+                    <TextBlock Text="{Binding [CVM_Storage], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
                     <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
-                             Message="Le disque différentiel sera créé automatiquement dans un sous-dossier du dossier VMs."/>
+                             Message="The differencing disk will be created in the VM folder. / Le disque différentiel sera créé dans le dossier VMs."/>
 
                     <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
@@ -119,12 +119,12 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Dossier des VMs" FontSize="12"/>
+                            <TextBlock Text="{Binding [CVM_VmFolder], Source={StaticResource Loc}}" FontSize="12"/>
                             <TextBox Text="{x:Bind ViewModel.VmFolder, Mode=TwoWay}"
                                      PlaceholderText="C:\HV-LAB\VMs"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
-                            <Button Content="Parcourir…" Click="BrowseVmFolder_Click"/>
+                            <Button Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseVmFolder_Click"/>
                         </StackPanel>
                     </Grid>
 
@@ -134,12 +134,12 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
-                            <TextBlock Text="Dossier images de base" FontSize="12"/>
+                            <TextBlock Text="{Binding [SET_BaseImages], Source={StaticResource Loc}}" FontSize="12"/>
                             <TextBox Text="{x:Bind ViewModel.BaseVhdxFolder, Mode=TwoWay}"
                                      PlaceholderText="C:\HV-LAB\BaseImages"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
-                            <Button Content="Recharger" Click="ReloadData_Click"/>
+                            <Button Content="{Binding [CVM_BtnReload], Source={StaticResource Loc}}" Click="ReloadData_Click"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
@@ -153,13 +153,13 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <FontIcon Glyph="&#xE8A5;" FontSize="16"
                                   Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                        <TextBlock Text="Fichier de réponse (unattend.xml)" FontWeight="SemiBold" FontSize="15"/>
+                        <TextBlock Text="{Binding [CVM_AnswerFile], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
                     </StackPanel>
 
                     <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
-                             Message="Le fichier unattend.xml sera injecté dans le disque différentiel de la VM au moment de sa création."/>
+                             Message="{Binding [CVM_AnswerInfo], Source={StaticResource Loc}}"/>
 
-                    <ToggleSwitch Header="Utiliser un fichier de réponse"
+                    <ToggleSwitch Header="{Binding [CVM_UseAnswer], Source={StaticResource Loc}}"
                                   IsOn="{x:Bind ViewModel.UseAnswerFile, Mode=TwoWay}"/>
 
                     <StackPanel Spacing="12"
@@ -171,12 +171,12 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="Nom de l'ordinateur (15 car. max)" FontSize="12"/>
+                                <TextBlock Text="{Binding [CVM_CompName], Source={StaticResource Loc}}" FontSize="12"/>
                                 <TextBox Text="{x:Bind ViewModel.ComputerName, Mode=TwoWay}"
                                          MaxLength="15" PlaceholderText="LAB-VM"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
-                                <TextBlock Text="Mot de passe Administrateur" FontSize="12"/>
+                                <TextBlock Text="{Binding [CVM_AdminPwd], Source={StaticResource Loc}}" FontSize="12"/>
                                 <PasswordBox Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
                                              PlaceholderText="P@ssw0rd!"/>
                             </StackPanel>
@@ -187,32 +187,32 @@
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="4">
-                                <TextBlock Text="Langue / Locale" FontSize="12"/>
+                                <TextBlock Text="{Binding [CVM_Locale], Source={StaticResource Loc}}" FontSize="12"/>
                                 <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
                                           SelectedItem="{x:Bind ViewModel.UiLanguage, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
-                                <TextBlock Text="Fuseau horaire" FontSize="12"/>
+                                <TextBlock Text="{Binding [CVM_Timezone], Source={StaticResource Loc}}" FontSize="12"/>
                                 <ComboBox ItemsSource="{x:Bind ViewModel.TimeZones}"
                                           SelectedItem="{x:Bind ViewModel.TimeZone, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
                         </Grid>
                         <StackPanel Spacing="4">
-                            <TextBlock Text="Clé produit (optionnel)" FontSize="12"/>
+                            <TextBlock Text="{Binding [CVM_ProductKey], Source={StaticResource Loc}}" FontSize="12"/>
                             <TextBox Text="{x:Bind ViewModel.ProductKey, Mode=TwoWay}"
                                      PlaceholderText="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
                                      FontFamily="Consolas"/>
                         </StackPanel>
-                        <Expander Header="Aperçu unattend.xml" HorizontalAlignment="Stretch">
+                        <Expander Header="{Binding [CVM_XmlPreview], Source={StaticResource Loc}}" HorizontalAlignment="Stretch">
                             <StackPanel Spacing="8">
                                 <ScrollViewer Height="180">
                                     <TextBlock Text="{x:Bind ViewModel.AnswerFilePreview, Mode=OneWay}"
                                                FontFamily="Consolas" FontSize="11"
                                                IsTextSelectionEnabled="True" TextWrapping="NoWrap"/>
                                 </ScrollViewer>
-                                <Button Content="Mettre à jour l'aperçu"
+                                <Button Content="{Binding [CVM_UpdatePreview], Source={StaticResource Loc}}"
                                         Command="{x:Bind ViewModel.UpdateAnswerPreviewCommand}"/>
                             </StackPanel>
                         </Expander>
@@ -227,7 +227,7 @@
                     Padding="0,14">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <FontIcon Glyph="&#xE945;" FontSize="16"/>
-                    <TextBlock Text="Créer la VM avec disque différentiel" FontSize="14"/>
+                    <TextBlock Text="{Binding [CVM_BtnCreate], Source={StaticResource Loc}}" FontSize="14"/>
                 </StackPanel>
             </Button>
 

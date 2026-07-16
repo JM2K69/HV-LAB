@@ -1,3 +1,4 @@
+using HVLab.Services;
 using HVLab.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -7,6 +8,7 @@ namespace HVLab;
 
 public sealed partial class MainWindow : Window
 {
+    public LocalizationService Loc => LocalizationService.Instance;
     public MainWindow()
     {
         InitializeComponent();

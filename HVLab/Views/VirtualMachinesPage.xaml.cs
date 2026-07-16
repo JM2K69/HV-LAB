@@ -1,4 +1,5 @@
 using HVLab.Models;
+using HVLab.Services;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,8 +10,13 @@ namespace HVLab.Views;
 public sealed partial class VirtualMachinesPage : Page
 {
     public VirtualMachinesViewModel ViewModel { get; } = new();
+    public LocalizationService Loc => LocalizationService.Instance;
 
-    public VirtualMachinesPage() => InitializeComponent();
+    public VirtualMachinesPage()
+    {
+        InitializeComponent();
+        LocalizationService.Instance.PropertyChanged += (_, _) => Bindings.Update();
+    }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -28,7 +34,7 @@ public sealed partial class VirtualMachinesPage : Page
         if (sender is Button { Tag: VirtualMachine vm }) await ViewModel.StopVmAsync(vm);
     }
 
-    private async void RemoveVm_Click(object sender, RoutedEventArgs e)
+    private async void DeleteVm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: VirtualMachine vm }) return;
         var dialog = new ContentDialog

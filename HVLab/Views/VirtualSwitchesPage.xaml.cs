@@ -1,4 +1,5 @@
 using HVLab.Models;
+using HVLab.Services;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,6 +10,7 @@ namespace HVLab.Views;
 public sealed partial class VirtualSwitchesPage : Page
 {
     public VirtualSwitchesViewModel ViewModel { get; } = new();
+    public LocalizationService Loc => LocalizationService.Instance;
 
     public VirtualSwitchesPage() => InitializeComponent();
 

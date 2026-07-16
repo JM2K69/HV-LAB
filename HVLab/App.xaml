@@ -3,7 +3,8 @@
     x:Class="HVLab.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:converters="using:HVLab.Converters">
+    xmlns:converters="using:HVLab.Converters"
+    xmlns:services="using:HVLab.Services">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -15,6 +16,7 @@
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <converters:BoolToVisibilityInverseConverter x:Key="BoolToVisibilityInverseConverter"/>
             <converters:StateToColorConverter x:Key="StateToColorConverter"/>
+            <services:LocalizationHelper x:Key="Loc"/>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

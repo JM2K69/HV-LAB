@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Window
     x:Class="HVLab.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -42,27 +42,27 @@
             </NavigationView.PaneHeader>
 
             <NavigationView.MenuItems>
-                <NavigationViewItem Tag="dashboard" Content="Tableau de bord">
+                <NavigationViewItem Tag="dashboard" Content="{Binding [Nav_Dashboard], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE80F;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="vms" Content="Machines Virtuelles">
+                <NavigationViewItem Tag="vms" Content="{Binding [Nav_VMs], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE7F8;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="switches" Content="Commutateurs &amp; NAT">
+                <NavigationViewItem Tag="switches" Content="{Binding [Nav_Switches], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xEDA3;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="basevhdx" Content="Images de base VHDX">
+                <NavigationViewItem Tag="basevhdx" Content="{Binding [Nav_BaseVhdx], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xEDA2;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="createvm" Content="Créer une VM">
+                <NavigationViewItem Tag="createvm" Content="{Binding [Nav_CreateVM], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE710;"/>
                     </NavigationViewItem.Icon>
@@ -70,7 +70,7 @@
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Tag="settings" Content="Paramètres">
+                <NavigationViewItem Tag="settings" Content="{Binding [Nav_Settings], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;"/>
                     </NavigationViewItem.Icon>

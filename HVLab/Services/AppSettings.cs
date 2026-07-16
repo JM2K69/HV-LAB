@@ -40,6 +40,11 @@ public sealed class AppSettings
     /// </summary>
     public string Theme { get; set; } = "System";
 
+    /// <summary>
+    /// Interface language: "fr" (default) or "en".
+    /// </summary>
+    public string Language { get; set; } = "fr";
+
     // ─── Load / Save ──────────────────────────────────────────────────────────
 
     /// <summary>

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.DashboardPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -10,7 +10,7 @@
 
             <!-- Header -->
             <StackPanel Spacing="4" Margin="0,0,0,4">
-                <TextBlock Text="Tableau de bord" FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding [Dash_Title], Source={StaticResource Loc}}" FontSize="28" FontWeight="SemiBold"/>
                 <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
                            FontSize="13"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -24,8 +24,8 @@
             <!-- Hyper-V warning -->
             <InfoBar IsOpen="{x:Bind ViewModel.ShowHyperVWarning, Mode=OneWay}"
                      Severity="Warning"
-                     Title="Hyper-V non disponible"
-                     Message="Vérifiez que le rôle Hyper-V est installé et que l'application est exécutée en tant qu'Administrateur."
+                     Title="{Binding [Dash_HyperVWarn], Source={StaticResource Loc}}"
+                     Message="{Binding [Dash_HyperVWarnMsg], Source={StaticResource Loc}}"
                      IsClosable="False"/>
 
             <!-- Action bar -->
@@ -34,13 +34,13 @@
                         Style="{StaticResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <FontIcon Glyph="&#xE72C;" FontSize="14"/>
-                        <TextBlock Text="Actualiser"/>
+                        <TextBlock Text="{Binding [Btn_Refresh], Source={StaticResource Loc}}"/>
                     </StackPanel>
                 </Button>
             </StackPanel>
 
             <!-- ═══ Compteurs ════════════════════════════════════════════════ -->
-            <TextBlock Text="Vue d'ensemble" FontSize="14"
+            <TextBlock Text="{Binding [Dash_Overview], Source={StaticResource Loc}}" FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,8,0,0"/>
 
@@ -64,7 +64,7 @@
                         </Border>
                         <TextBlock Text="{x:Bind ViewModel.RunningVmCount, Mode=OneWay}"
                                    FontSize="32" FontWeight="SemiBold"/>
-                        <TextBlock Text="VMs en cours" FontSize="12"
+                        <TextBlock Text="{Binding [Dash_RunningVMs], Source={StaticResource Loc}}" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </Border>
@@ -81,7 +81,7 @@
                         </Border>
                         <TextBlock Text="{x:Bind ViewModel.StoppedVmCount, Mode=OneWay}"
                                    FontSize="32" FontWeight="SemiBold"/>
-                        <TextBlock Text="VMs arrêtées" FontSize="12"
+                        <TextBlock Text="{Binding [Dash_StoppedVMs], Source={StaticResource Loc}}" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </Border>
@@ -99,7 +99,7 @@
                         </Border>
                         <TextBlock Text="{x:Bind ViewModel.SwitchCount, Mode=OneWay}"
                                    FontSize="32" FontWeight="SemiBold"/>
-                        <TextBlock Text="Commutateurs" FontSize="12"
+                        <TextBlock Text="{Binding [Dash_Switches], Source={StaticResource Loc}}" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </Border>
@@ -116,14 +116,14 @@
                         </Border>
                         <TextBlock Text="{x:Bind ViewModel.BaseVhdxCount, Mode=OneWay}"
                                    FontSize="32" FontWeight="SemiBold"/>
-                        <TextBlock Text="Images de base" FontSize="12"
+                        <TextBlock Text="{Binding [Dash_BaseImages], Source={StaticResource Loc}}" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>
                 </Border>
             </Grid>
 
             <!-- ═══ Démarrage rapide ══════════════════════════════════════════ -->
-            <TextBlock Text="Démarrage rapide" FontSize="14"
+            <TextBlock Text="{Binding [Dash_QuickStart], Source={StaticResource Loc}}" FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,12,0,0"/>
 
@@ -142,7 +142,7 @@
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <FontIcon Glyph="&#xE762;" FontSize="18"
                                       Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                            <TextBlock Text="Workflow recommandé" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock Text="{Binding [Dash_Workflow], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
                         </StackPanel>
                         <StackPanel Spacing="8">
                             <StackPanel Orientation="Horizontal" Spacing="10">
@@ -152,7 +152,7 @@
                                                Foreground="White" HorizontalAlignment="Center"
                                                VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="Créer un commutateur interne" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding [Dash_Step1], Source={StaticResource Loc}}" VerticalAlignment="Center"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Border Width="22" Height="22" CornerRadius="11"
@@ -161,7 +161,7 @@
                                                Foreground="White" HorizontalAlignment="Center"
                                                VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="Configurer le NAT sur ce commutateur" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding [Dash_Step2], Source={StaticResource Loc}}" VerticalAlignment="Center"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Border Width="22" Height="22" CornerRadius="11"
@@ -170,7 +170,7 @@
                                                Foreground="White" HorizontalAlignment="Center"
                                                VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="Créer une image de base VHDX" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding [Dash_Step3], Source={StaticResource Loc}}" VerticalAlignment="Center"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Border Width="22" Height="22" CornerRadius="11"
@@ -179,7 +179,7 @@
                                                Foreground="White" HorizontalAlignment="Center"
                                                VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="Créer des VMs avec disques différentiels" VerticalAlignment="Center"/>
+                                <TextBlock Text="{Binding [Dash_Step4], Source={StaticResource Loc}}" VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>
@@ -194,10 +194,10 @@
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <FontIcon Glyph="&#xE9F5;" FontSize="18"
                                       Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                            <TextBlock Text="Configuration système" FontWeight="SemiBold" FontSize="15"/>
+                            <TextBlock Text="{Binding [Dash_SysConfig], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
                         </StackPanel>
                         <StackPanel Spacing="6">
-                            <TextBlock Text="Dossier images de base"
+                            <TextBlock Text="{Binding [Dash_BaseFolder], Source={StaticResource Loc}}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        FontSize="12"/>
                             <TextBlock Text="{x:Bind ViewModel.BaseVhdxFolder}"
@@ -208,13 +208,13 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE8D7;" FontSize="13"
                                           Foreground="#0F7B0F"/>
-                                <TextBlock Text="Élévation : Administrateur" FontSize="12"
+                                <TextBlock Text="{Binding [Dash_Elevation], Source={StaticResource Loc}}" FontSize="12"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE756;" FontSize="13"
                                           Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                <TextBlock Text="PowerShell 5.1 requis" FontSize="12"
+                                <TextBlock Text="PowerShell 5.1" FontSize="12"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>

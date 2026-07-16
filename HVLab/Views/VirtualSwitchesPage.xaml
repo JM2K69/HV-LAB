@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.VirtualSwitchesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -17,7 +17,7 @@
         <!-- Header -->
         <Grid Grid.Row="0" Margin="0,0,0,8">
             <StackPanel Spacing="2">
-                <TextBlock Text="Commutateurs Virtuels &amp; NAT" FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding [SW_Title], Source={StaticResource Loc}}" FontSize="28" FontWeight="SemiBold"/>
                 <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
                            FontSize="13" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
             </StackPanel>
@@ -25,7 +25,7 @@
                     Command="{x:Bind ViewModel.RefreshCommand}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72C;" FontSize="14"/>
-                    <TextBlock Text="Actualiser"/>
+                    <TextBlock Text="{Binding [Btn_Refresh], Source={StaticResource Loc}}"/>
                 </StackPanel>
             </Button>
         </Grid>
@@ -38,7 +38,7 @@
         <Pivot Grid.Row="2">
 
             <!-- ═══ Tab 1 : vSwitches ═══ -->
-            <PivotItem Header="Commutateurs Virtuels">
+            <PivotItem Header="{Binding [SW_TabSwitches], Source={StaticResource Loc}}">
                 <Grid RowSpacing="12" Margin="0,12,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -56,10 +56,10 @@
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Nom"        FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="Type"       FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="2" Text="Adaptateur" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="Action"     FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="{Binding [SW_ColType], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="{Binding [SW_ColAdapters], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}"  FontWeight="SemiBold"/>
                     </Grid>
 
                     <!-- Switch list -->
@@ -91,7 +91,7 @@
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     <Button Grid.Column="3" Tag="{x:Bind}" Click="RemoveSwitch_Click"
                                             Width="32" Height="32" Padding="0"
-                                            ToolTipService.ToolTip="Supprimer">
+                                            ToolTipService.ToolTip="Delete / Supprimer">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
                                     </Button>
                                 </Grid>
@@ -100,7 +100,7 @@
                     </ListView>
 
                     <!-- Create switch form -->
-                    <Expander Grid.Row="2" Header="➕  Créer un commutateur" HorizontalAlignment="Stretch"
+                    <Expander Grid.Row="2" Header="{Binding [SW_CreateTitle], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch">
                         <StackPanel Spacing="10" Padding="0,8,0,4">
                             <Grid ColumnSpacing="12">
@@ -109,12 +109,12 @@
                                     <ColumnDefinition Width="160"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
-                                    <TextBlock Text="Nom du commutateur" FontSize="12"/>
+                                    <TextBlock Text="{Binding [SW_NameLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                     <TextBox Text="{x:Bind ViewModel.NewSwitchName, Mode=TwoWay}"
                                              PlaceholderText="Ex. : NAT-Switch"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
-                                    <TextBlock Text="Type" FontSize="12"/>
+                                    <TextBlock Text="{Binding [SW_TypeLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                     <ComboBox ItemsSource="{x:Bind ViewModel.SwitchTypes}"
                                               SelectedItem="{x:Bind ViewModel.NewSwitchType, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch"/>
@@ -124,14 +124,14 @@
                             <StackPanel Spacing="4"
                                         Visibility="{x:Bind ViewModel.IsExternalSwitch, Mode=OneWay,
                                                       Converter={StaticResource BoolToVisibilityConverter}}">
-                                <TextBlock Text="Adaptateur réseau physique" FontSize="12"/>
+                                <TextBlock Text="Physical network adapter" FontSize="12"/>
                                 <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
                                           SelectedItem="{x:Bind ViewModel.SelectedNetAdapter, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"
-                                          PlaceholderText="Sélectionnez un adaptateur…"/>
+                                          PlaceholderText="Select adapter…"/>
                             </StackPanel>
 
-                            <Button Content="Créer le commutateur"
+                            <Button Content="{Binding [SW_BtnCreate], Source={StaticResource Loc}}"
                                     Command="{x:Bind ViewModel.CreateSwitchCommand}"
                                     Style="{StaticResource AccentButtonStyle}"/>
                         </StackPanel>
@@ -140,7 +140,7 @@
             </PivotItem>
 
             <!-- ═══ Tab 2 : NAT ═══ -->
-            <PivotItem Header="Réseaux NAT">
+            <PivotItem Header="{Binding [SW_TabNAT], Source={StaticResource Loc}}">
                 <Grid RowSpacing="12" Margin="0,12,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -158,10 +158,10 @@
                             <ColumnDefinition Width="80"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Nom"    FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="Plage"  FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="2" Text="État"   FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="Action" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [NAT_ColName], Source={StaticResource Loc}}"   FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="{Binding [NAT_ColSubnet], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="{Binding [Lbl_Status], Source={StaticResource Loc}}"    FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
                     </Grid>
 
                     <ListView Grid.Row="1"
@@ -192,7 +192,7 @@
                                                VerticalAlignment="Center"/>
                                     <Button Grid.Column="3" Tag="{x:Bind}" Click="RemoveNat_Click"
                                             Width="32" Height="32" Padding="0"
-                                            ToolTipService.ToolTip="Supprimer">
+                                            ToolTipService.ToolTip="Delete / Supprimer">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
                                     </Button>
                                 </Grid>
@@ -201,28 +201,28 @@
                     </ListView>
 
                     <!-- Create NAT form -->
-                    <Expander Grid.Row="2" Header="➕  Créer un réseau NAT" HorizontalAlignment="Stretch"
+                    <Expander Grid.Row="2" Header="{Binding [NAT_CreateTitle], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch">
                         <StackPanel Spacing="10" Padding="0,8,0,4">
                             <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
-                                     Title="Prérequis"
-                                     Message="Un commutateur virtuel de type Internal doit déjà exister. Créez-le dans l'onglet précédent."/>
+                                     Title="Prérequis / Prerequisites"
+                                     Message="Un commutateur Internal doit exister. / An Internal switch must exist first."/>
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
-                                    <TextBlock Text="Nom du réseau NAT" FontSize="12"/>
+                                    <TextBlock Text="{Binding [NAT_NameLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                     <TextBox Text="{x:Bind ViewModel.NewNatName, Mode=TwoWay}"
                                              PlaceholderText="Ex. : NAT-192.168.100"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
-                                    <TextBlock Text="Commutateur interne" FontSize="12"/>
+                                    <TextBlock Text="Internal switch" FontSize="12"/>
                                     <ComboBox ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
                                               SelectedItem="{x:Bind ViewModel.SelectedNatSwitch, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch"
-                                              PlaceholderText="Sélectionnez…"/>
+                                              PlaceholderText="Select…"/>
                                 </StackPanel>
                             </Grid>
                             <Grid ColumnSpacing="12">
@@ -231,17 +231,17 @@
                                     <ColumnDefinition Width="120"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
-                                    <TextBlock Text="IP passerelle" FontSize="12"/>
+                                    <TextBlock Text="Gateway IP" FontSize="12"/>
                                     <TextBox Text="{x:Bind ViewModel.NatGatewayIP, Mode=TwoWay}"
                                              PlaceholderText="192.168.100.1"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
-                                    <TextBlock Text="Préfixe (/)" FontSize="12"/>
+                                    <TextBlock Text="Prefix (/)" FontSize="12"/>
                                     <NumberBox Value="{x:Bind ViewModel.NatPrefixLength, Mode=TwoWay}"
                                                Minimum="8" Maximum="30" SpinButtonPlacementMode="Inline"/>
                                 </StackPanel>
                             </Grid>
-                            <Button Content="Créer le réseau NAT"
+                            <Button Content="{Binding [NAT_BtnCreate], Source={StaticResource Loc}}"
                                     Command="{x:Bind ViewModel.CreateNatCommand}"
                                     Style="{StaticResource AccentButtonStyle}"/>
                         </StackPanel>
