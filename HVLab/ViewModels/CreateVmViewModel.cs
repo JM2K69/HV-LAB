@@ -49,6 +49,17 @@ public partial class CreateVmViewModel : ObservableObject
             ProductKey = value.Key;
     }
 
+    partial void OnSelectedBaseVhdxChanged(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+
+        // Parse the OsIdentifier from the filename and auto-suggest the matching KMS key
+        var vhdx = BaseVhdx.FromFile(value);
+        var suggested = KmsKeyCatalog.SuggestForOs(vhdx.OsIdentifier);
+        if (suggested is not null)
+            SelectedKmsKey = suggested;
+    }
+
     public IReadOnlyList<KmsKeyEntry> KmsKeys { get; } = KmsKeyCatalog.All;
 
     public List<string> Languages { get; } = ["fr-FR", "en-US", "en-GB", "de-DE", "es-ES", "it-IT"];
