@@ -142,57 +142,94 @@ public class VhdxService
         }
         try
         {
-            var isGen2   = generation == 2 ? "$true" : "$false";
-            var script = $$"""
+            var isGen2  = generation == 2 ? "$true" : "$false";
+            var script  = $$"""
+                $ErrorActionPreference = 'Stop'
+                [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
                 $vhdxPath   = '{{Esc(vhdxPath)}}'
                 $wimPath    = '{{Esc(wimPath)}}'
                 $imageIndex = {{imageIndex}}
                 $isGen2     = {{isGen2}}
                 $answerFile = '{{Esc(answerTemp ?? "")}}'
 
+                # Helper : re-query the assigned drive letter (avoids the stale-object race condition)
+                function Get-AssignedLetter([int]$diskNo, [int]$partNo) {
+                    $deadline = (Get-Date).AddSeconds(15)
+                    do {
+                        $letter = (Get-Partition -DiskNumber $diskNo -PartitionNumber $partNo -ErrorAction SilentlyContinue).DriveLetter
+                        if ($letter -and $letter -ne "`0") { return $letter }
+                        Start-Sleep -Milliseconds 500
+                    } while ((Get-Date) -lt $deadline)
+                    throw "Impossible d'obtenir une lettre pour le disque $diskNo partition $partNo"
+                }
+
                 Write-Output "Montage du VHDX..."
-                $mount  = Mount-DiskImage -ImagePath $vhdxPath -PassThru -ErrorAction Stop
+                $mount  = Mount-DiskImage -ImagePath $vhdxPath -PassThru
                 $diskNo = ($mount | Get-Disk).Number
 
-                Write-Output "Partitionnement..."
-                if ($isGen2) {
-                    Initialize-Disk -Number $diskNo -PartitionStyle GPT -ErrorAction Stop
-                    $efiPart = New-Partition -DiskNumber $diskNo -Size 100MB -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
-                    Format-Volume -Partition $efiPart -FileSystem FAT32 -NewFileSystemLabel 'System' -Confirm:$false | Out-Null
-                    $efiLetter = ($efiPart | Add-PartitionAccessPath -AssignDriveLetter -PassThru).DriveLetter
-                    New-Partition -DiskNumber $diskNo -Size 16MB -GptType '{e3c9e316-0b5c-4db8-817d-f92df00215ae}' | Out-Null
-                    $winPart   = New-Partition -DiskNumber $diskNo -UseMaximumSize
-                    Format-Volume -Partition $winPart -FileSystem NTFS -NewFileSystemLabel 'Windows' -Confirm:$false | Out-Null
-                    $winLetter = ($winPart | Add-PartitionAccessPath -AssignDriveLetter -PassThru).DriveLetter
-                } else {
-                    Initialize-Disk -Number $diskNo -PartitionStyle MBR -ErrorAction Stop
-                    $winPart   = New-Partition -DiskNumber $diskNo -UseMaximumSize -IsActive
-                    Format-Volume -Partition $winPart -FileSystem NTFS -NewFileSystemLabel 'Windows' -Confirm:$false | Out-Null
-                    $winLetter = ($winPart | Add-PartitionAccessPath -AssignDriveLetter -PassThru).DriveLetter
-                    $efiLetter = $null
+                try {
+                    Write-Output "Partitionnement (disque $diskNo)..."
+                    if ($isGen2) {
+                        Initialize-Disk -Number $diskNo -PartitionStyle GPT
+                        # Partition EFI (100 MB FAT32)
+                        $efiPart = New-Partition -DiskNumber $diskNo -Size 100MB `
+                                       -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
+                        Format-Volume -Partition $efiPart -FileSystem FAT32 `
+                                      -NewFileSystemLabel 'System' -Confirm:$false | Out-Null
+                        $efiPart | Add-PartitionAccessPath -AssignDriveLetter
+                        $efiLetter = Get-AssignedLetter $diskNo $efiPart.PartitionNumber
+
+                        # MSR (16 MB, no letter)
+                        New-Partition -DiskNumber $diskNo -Size 16MB `
+                                      -GptType '{e3c9e316-0b5c-4db8-817d-f92df00215ae}' | Out-Null
+
+                        # Partition Windows
+                        $winPart = New-Partition -DiskNumber $diskNo -UseMaximumSize
+                        Format-Volume -Partition $winPart -FileSystem NTFS `
+                                      -NewFileSystemLabel 'Windows' -Confirm:$false | Out-Null
+                        $winPart | Add-PartitionAccessPath -AssignDriveLetter
+                        $winLetter = Get-AssignedLetter $diskNo $winPart.PartitionNumber
+                    } else {
+                        Initialize-Disk -Number $diskNo -PartitionStyle MBR
+                        $winPart = New-Partition -DiskNumber $diskNo -UseMaximumSize -IsActive
+                        Format-Volume -Partition $winPart -FileSystem NTFS `
+                                      -NewFileSystemLabel 'Windows' -Confirm:$false | Out-Null
+                        $winPart | Add-PartitionAccessPath -AssignDriveLetter
+                        $winLetter = Get-AssignedLetter $diskNo $winPart.PartitionNumber
+                        $efiLetter = $null
+                    }
+
+                    $winPath = "${winLetter}:"
+                    Write-Output "Lettre Windows : $winPath"
+
+                    # Apply image via PowerShell cmdlet (more reliable than dism.exe /Apply-Image)
+                    Write-Output "Application de l'image Windows (index $imageIndex) - opération longue..."
+                    Expand-WindowsImage -ImagePath $wimPath -Index $imageIndex `
+                                        -ApplyPath "$winPath\" -ErrorAction Stop | Out-Null
+
+                    Write-Output "Configuration du démarrage (bcdboot)..."
+                    if ($isGen2) {
+                        $bcd = & bcdboot.exe "$winPath\Windows" /s "${efiLetter}:" /f UEFI 2>&1
+                    } else {
+                        $bcd = & bcdboot.exe "$winPath\Windows" /s "$winPath" /f BIOS 2>&1
+                    }
+                    if ($LASTEXITCODE -ne 0) { throw "bcdboot a échoué : $bcd" }
+
+                    if ($answerFile -and (Test-Path $answerFile)) {
+                        $panther = "$winPath\Windows\Panther"
+                        if (-not (Test-Path $panther)) {
+                            New-Item -Path $panther -ItemType Directory -Force | Out-Null
+                        }
+                        Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
+                        Write-Output "Fichier de réponse appliqué."
+                    }
+                }
+                finally {
+                    Write-Output "Démontage du VHDX..."
+                    Dismount-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue | Out-Null
                 }
 
-                $winPath = "$($winLetter):"
-                Write-Output "Application de l'image Windows (quelques minutes)..."
-                $dism = & dism.exe /Apply-Image /ImageFile:"$wimPath" /Index:$imageIndex /ApplyDir:"$winPath\" 2>&1
-                if ($LASTEXITCODE -ne 0) { throw "DISM a échoué : $dism" }
-
-                Write-Output "Configuration du démarrage..."
-                if ($isGen2) {
-                    & bcdboot.exe "$winPath\Windows" /s "$($efiLetter):" /f UEFI 2>&1 | Out-Null
-                } else {
-                    & bcdboot.exe "$winPath\Windows" /s "$winPath" /f BIOS 2>&1 | Out-Null
-                }
-
-                if ($answerFile -and (Test-Path $answerFile)) {
-                    $panther = "$winPath\Windows\Panther"
-                    if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
-                    Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
-                    Write-Output "Fichier de réponse appliqué."
-                }
-
-                Write-Output "Démontage..."
-                Dismount-DiskImage -ImagePath $vhdxPath | Out-Null
                 Write-Output "Image prête : $vhdxPath"
                 """;
             await HyperVService.RunScriptAsync(script);
