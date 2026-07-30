@@ -22,8 +22,9 @@ public static class AnswerFileGenerator
 {
     public static string Generate(AnswerFileConfig c)
     {
-        var productKey = !string.IsNullOrWhiteSpace(c.ProductKey)
-            ? $"<ProductKey><Key>{X(c.ProductKey)}</Key></ProductKey>"
+        // ProductKey in specialize pass (windowsPE pass is ignored on pre-deployed VHDx)
+        var productKeySpecialize = !string.IsNullOrWhiteSpace(c.ProductKey)
+            ? $"<ProductKey>{X(c.ProductKey)}</ProductKey>"
             : string.Empty;
 
         var firstLogonCommands = c.BuildCbsCache ? BuildCbsCacheFirstLogonCommands() : string.Empty;
@@ -41,28 +42,6 @@ public static class AnswerFileGenerator
             <?xml version="1.0" encoding="utf-8"?>
             <unattend xmlns="urn:schemas-microsoft-com:unattend">
 
-                <settings pass="windowsPE">
-                    <component name="Microsoft-Windows-International-Core-WinPE"
-                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
-                               language="neutral" versionScope="nonSxS">
-                        <SetupUILanguage><UILanguage>{c.UILanguage}</UILanguage></SetupUILanguage>
-                        <InputLocale>{c.InputLocale}</InputLocale>
-                        <SystemLocale>{c.SystemLocale}</SystemLocale>
-                        <UILanguage>{c.UILanguage}</UILanguage>
-                        <UserLocale>{c.UserLocale}</UserLocale>
-                    </component>
-                    <component name="Microsoft-Windows-Setup"
-                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
-                               language="neutral" versionScope="nonSxS">
-                        <UserData>
-                            <AcceptEula>true</AcceptEula>
-                            <FullName>{X(c.RegisteredOwner)}</FullName>
-                            <Organization>{X(c.RegisteredOrganization)}</Organization>
-                            {productKey}
-                        </UserData>
-                    </component>
-                </settings>
-
                 <settings pass="specialize">
                     <component name="Microsoft-Windows-Shell-Setup"
                                processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
@@ -71,6 +50,15 @@ public static class AnswerFileGenerator
                         <TimeZone>{c.TimeZone}</TimeZone>
                         <RegisteredOwner>{X(c.RegisteredOwner)}</RegisteredOwner>
                         <RegisteredOrganization>{X(c.RegisteredOrganization)}</RegisteredOrganization>
+                        {productKeySpecialize}
+                    </component>
+                    <component name="Microsoft-Windows-International-Core"
+                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
+                               language="neutral" versionScope="nonSxS">
+                        <InputLocale>{c.InputLocale}</InputLocale>
+                        <SystemLocale>{c.SystemLocale}</SystemLocale>
+                        <UILanguage>{c.UILanguage}</UILanguage>
+                        <UserLocale>{c.UserLocale}</UserLocale>
                     </component>
                 </settings>
 
@@ -80,12 +68,6 @@ public static class AnswerFileGenerator
                                language="neutral" versionScope="nonSxS">
                         <OOBE>
                             <HideEULAPage>true</HideEULAPage>
-                            <HideLocalAccountSetupPage>true</HideLocalAccountSetupPage>
-                            <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
-                            <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
-                            <NetworkLocation>Work</NetworkLocation>
-                            <SkipUserOOBE>true</SkipUserOOBE>
-                            <SkipMachineOOBE>true</SkipMachineOOBE>
                             <ProtectYourPC>3</ProtectYourPC>
                         </OOBE>
                         <UserAccounts>
@@ -96,14 +78,6 @@ public static class AnswerFileGenerator
                         </UserAccounts>
                         {autoLogon}
                         {firstLogonCommands}
-                    </component>
-                    <component name="Microsoft-Windows-International-Core"
-                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
-                               language="neutral" versionScope="nonSxS">
-                        <InputLocale>{c.InputLocale}</InputLocale>
-                        <SystemLocale>{c.SystemLocale}</SystemLocale>
-                        <UILanguage>{c.UILanguage}</UILanguage>
-                        <UserLocale>{c.UserLocale}</UserLocale>
                     </component>
                 </settings>
 
