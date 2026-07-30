@@ -170,7 +170,8 @@
                                     <NumberBox Value="{x:Bind ViewModel.NewVlanId, Mode=TwoWay}"
                                                Minimum="1" Maximum="4094"
                                                SpinButtonPlacementMode="Inline"
-                                               HorizontalAlignment="Stretch"/>
+                                               Width="240"
+                                               HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Grid>
 
