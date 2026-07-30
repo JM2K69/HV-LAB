@@ -46,7 +46,7 @@ public sealed class SplashWindow : Window
         // ── Image de fond (SplashScreen.png) ──────────────────────────────────
         var bgImage = new Image
         {
-            Source  = new BitmapImage(new Uri("ms-appx:///Images/SplashScreen.png")),
+            Source  = new BitmapImage(new Uri("ms-appx:///Images/Image.png")),
             Stretch = Stretch.UniformToFill
         };
 
