@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HVLab.Models;
 using HVLab.Services;
 
 namespace HVLab.ViewModels;
@@ -31,6 +32,7 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private string computerName   = "LAB-VM";
     [ObservableProperty] private string adminPassword  = "P@ssw0rd!";
     [ObservableProperty] private string productKey     = "";
+    [ObservableProperty] private KmsKeyEntry? selectedKmsKey;
     [ObservableProperty] private string uiLanguage     = "fr-FR";
     [ObservableProperty] private string timeZone       = "Romance Standard Time";
     [ObservableProperty] private string answerFilePreview = "";
@@ -40,6 +42,14 @@ public partial class CreateVmViewModel : ObservableObject
     public string PasswordEyeGlyph => ShowPassword ? "\uED1A" : "\uE052";
 
     partial void OnShowPasswordChanged(bool value) => OnPropertyChanged(nameof(PasswordEyeGlyph));
+
+    partial void OnSelectedKmsKeyChanged(KmsKeyEntry? value)
+    {
+        if (value is not null)
+            ProductKey = value.Key;
+    }
+
+    public IReadOnlyList<KmsKeyEntry> KmsKeys { get; } = KmsKeyCatalog.All;
 
     public List<string> Languages { get; } = ["fr-FR", "en-US", "en-GB", "de-DE", "es-ES", "it-IT"];
     public List<string> TimeZones { get; } =
