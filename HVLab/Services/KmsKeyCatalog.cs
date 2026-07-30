@@ -75,4 +75,80 @@ public static class KmsKeyCatalog
     /// <summary>Returns keys grouped by OS family, sorted Server first then client.</summary>
     public static IEnumerable<IGrouping<string, KmsKeyEntry>> Grouped()
         => All.GroupBy(k => k.Group);
+
+    /// <summary>
+    /// Suggests the best matching KMS key from a BaseVhdx.OsIdentifier string.
+    /// Examples of identifiers:
+    ///   "WindowsServer2025Standard(DesktopExperience)"
+    ///   "WindowsServer2022Datacenter"
+    ///   "Windows11Pro"
+    ///   "Windows10Enterprise"
+    /// Returns null if no match found.
+    /// </summary>
+    public static KmsKeyEntry? SuggestForOs(string? osIdentifier)
+    {
+        if (string.IsNullOrWhiteSpace(osIdentifier)) return null;
+
+        // Normalize: lowercase, remove spaces/parentheses/hyphens for fuzzy matching
+        var norm = osIdentifier.ToLowerInvariant()
+                               .Replace("(", "").Replace(")", "")
+                               .Replace(" ", "").Replace("-", "");
+
+        // ── Determine OS group ───────────────────────────────────────────────
+        string? group = norm switch
+        {
+            var s when s.Contains("server2025") => "Windows Server 2025",
+            var s when s.Contains("server2022") => "Windows Server 2022",
+            var s when s.Contains("server2019") => "Windows Server 2019",
+            var s when s.Contains("server2016") => "Windows Server 2016",
+            var s when s.Contains("server2012r2") || s.Contains("server2012 r2") => "Windows Server 2012 R2",
+            var s when s.Contains("windows11") || s.Contains("win11") => "Windows 11",
+            var s when s.Contains("windows10") || s.Contains("win10") => "Windows 10",
+            _ => null
+        };
+
+        if (group is null) return null;
+
+        var candidates = All.Where(k => k.Group == group).ToList();
+
+        // ── Determine edition (priority order: most specific first) ──────────
+        string? edition = norm switch
+        {
+            var s when s.Contains("datacentercoreazure") || s.Contains("datacenterazure") => "Datacenter: Azure Edition",
+            var s when s.Contains("datacentercore") || s.Contains("datacenternano") => "Datacenter",
+            var s when s.Contains("datacenter")    => "Datacenter",
+            var s when s.Contains("standardcore") || s.Contains("standardnano") => "Standard",
+            var s when s.Contains("standard")      => "Standard",
+            var s when s.Contains("essentials")    => "Essentials",
+            var s when s.Contains("enterprise") && s.Contains("ltsc2024") => "Enterprise LTSC 2024",
+            var s when s.Contains("enterprise") && s.Contains("ltsc2021") => "Enterprise LTSC 2021",
+            var s when s.Contains("enterprise") && s.Contains("ltsc2019") => "Enterprise LTSC 2019",
+            var s when s.Contains("enterprise") && s.Contains("ltsb2016") => "Enterprise LTSB 2016",
+            var s when s.Contains("enterpriseg")   => "Enterprise G",
+            var s when s.Contains("enterprisen")   => "Enterprise N",
+            var s when s.Contains("enterprise")    => "Enterprise",
+            var s when s.Contains("proeducationn") => "Pro Education N",
+            var s when s.Contains("proeducation")  => "Pro Education",
+            var s when s.Contains("proworkstationsn") || (s.Contains("pro") && s.Contains("workstation") && s.Contains("n")) => "Pro for Workstations N",
+            var s when s.Contains("proworkstations") || (s.Contains("pro") && s.Contains("workstation")) => "Pro for Workstations",
+            var s when s.Contains("pron")          => "Pro N",
+            var s when s.Contains("pro")           => "Pro",
+            var s when s.Contains("educationn")    => "Education N",
+            var s when s.Contains("education")     => "Education",
+            var s when s.Contains("homen")         => "Home N",
+            var s when s.Contains("homesinglelanguage") => "Home Single Language",
+            var s when s.Contains("home")          => "Home",
+            _                                      => null
+        };
+
+        if (edition is not null)
+        {
+            var exact = candidates.FirstOrDefault(k =>
+                string.Equals(k.OsName, edition, StringComparison.OrdinalIgnoreCase));
+            if (exact is not null) return exact;
+        }
+
+        // Fallback: return the first candidate of the group (Standard / Pro)
+        return candidates.FirstOrDefault();
+    }
 }
