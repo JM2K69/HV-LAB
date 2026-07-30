@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 
 namespace HVLab;
-
 public sealed partial class MainWindow : Window
 {
     public LocalizationService Loc => LocalizationService.Instance;
@@ -19,6 +18,9 @@ public sealed partial class MainWindow : Window
         // ── Custom title bar ─────────────────────────────────────────────────
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
+
+        // ── Icône de l'application (barre des tâches / titre) ──────────────
+        AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Images", "AppIcon.ico"));
 
         // ── Window size ──────────────────────────────────────────────────────
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 800));
