@@ -43,21 +43,22 @@ public sealed partial class VirtualMachinesPage : Page
         }
         catch (Exception ex)
         {
-            ViewModel.Status = $"Erreur console : {ex.Message}";
+            ViewModel.Status = $"{Loc["VM_ErrConsole"]} {ex.Message}";
         }
     }
 
     private async void DeleteVm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: VirtualMachine vm }) return;
+        var loc = LocalizationService.Instance;
         var dialog = new ContentDialog
         {
-            Title = "Supprimer la VM",
-            Content = $"Supprimer définitivement « {vm.Name} » ?",
-            PrimaryButtonText = "Supprimer",
-            CloseButtonText = "Annuler",
-            DefaultButton = ContentDialogButton.Close,
-            XamlRoot = XamlRoot
+            Title             = loc["VM_DeleteTitle"],
+            Content           = $"{loc["VM_DeleteConfirm"]} \u00AB {vm.Name} \u00BB ?",
+            PrimaryButtonText = loc["VM_BtnDelete"],
+            CloseButtonText   = loc["Btn_Cancel"],
+            DefaultButton     = ContentDialogButton.Close,
+            XamlRoot          = XamlRoot
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             await ViewModel.RemoveVmAsync(vm);
