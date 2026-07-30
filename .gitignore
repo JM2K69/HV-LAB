@@ -13,6 +13,9 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+win-x64/
+win-x86/
+win-arm64/
 
 # Visual Studio
 .vs/
