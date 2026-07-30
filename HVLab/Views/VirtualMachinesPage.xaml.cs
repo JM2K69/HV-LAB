@@ -12,26 +12,41 @@ public sealed partial class VirtualMachinesPage : Page
     public VirtualMachinesViewModel ViewModel { get; } = new();
     public LocalizationService Loc => LocalizationService.Instance;
 
-    private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(8) };
+    private CancellationTokenSource? _cts;
 
     public VirtualMachinesPage()
     {
         InitializeComponent();
         LocalizationService.Instance.PropertyChanged += (_, _) => Bindings.Update();
-        _refreshTimer.Tick += async (_, _) => await ViewModel.RefreshAsync();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        _ = ViewModel.RefreshAsync();
-        _refreshTimer.Start();
+        _cts = new CancellationTokenSource();
+        _ = AutoRefreshLoopAsync(_cts.Token);
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-        _refreshTimer.Stop();
+        _cts?.Cancel();
+        _cts = null;
+    }
+
+    private async Task AutoRefreshLoopAsync(CancellationToken token)
+    {
+        // premier chargement immédiat
+        await ViewModel.RefreshAsync();
+
+        while (!token.IsCancellationRequested)
+        {
+            try { await Task.Delay(TimeSpan.FromSeconds(8), token); }
+            catch (OperationCanceledException) { break; }
+
+            if (!token.IsCancellationRequested)
+                await ViewModel.RefreshAsync();
+        }
     }
 
     private async void StartVm_Click(object sender, RoutedEventArgs e)
