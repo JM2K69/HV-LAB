@@ -12,23 +12,26 @@ public sealed partial class VirtualMachinesPage : Page
     public VirtualMachinesViewModel ViewModel { get; } = new();
     public LocalizationService Loc => LocalizationService.Instance;
 
+    private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(8) };
+
     public VirtualMachinesPage()
     {
         InitializeComponent();
         LocalizationService.Instance.PropertyChanged += (_, _) => Bindings.Update();
+        _refreshTimer.Tick += async (_, _) => await ViewModel.RefreshAsync();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
         _ = ViewModel.RefreshAsync();
-        ViewModel.StartAutoRefresh(TimeSpan.FromSeconds(8));
+        _refreshTimer.Start();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-        ViewModel.StopAutoRefresh();
+        _refreshTimer.Stop();
     }
 
     private async void StartVm_Click(object sender, RoutedEventArgs e)

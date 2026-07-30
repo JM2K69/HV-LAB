@@ -3,14 +3,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
-using Microsoft.UI.Xaml;
 
 namespace HVLab.ViewModels;
 
 public partial class VirtualMachinesViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
-    private DispatcherTimer? _autoRefreshTimer;
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
     [ObservableProperty] private bool   isLoading;
@@ -66,23 +64,7 @@ public partial class VirtualMachinesViewModel : ObservableObject
         }
     }
 
-    // ─── Auto-refresh ────────────────────────────────────────────────────────
 
-    public void StartAutoRefresh(TimeSpan interval)
-    {
-        StopAutoRefresh();
-        _autoRefreshTimer = new DispatcherTimer { Interval = interval };
-        _autoRefreshTimer.Tick += async (_, _) => await RefreshAsync();
-        _autoRefreshTimer.Start();
-    }
-
-    public void StopAutoRefresh()
-    {
-        _autoRefreshTimer?.Stop();
-        _autoRefreshTimer = null;
-    }
-
-    // ─── Actions ─────────────────────────────────────────────────────────────
 
     public async Task StartVmAsync(VirtualMachine vm)
     {
