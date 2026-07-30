@@ -1,17 +1,33 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+
 namespace HVLab.Models;
 
-public class VirtualMachine
+/// <summary>
+/// Observable so that in-place diff updates (State, Uptime…) are reflected in the UI
+/// without removing and re-adding items to the collection.
+/// </summary>
+public partial class VirtualMachine : ObservableObject
 {
-    public string Name { get; set; } = string.Empty;
-    public string State { get; set; } = string.Empty;
-    public int ProcessorCount { get; set; }
-    public long MemoryMB { get; set; }
-    public int Generation { get; set; } = 2;
-    public string SwitchName { get; set; } = string.Empty;
-    public string Uptime { get; set; } = string.Empty;
+    public string Name       { get; set; } = string.Empty;
+    public int    Generation { get; set; } = 2;
 
-    public bool IsRunning => State == "Running";
+    [ObservableProperty] private string state          = string.Empty;
+    [ObservableProperty] private int    processorCount;
+    [ObservableProperty] private long   memoryMB;
+    [ObservableProperty] private string switchName     = string.Empty;
+    [ObservableProperty] private string uptime         = string.Empty;
+
+    // ── Derived display props ─────────────────────────────────────────────
+    public bool   IsRunning     => State == "Running";
     public string MemoryDisplay => $"{MemoryMB} MB";
-    public string GenDisplay => $"Gen {Generation}";
-    public string StateIcon => IsRunning ? "▶" : "⏹";
+    public string GenDisplay    => $"Gen {Generation}";
+    public string StateIcon     => IsRunning ? "\u25B6" : "\u23F9";
+
+    partial void OnStateChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsRunning));
+        OnPropertyChanged(nameof(StateIcon));
+    }
+
+    partial void OnMemoryMBChanged(long value) => OnPropertyChanged(nameof(MemoryDisplay));
 }
