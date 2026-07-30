@@ -118,11 +118,13 @@
                                     VerticalAlignment="Center">
                             <Button Tag="{x:Bind}" Click="StartVm_Click"
                                     Width="32" Height="32" Padding="0"
+                                    IsEnabled="{x:Bind IsRunning, Converter={StaticResource BoolInverseConverter}}"
                                     ToolTipService.ToolTip="Start / Démarrer">
                                 <FontIcon Glyph="&#xE768;" FontSize="12"/>
                             </Button>
                             <Button Tag="{x:Bind}" Click="StopVm_Click"
                                     Width="32" Height="32" Padding="0"
+                                    IsEnabled="{x:Bind IsRunning}"
                                     ToolTipService.ToolTip="Stop / Arrêter">
                                 <FontIcon Glyph="&#xE71A;" FontSize="12"/>
                             </Button>
