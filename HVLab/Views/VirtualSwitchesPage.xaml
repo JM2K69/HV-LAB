@@ -197,15 +197,17 @@
                           Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                           Padding="12,6" CornerRadius="6">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="200"/>
+                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="160"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="80"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding [NAT_ColName], Source={StaticResource Loc}}"   FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="1" Text="{Binding [NAT_ColSubnet], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="2" Text="{Binding [Lbl_Status], Source={StaticResource Loc}}"    FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="0" Text="{Binding [NAT_ColName],   Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="1" Text="{Binding [NAT_ColSwitch], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="2" Text="{Binding [NAT_ColSubnet], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="{Binding [Lbl_Status],    Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="4" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
                     </Grid>
 
                     <ListView Grid.Row="1"
@@ -219,22 +221,30 @@
                             </Style>
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="models:NatNetwork">
+                                <DataTemplate x:DataType="models:NatNetwork">
                                 <Grid ColumnSpacing="8" VerticalAlignment="Center">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="180"/>
+                                        <ColumnDefinition Width="160"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="80"/>
                                         <ColumnDefinition Width="80"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{x:Bind Name}"
                                                VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Column="1"
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4"
+                                                VerticalAlignment="Center">
+                                        <FontIcon Glyph="&#xE8FD;" FontSize="11"
+                                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                        <TextBlock Text="{x:Bind SwitchName}"
+                                                   FontSize="12" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="2"
                                                Text="{x:Bind InternalIPInterfaceAddressPrefix}"
                                                VerticalAlignment="Center" FontFamily="Consolas" FontSize="12"/>
-                                    <TextBlock Grid.Column="2" Text="{x:Bind Status}"
+                                    <TextBlock Grid.Column="3" Text="{x:Bind Status}"
                                                VerticalAlignment="Center"/>
-                                    <Button Grid.Column="3" Tag="{x:Bind}" Click="RemoveNat_Click"
+                                    <Button Grid.Column="4" Tag="{x:Bind}" Click="RemoveNat_Click"
                                             Width="32" Height="32" Padding="0"
                                             ToolTipService.ToolTip="Delete / Supprimer">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
