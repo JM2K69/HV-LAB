@@ -9,6 +9,7 @@ namespace HVLab.ViewModels;
 public partial class VirtualMachinesViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
+    private CancellationTokenSource? _autoRefreshCts;
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
     [ObservableProperty] private bool   isLoading;
@@ -65,6 +66,34 @@ public partial class VirtualMachinesViewModel : ObservableObject
     }
 
 
+
+    // ─── Auto-refresh ────────────────────────────────────────────────────────
+
+    public void StartAutoRefresh(TimeSpan interval)
+    {
+        StopAutoRefresh();
+        _autoRefreshCts = new CancellationTokenSource();
+        var token = _autoRefreshCts.Token;
+        _ = Task.Run(async () =>
+        {
+            using var timer = new PeriodicTimer(interval);
+            while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
+            {
+                try { await RefreshAsync(); }
+                catch (OperationCanceledException) { break; }
+                catch { /* swallow poll errors */ }
+            }
+        }, token);
+    }
+
+    public void StopAutoRefresh()
+    {
+        _autoRefreshCts?.Cancel();
+        _autoRefreshCts?.Dispose();
+        _autoRefreshCts = null;
+    }
+
+    // ─── Actions ─────────────────────────────────────────────────────────────
 
     public async Task StartVmAsync(VirtualMachine vm)
     {
