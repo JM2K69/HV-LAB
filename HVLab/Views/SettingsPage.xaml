@@ -98,6 +98,107 @@
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,20,0,4"/>
 
+            <!-- Carte About : logo, liste de fonctionnalités localisée, auteur, copyright -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="24" Margin="0,0,0,4">
+                <StackPanel Spacing="16">
+
+                    <!-- En-tête : logo + nom + version -->
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <Image Source="ms-appx:///Images/Square150x150Logo.png"
+                               Width="64" Height="64" Stretch="Uniform"/>
+                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                            <TextBlock Text="HyperV Lab Manager" FontSize="20" FontWeight="SemiBold"/>
+                            <TextBlock Text="v1.0.0" FontSize="13"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Titre de la section fonctionnalités -->
+                    <TextBlock Text="{Binding [ABOUT_FeatTitle], Source={StaticResource Loc}}"
+                               FontSize="13" FontWeight="SemiBold"/>
+
+                    <!-- Liste à puces des fonctionnalités -->
+                    <StackPanel Spacing="6" Margin="4,0,0,0">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F1], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F2], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F3], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F4], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F5], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F6], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F7], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE915;" FontSize="10" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [ABOUT_F8], Source={StaticResource Loc}}"
+                                       FontSize="13" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Auteur GitHub -->
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon Glyph="&#xE774;" FontSize="14"/>
+                        <TextBlock VerticalAlignment="Center" FontSize="13">
+                            <Run Text="{Binding [ABOUT_Author], Source={StaticResource Loc}}"/>
+                            <Run Text=" : "/>
+                            <Hyperlink NavigateUri="https://github.com/JM2K69">
+                                <Run Text="JM2K69"/>
+                            </Hyperlink>
+                        </TextBlock>
+                    </StackPanel>
+
+                    <!-- Copyright -->
+                    <TextBlock Text="{Binding [ABOUT_Copyright], Source={StaticResource Loc}}"
+                               FontSize="12"
+                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+
+                </StackPanel>
+            </Border>
+
             <ctk:SettingsCard Header="{Binding [SET_AppName], Source={StaticResource Loc}}"
                               Description="{Binding [SET_AppDesc], Source={StaticResource Loc}}">
                 <ctk:SettingsCard.HeaderIcon>
