@@ -50,15 +50,15 @@
                 <ColumnDefinition Width="50"/>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="80"/>
-                <ColumnDefinition Width="160"/>
+                <ColumnDefinition Width="180"/>
             </Grid.ColumnDefinitions>
-            <TextBlock Grid.Column="0" Text="{Binding [VM_ColName], Source={StaticResource Loc}}"   FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="1" Text="{Binding [VM_ColState], Source={StaticResource Loc}}"  FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="2" Text="{Binding [VM_ColGen], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="3" Text="{Binding [VM_ColRAM], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="4" Text="{Binding [VM_ColCPU], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="5" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"   FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="6" Text="{Binding [VM_ColVlan], Source={StaticResource Loc}}"   FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="0" Text="{Binding [VM_ColName], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="1" Text="{Binding [VM_ColState], Source={StaticResource Loc}}"   FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="2" Text="{Binding [VM_ColGen], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="3" Text="{Binding [VM_ColRAM], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="4" Text="{Binding [VM_ColCPU], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="5" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="6" Text="{Binding [VM_ColVlan], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
             <TextBlock Grid.Column="7" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="12"/>
         </Grid>
 
@@ -85,7 +85,7 @@
                             <ColumnDefinition Width="50"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="160"/>
+                            <ColumnDefinition Width="180"/>
                         </Grid.ColumnDefinitions>
 
                         <!-- Nom -->
@@ -121,7 +121,7 @@
                                    ToolTipService.ToolTip="{x:Bind VlanInfo, Mode=OneWay}"/>
 
                         <!-- Actions -->
-                        <StackPanel Grid.Column="7"
+                        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="4"
                                     VerticalAlignment="Center">
                             <Button Tag="{x:Bind}" Click="StartVm_Click"
                                     Width="32" Height="32" Padding="0"
