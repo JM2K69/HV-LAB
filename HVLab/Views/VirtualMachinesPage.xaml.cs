@@ -22,11 +22,13 @@ public sealed partial class VirtualMachinesPage : Page
     {
         base.OnNavigatedTo(e);
         _ = ViewModel.RefreshAsync();
+        ViewModel.StartAutoRefresh(TimeSpan.FromSeconds(8));
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
+        ViewModel.StopAutoRefresh();
     }
 
     private async void StartVm_Click(object sender, RoutedEventArgs e)
