@@ -322,35 +322,35 @@ public class HyperVService
                 # Inject unattend.xml into the differencing disk before first boot
                 if ($answerFile -and (Test-Path $answerFile)) {
                     Write-Output "Injection du fichier de réponse dans le disque différentiel..."
-                    $mount = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
+                    $mount  = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
                     $diskNo = ($mount | Get-Disk).Number
+                    # Use a temp folder path instead of a drive letter to avoid triggering Windows AutoPlay / Explorer
+                    $mountPath = Join-Path $env:TEMP ("hvlab_inject_" + [System.IO.Path]::GetRandomFileName())
+                    New-Item -Path $mountPath -ItemType Directory -Force | Out-Null
                     try {
-                        # Re-query the letter until Windows assigns it (avoids stale-object race condition)
                         $deadline = (Get-Date).AddSeconds(20)
-                        $letter   = $null
                         $winPart  = $null
                         do {
-                            $parts   = Get-Partition -DiskNumber $diskNo -ErrorAction SilentlyContinue |
-                                           Where-Object { $_.Type -eq 'Basic' -and $_.Size -gt 1GB }
-                            $winPart = $parts | Select-Object -First 1
-                            if ($winPart -and -not $winPart.DriveLetter) {
-                                $winPart | Add-PartitionAccessPath -AssignDriveLetter -ErrorAction SilentlyContinue
-                            }
-                            $letter = (Get-Partition -DiskNumber $diskNo -PartitionNumber $winPart.PartitionNumber `
-                                           -ErrorAction SilentlyContinue).DriveLetter
-                            if ($letter -and $letter -ne "`0") { break }
-                            Start-Sleep -Milliseconds 500
+                            $winPart = Get-Partition -DiskNumber $diskNo -ErrorAction SilentlyContinue |
+                                           Where-Object { $_.Type -eq 'Basic' -and $_.Size -gt 1GB } |
+                                           Select-Object -First 1
+                            if ($winPart) { break }
+                            Start-Sleep -Milliseconds 400
                         } while ((Get-Date) -lt $deadline)
 
-                        if ($letter -and $letter -ne "`0") {
-                            $panther = "${letter}:\Windows\Panther"
-                            if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
-                            Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
-                            Write-Output "unattend.xml injecté dans $panther"
-                        } else {
-                            Write-Warning "Impossible d'obtenir la lettre de la partition Windows — unattend.xml non injecté"
-                        }
+                        if (-not $winPart) { throw "Partition Windows introuvable sur le disque différentiel" }
+
+                        # Mount to folder — no drive letter, no AutoPlay, no Explorer window
+                        $winPart | Add-PartitionAccessPath -AccessPath $mountPath -ErrorAction Stop
+                        Start-Sleep -Milliseconds 800   # let the filesystem settle
+
+                        $panther = Join-Path $mountPath 'Windows\Panther'
+                        if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
+                        Copy-Item -Path $answerFile -Destination (Join-Path $panther 'unattend.xml') -Force
+                        Write-Output "unattend.xml injecté dans $panther"
                     } finally {
+                        try { $winPart | Remove-PartitionAccessPath -AccessPath $mountPath -ErrorAction SilentlyContinue } catch {}
+                        try { Remove-Item $mountPath -Force -ErrorAction SilentlyContinue } catch {}
                         Dismount-DiskImage -ImagePath $diffVhd -ErrorAction SilentlyContinue | Out-Null
                     }
                 }
