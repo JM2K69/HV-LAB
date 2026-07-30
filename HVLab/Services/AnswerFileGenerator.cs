@@ -14,6 +14,8 @@ public class AnswerFileConfig
     public bool AutoLogon { get; set; } = true;
     public string RegisteredOwner { get; set; } = "HV-LAB";
     public string RegisteredOrganization { get; set; } = "HV-LAB";
+    /// <summary>Windows Server only — injects a FirstLogonCommand that builds the CBS feature cache, runs DISM cleanup, then reboots.</summary>
+    public bool BuildCbsCache { get; set; } = false;
 }
 
 public static class AnswerFileGenerator
@@ -23,6 +25,8 @@ public static class AnswerFileGenerator
         var productKey = !string.IsNullOrWhiteSpace(c.ProductKey)
             ? $"<ProductKey><Key>{X(c.ProductKey)}</Key></ProductKey>"
             : string.Empty;
+
+        var firstLogonCommands = c.BuildCbsCache ? BuildCbsCacheFirstLogonCommands() : string.Empty;
 
         var autoLogon = c.AutoLogon ? $"""
                     <AutoLogon>
@@ -91,6 +95,7 @@ public static class AnswerFileGenerator
                             </AdministratorPassword>
                         </UserAccounts>
                         {autoLogon}
+                        {firstLogonCommands}
                     </component>
                     <component name="Microsoft-Windows-International-Core"
                                processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
@@ -109,6 +114,44 @@ public static class AnswerFileGenerator
     private static string X(string v) => v
         .Replace("&", "&amp;").Replace("<", "&lt;")
         .Replace(">", "&gt;").Replace("\"", "&quot;");
+
+    private static string BuildCbsCacheFirstLogonCommands()
+    {
+        // PowerShell script displayed in a visible console window — no user interaction required.
+        // Encoded as UTF-16LE Base64 so special characters survive unattend XML embedding.
+        const string psScript = """
+            $host.UI.RawUI.WindowTitle = 'HV-LAB - Initialisation du cache CBS'
+            Write-Host ''
+            Write-Host '======================================================' -ForegroundColor Cyan
+            Write-Host '   HV-LAB : Initialisation du cache CBS Windows Server ' -ForegroundColor Cyan
+            Write-Host '======================================================' -ForegroundColor Cyan
+            Write-Host ''
+            Write-Host 'Cette operation est entierement automatique.' -ForegroundColor Yellow
+            Write-Host 'Aucune intervention de votre part n est requise.' -ForegroundColor Yellow
+            Write-Host ''
+            Write-Host '[1/4] Cache des fonctionnalites Windows (Get-WindowsFeature)...' -ForegroundColor White
+            Get-WindowsFeature | Out-Null
+            Write-Host '[2/4] Fonctionnalites optionnelles (Get-WindowsOptionalFeature)...' -ForegroundColor White
+            Get-WindowsOptionalFeature -Online | Out-Null
+            Write-Host '[3/4] Nettoyage des composants DISM (StartComponentCleanup)...' -ForegroundColor White
+            & dism.exe /Online /Cleanup-Image /StartComponentCleanup
+            Write-Host ''
+            Write-Host '[4/4] Initialisation terminee. Redemarrage dans 15 secondes...' -ForegroundColor Green
+            Start-Sleep -Seconds 15
+            Restart-Computer -Force
+            """;
+
+        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(psScript));
+        return $"""
+                    <FirstLogonCommands>
+                        <SynchronousCommand wcm:action="add">
+                            <Order>1</Order>
+                            <CommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}</CommandLine>
+                            <Description>HV-LAB CBS Cache Init</Description>
+                        </SynchronousCommand>
+                    </FirstLogonCommands>
+            """;
+    }
 
     public static string GetInputLocale(string lang) => lang switch
     {

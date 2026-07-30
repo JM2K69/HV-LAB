@@ -34,6 +34,7 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private string uiLanguage     = "fr-FR";
     [ObservableProperty] private string timeZone       = "Romance Standard Time";
     [ObservableProperty] private string answerFilePreview = "";
+    [ObservableProperty] private bool   buildCbsCache    = false;
 
     public List<string> Languages { get; } = ["fr-FR", "en-US", "en-GB", "de-DE", "es-ES", "it-IT"];
     public List<string> TimeZones { get; } =
@@ -131,6 +132,7 @@ public partial class CreateVmViewModel : ObservableObject
         UserLocale    = UiLanguage,
         TimeZone      = TimeZone,
         ImageIndex    = 1,
+        BuildCbsCache = BuildCbsCache,
     };
 }
 

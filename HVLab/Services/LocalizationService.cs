@@ -190,6 +190,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["CVM_UpdatePreview"]= "Mettre à jour l'aperçu",
         ["CVM_BtnCreate"]    = "Créer la VM",
         ["CVM_BtnReload"]    = "Recharger",
+        ["CVM_BuildCbsCache"]= "Initialiser le cache CBS des fonctionnalités (Windows Server uniquement)",
 
         // ── Settings ────────────────────────────────────────────────────────
         ["SET_Title"]        = "Paramètres",
@@ -350,6 +351,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["CVM_UpdatePreview"]= "Update preview",
         ["CVM_BtnCreate"]    = "Create VM",
         ["CVM_BtnReload"]    = "Reload",
+        ["CVM_BuildCbsCache"]= "Build CBS feature cache on first boot (Windows Server only)",
 
         // ── Settings ────────────────────────────────────────────────────────
         ["SET_Title"]        = "Settings",

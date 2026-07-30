@@ -162,6 +162,11 @@
                     <ToggleSwitch Header="{Binding [CVM_UseAnswer], Source={StaticResource Loc}}"
                                   IsOn="{x:Bind ViewModel.UseAnswerFile, Mode=TwoWay}"/>
 
+                    <ToggleSwitch Header="{Binding [CVM_BuildCbsCache], Source={StaticResource Loc}}"
+                                  IsOn="{x:Bind ViewModel.BuildCbsCache, Mode=TwoWay}"
+                                  Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                     <StackPanel Spacing="12"
                                 Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
                                               Converter={StaticResource BoolToVisibilityConverter}}">
