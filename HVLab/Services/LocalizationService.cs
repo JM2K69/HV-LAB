@@ -191,6 +191,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["CVM_BtnCreate"]    = "Créer la VM",
         ["CVM_BtnReload"]    = "Recharger",
         ["CVM_BuildCbsCache"]= "Initialiser le cache CBS des fonctionnalités (Windows Server uniquement)",
+        ["CVM_ShowPwd"]      = "Afficher / masquer le mot de passe",
 
         // ── Settings ────────────────────────────────────────────────────────
         ["SET_Title"]        = "Paramètres",
@@ -352,6 +353,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["CVM_BtnCreate"]    = "Create VM",
         ["CVM_BtnReload"]    = "Reload",
         ["CVM_BuildCbsCache"]= "Build CBS feature cache on first boot (Windows Server only)",
+        ["CVM_ShowPwd"]      = "Show / hide password",
 
         // ── Settings ────────────────────────────────────────────────────────
         ["SET_Title"]        = "Settings",
