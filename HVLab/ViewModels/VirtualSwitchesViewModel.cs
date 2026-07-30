@@ -70,77 +70,77 @@ public partial class VirtualSwitchesViewModel : ObservableObject
             NetworkAdapters.Clear();
             foreach (var a in adapters) NetworkAdapters.Add(a);
 
-            Status = $"{switches.Count} commutateur(s), {nats.Count} réseau(x) NAT";
+            Status = string.Format(LocalizationService.Instance["SW_Summary"], switches.Count, nats.Count);
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); }
         finally { IsLoading = false; }
     }
 
     [RelayCommand]
     public async Task CreateSwitchAsync()
     {
-        if (string.IsNullOrWhiteSpace(NewSwitchName)) { Status = "Saisissez un nom."; return; }
+        if (string.IsNullOrWhiteSpace(NewSwitchName)) { Status = LocalizationService.Instance["SW_ErrNoName"]; return; }
         IsLoading = true;
-        Status = $"Création du commutateur '{NewSwitchName}'…";
+        Status = string.Format(LocalizationService.Instance["SW_CreatingSwitch"], NewSwitchName);
         try
         {
             switch (NewSwitchType)
             {
                 case "External":
                     if (SelectedNetAdapter is null)
-                        throw new InvalidOperationException("Sélectionnez un adaptateur réseau.");
+                        throw new InvalidOperationException(LocalizationService.Instance["SW_ErrNoAdapter"]);
                     await _hvService.CreateExternalSwitchAsync(NewSwitchName, SelectedNetAdapter.Name, EnableVlan ? NewVlanId : 0);
                     break;
                 case "Internal": await _hvService.CreateInternalSwitchAsync(NewSwitchName, EnableVlan ? NewVlanId : 0); break;
                 default:         await _hvService.CreatePrivateSwitchAsync(NewSwitchName);  break;
             }
             NewSwitchName = "";
-            Status = "Commutateur créé avec succès.";
+            Status = LocalizationService.Instance["SW_CreatedSwitch"];
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; IsLoading = false; }
+        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
     }
 
     public async Task RemoveSwitchAsync(VirtualSwitch sw)
     {
         IsLoading = true;
-        Status = $"Suppression de '{sw.Name}'…";
+        Status = string.Format(LocalizationService.Instance["SW_DeletingSwitch"], sw.Name);
         try
         {
             await _hvService.RemoveVSwitchAsync(sw.Name);
-            Status = $"Commutateur '{sw.Name}' supprimé.";
+            Status = string.Format(LocalizationService.Instance["SW_DeletedSwitch"], sw.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; IsLoading = false; }
+        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
     }
 
     [RelayCommand]
     public async Task CreateNatAsync()
     {
         if (string.IsNullOrWhiteSpace(NewNatName) || string.IsNullOrWhiteSpace(SelectedNatSwitch))
-        { Status = "Saisissez un nom NAT et sélectionnez un commutateur interne."; return; }
+        { Status = LocalizationService.Instance["SW_ErrNoNat"]; return; }
         IsLoading = true;
-        Status = $"Création du réseau NAT '{NewNatName}'…";
+        Status = string.Format(LocalizationService.Instance["SW_CreatingNat"], NewNatName);
         try
         {
             await _natService.CreateNatNetworkAsync(SelectedNatSwitch, NewNatName, NatGatewayIP, NatPrefixLength);
             NewNatName = "";
-            Status = "Réseau NAT créé avec succès.";
+            Status = LocalizationService.Instance["SW_CreatedNat"];
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; IsLoading = false; }
+        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
     }
 
     public async Task RemoveNatAsync(NatNetwork nat)
     {
         IsLoading = true;
-        Status = $"Suppression du NAT '{nat.Name}'…";
+        Status = string.Format(LocalizationService.Instance["SW_DeletingNat"], nat.Name);
         try
         {
             await _natService.RemoveNatNetworkAsync(nat.Name);
-            Status = $"NAT '{nat.Name}' supprimé.";
+            Status = string.Format(LocalizationService.Instance["SW_DeletedNat"], nat.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; IsLoading = false; }
+        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
     }
 }
