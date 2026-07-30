@@ -132,7 +132,7 @@
                                     Width="32" Height="32" Padding="0"
                                     IsEnabled="{x:Bind IsRunning}"
                                     ToolTipService.ToolTip="Console VM">
-                                <FontIcon Glyph="&#xE7C8;" FontSize="12"/>
+                                <FontIcon Glyph="&#xE8A7;" FontSize="12"/>
                             </Button>
                             <Button Tag="{x:Bind}" Click="DeleteVm_Click"
                                     Width="32" Height="32" Padding="0"
