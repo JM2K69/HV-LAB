@@ -101,18 +101,18 @@
                         <Border Grid.Column="1" CornerRadius="12"
                                 HorizontalAlignment="Left" Padding="10,3"
                                 VerticalAlignment="Center"
-                                Background="{x:Bind State, Converter={StaticResource StateToColorConverter}}">
-                            <TextBlock Text="{x:Bind State}" FontSize="11" FontWeight="SemiBold"
+                                Background="{x:Bind State, Mode=OneWay, Converter={StaticResource StateToColorConverter}}">
+                            <TextBlock Text="{x:Bind State, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"
                                        Foreground="White"/>
                         </Border>
 
                         <TextBlock Grid.Column="2" Text="{x:Bind GenDisplay}"
                                    VerticalAlignment="Center" FontSize="13"/>
-                        <TextBlock Grid.Column="3" Text="{x:Bind MemoryDisplay}"
+                        <TextBlock Grid.Column="3" Text="{x:Bind MemoryDisplay, Mode=OneWay}"
                                    VerticalAlignment="Center" FontSize="13"/>
-                        <TextBlock Grid.Column="4" Text="{x:Bind ProcessorCount}"
+                        <TextBlock Grid.Column="4" Text="{x:Bind ProcessorCount, Mode=OneWay}"
                                    VerticalAlignment="Center" FontSize="13"/>
-                        <TextBlock Grid.Column="5" Text="{x:Bind SwitchName}"
+                        <TextBlock Grid.Column="5" Text="{x:Bind SwitchName, Mode=OneWay}"
                                    VerticalAlignment="Center" FontSize="13"
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock Grid.Column="6" Text="{x:Bind VlanInfo, Mode=OneWay}"
@@ -125,19 +125,19 @@
                                     VerticalAlignment="Center">
                             <Button Tag="{x:Bind}" Click="StartVm_Click"
                                     Width="32" Height="32" Padding="0"
-                                    IsEnabled="{x:Bind IsRunning, Converter={StaticResource BoolInverseConverter}}"
+                                    IsEnabled="{x:Bind IsRunning, Mode=OneWay, Converter={StaticResource BoolInverseConverter}}"
                                     ToolTipService.ToolTip="Start / Démarrer">
                                 <FontIcon Glyph="&#xE768;" FontSize="12"/>
                             </Button>
                             <Button Tag="{x:Bind}" Click="StopVm_Click"
                                     Width="32" Height="32" Padding="0"
-                                    IsEnabled="{x:Bind IsRunning}"
+                                    IsEnabled="{x:Bind IsRunning, Mode=OneWay}"
                                     ToolTipService.ToolTip="Stop / Arrêter">
                                 <FontIcon Glyph="&#xE71A;" FontSize="12"/>
                             </Button>
                             <Button Tag="{x:Bind}" Click="ConnectVm_Click"
                                     Width="32" Height="32" Padding="0"
-                                    IsEnabled="{x:Bind IsRunning}"
+                                    IsEnabled="{x:Bind IsRunning, Mode=OneWay}"
                                     ToolTipService.ToolTip="Console VM">
                                 <FontIcon Glyph="&#xE8A7;" FontSize="12"/>
                             </Button>

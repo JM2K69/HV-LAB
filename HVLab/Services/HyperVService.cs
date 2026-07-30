@@ -122,15 +122,23 @@ public class HyperVService
     }
 
     public async Task StartVMAsync(string name)
-        => await RunScriptAsync($"""
+        => await RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            Start-VM -Name '{Esc(name)}' -ErrorAction Stop
+            Start-VM -Name '{{Esc(name)}}' -ErrorAction Stop
+            $i = 0
+            while ((Get-VM -Name '{{Esc(name)}}').State -ne 'Running' -and $i -lt 30) {
+                Start-Sleep -Milliseconds 500; $i++
+            }
             """);
 
     public async Task StopVMAsync(string name)
-        => await RunScriptAsync($"""
+        => await RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            Stop-VM -Name '{Esc(name)}' -Force -ErrorAction Stop
+            Stop-VM -Name '{{Esc(name)}}' -Force -ErrorAction Stop
+            $i = 0
+            while ((Get-VM -Name '{{Esc(name)}}').State -ne 'Off' -and $i -lt 30) {
+                Start-Sleep -Milliseconds 500; $i++
+            }
             """);
 
     public async Task RemoveVMAsync(string name)
