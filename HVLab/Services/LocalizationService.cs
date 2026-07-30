@@ -61,6 +61,8 @@ public sealed class LocalizationService : INotifyPropertyChanged
     {
         // ── Navigation ──────────────────────────────────────────────────────
         ["Nav_Dashboard"]    = "Tableau de bord",
+        ["Splash_LoadingHyperV"] = "Connexion à Hyper-V\u2026",
+        ["Splash_Starting"]      = "Démarrage de l'application\u2026",
         ["Nav_VMs"]          = "Machines Virtuelles",
         ["Nav_Switches"]     = "Commutateurs & NAT",
         ["Nav_BaseVhdx"]     = "Images de base VHDX",
@@ -256,6 +258,8 @@ public sealed class LocalizationService : INotifyPropertyChanged
     {
         // ── Navigation ──────────────────────────────────────────────────────
         ["Nav_Dashboard"]    = "Dashboard",
+        ["Splash_LoadingHyperV"] = "Connecting to Hyper-V\u2026",
+        ["Splash_Starting"]      = "Starting application\u2026",
         ["Nav_VMs"]          = "Virtual Machines",
         ["Nav_Switches"]     = "Switch & NAT",
         ["Nav_BaseVhdx"]     = "Base VHDX Images",

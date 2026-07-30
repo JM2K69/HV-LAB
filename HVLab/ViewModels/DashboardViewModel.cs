@@ -26,15 +26,30 @@ public partial class DashboardViewModel : ObservableObject
         ShowHyperVWarning = false;
         try
         {
-            var vms = await _hvService.GetVirtualMachinesAsync();
+            List<HVLab.Models.VirtualMachine> vms;
+            List<HVLab.Models.VirtualSwitch>  switches;
+            List<HVLab.Models.BaseVhdx>       images;
+
+            var cache = HVLab.Services.AppStartupCache.Instance;
+            if (cache.IsReady)
+            {
+                // Utiliser les données pré-chargées au démarrage (évite un double appel Hyper-V)
+                vms      = cache.VirtualMachines;
+                switches = cache.VirtualSwitches;
+                images   = cache.BaseVhdxImages;
+                if (cache.Error is not null) throw cache.Error;
+            }
+            else
+            {
+                vms      = await _hvService.GetVirtualMachinesAsync();
+                switches = await _hvService.GetVirtualSwitchesAsync();
+                images   = await _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
+            }
+
             RunningVmCount = vms.Count(v => v.IsRunning);
             StoppedVmCount = vms.Count(v => !v.IsRunning);
-
-            var switches = await _hvService.GetVirtualSwitchesAsync();
-            SwitchCount = switches.Count;
-
-            var images = await _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
-            BaseVhdxCount = images.Count;
+            SwitchCount    = switches.Count;
+            BaseVhdxCount  = images.Count;
 
             Status = $"Actualisé à {DateTime.Now:HH:mm:ss}";
         }
