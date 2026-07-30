@@ -34,6 +34,19 @@ public sealed partial class VirtualMachinesPage : Page
         if (sender is Button { Tag: VirtualMachine vm }) await ViewModel.StopVmAsync(vm);
     }
 
+    private void ConnectVm_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: VirtualMachine vm }) return;
+        try
+        {
+            HyperVService.ConnectToVMConsole(vm.Name);
+        }
+        catch (Exception ex)
+        {
+            ViewModel.Status = $"Erreur console : {ex.Message}";
+        }
+    }
+
     private async void DeleteVm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: VirtualMachine vm }) return;

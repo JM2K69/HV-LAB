@@ -49,7 +49,7 @@
                 <ColumnDefinition Width="80"/>
                 <ColumnDefinition Width="50"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="120"/>
+                <ColumnDefinition Width="160"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding [VM_ColName], Source={StaticResource Loc}}"   FontWeight="SemiBold" FontSize="12"/>
             <TextBlock Grid.Column="1" Text="{Binding [VM_ColState], Source={StaticResource Loc}}"  FontWeight="SemiBold" FontSize="12"/>
@@ -82,7 +82,7 @@
                             <ColumnDefinition Width="80"/>
                             <ColumnDefinition Width="50"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="160"/>
                         </Grid.ColumnDefinitions>
 
                         <!-- Nom -->
@@ -127,6 +127,12 @@
                                     IsEnabled="{x:Bind IsRunning}"
                                     ToolTipService.ToolTip="Stop / Arrêter">
                                 <FontIcon Glyph="&#xE71A;" FontSize="12"/>
+                            </Button>
+                            <Button Tag="{x:Bind}" Click="ConnectVm_Click"
+                                    Width="32" Height="32" Padding="0"
+                                    IsEnabled="{x:Bind IsRunning}"
+                                    ToolTipService.ToolTip="Console VM">
+                                <FontIcon Glyph="&#xE7C8;" FontSize="12"/>
                             </Button>
                             <Button Tag="{x:Bind}" Click="DeleteVm_Click"
                                     Width="32" Height="32" Padding="0"
