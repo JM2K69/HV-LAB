@@ -24,14 +24,14 @@ public sealed partial class BaseVhdxPage : Page
     private void BrowseWim_Click(object sender, RoutedEventArgs e)
     {
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        var file = Win32FolderPicker.PickFile(hwnd, "Sélectionner un fichier WIM ou ESD");
+        var file = Win32FolderPicker.PickFile(hwnd, Loc["Browse_WimTitle"]);
         if (file is not null) ViewModel.WimPath = file;
     }
 
     private void BrowseBaseFolder_Click(object sender, RoutedEventArgs e)
     {
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier de destination des images de base");
+        var folder = Win32FolderPicker.Pick(hwnd, Loc["Browse_BaseFolderTitle"]);
         if (folder is not null) ViewModel.BaseFolder = folder;
     }
 

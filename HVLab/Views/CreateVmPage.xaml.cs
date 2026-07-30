@@ -23,7 +23,7 @@ public sealed partial class CreateVmPage : Page
     private void BrowseVmFolder_Click(object sender, RoutedEventArgs e)
     {
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier des machines virtuelles");
+        var folder = Win32FolderPicker.Pick(hwnd, Loc["Browse_VmFolderTitle"]);
         if (folder is not null) ViewModel.VmFolder = folder;
     }
 

@@ -97,7 +97,7 @@
                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     <Button Grid.Column="4" Tag="{x:Bind}" Click="RemoveSwitch_Click"
                                             Width="32" Height="32" Padding="0"
-                                            ToolTipService.ToolTip="Delete / Supprimer">
+                                            ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
                                     </Button>
                                 </Grid>
@@ -117,7 +117,7 @@
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [SW_NameLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                     <TextBox Text="{x:Bind ViewModel.NewSwitchName, Mode=TwoWay}"
-                                             PlaceholderText="Ex. : NAT-Switch"/>
+                                             PlaceholderText="{Binding [SW_PlaceholderName], Source={StaticResource Loc}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [SW_TypeLabel], Source={StaticResource Loc}}" FontSize="12"/>
@@ -246,7 +246,7 @@
                                                VerticalAlignment="Center"/>
                                     <Button Grid.Column="4" Tag="{x:Bind}" Click="RemoveNat_Click"
                                             Width="32" Height="32" Padding="0"
-                                            ToolTipService.ToolTip="Delete / Supprimer">
+                                            ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
                                     </Button>
                                 </Grid>
@@ -259,8 +259,8 @@
                               HorizontalContentAlignment="Stretch">
                         <StackPanel Spacing="10" Padding="0,8,0,4">
                             <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
-                                     Title="Prérequis / Prerequisites"
-                                     Message="Un commutateur Internal doit exister. / An Internal switch must exist first."/>
+                                     Title="{Binding [NAT_InfoTitle], Source={StaticResource Loc}}"
+                                     Message="{Binding [NAT_InfoMsg], Source={StaticResource Loc}}"/>
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -269,14 +269,14 @@
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [NAT_NameLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                     <TextBox Text="{x:Bind ViewModel.NewNatName, Mode=TwoWay}"
-                                             PlaceholderText="Ex. : NAT-192.168.100"/>
+                                             PlaceholderText="{Binding [NAT_PlaceholderName], Source={StaticResource Loc}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
-                                    <TextBlock Text="Internal switch" FontSize="12"/>
+                                    <TextBlock Text="{Binding [NAT_InternalSwitch], Source={StaticResource Loc}}" FontSize="12"/>
                                     <ComboBox ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
                                               SelectedItem="{x:Bind ViewModel.SelectedNatSwitch, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch"
-                                              PlaceholderText="Select…"/>
+                                              PlaceholderText="{Binding [NAT_SelectSwitch], Source={StaticResource Loc}}"/>
                                 </StackPanel>
                             </Grid>
                             <Grid ColumnSpacing="12">
@@ -285,12 +285,12 @@
                                     <ColumnDefinition Width="120"/>
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
-                                    <TextBlock Text="Gateway IP" FontSize="12"/>
+                                    <TextBlock Text="{Binding [NAT_GatewayIP], Source={StaticResource Loc}}" FontSize="12"/>
                                     <TextBox Text="{x:Bind ViewModel.NatGatewayIP, Mode=TwoWay}"
                                              PlaceholderText="192.168.100.1"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
-                                    <TextBlock Text="Prefix (/)" FontSize="12"/>
+                                    <TextBlock Text="{Binding [NAT_Prefix], Source={StaticResource Loc}}" FontSize="12"/>
                                     <NumberBox Value="{x:Bind ViewModel.NatPrefixLength, Mode=TwoWay}"
                                                Minimum="8" Maximum="30" SpinButtonPlacementMode="Inline"/>
                                 </StackPanel>

@@ -7,5 +7,5 @@ public class NatNetwork
     public bool   Active     { get; set; }
     public string SwitchName { get; set; } = string.Empty;
 
-    public string Status => Active ? "Actif" : "Inactif";
+    public string Status => Services.LocalizationService.Instance[Active ? "Status_Active" : "Status_Inactive"];
 }
