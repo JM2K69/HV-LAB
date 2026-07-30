@@ -54,12 +54,14 @@
                             <ColumnDefinition Width="200"/>
                             <ColumnDefinition Width="100"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="70"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
                         <TextBlock Grid.Column="1" Text="{Binding [SW_ColType], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
                         <TextBlock Grid.Column="2" Text="{Binding [SW_ColAdapters], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
-                        <TextBlock Grid.Column="3" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}"  FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="3" Text="{Binding [SW_ColVlan], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
+                        <TextBlock Grid.Column="4" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}"  FontWeight="SemiBold"/>
                     </Grid>
 
                     <!-- Switch list -->
@@ -80,6 +82,7 @@
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="100"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="70"/>
                                         <ColumnDefinition Width="80"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{x:Bind Name}"
@@ -89,7 +92,10 @@
                                                VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="{x:Bind NetAdapterName}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
-                                    <Button Grid.Column="3" Tag="{x:Bind}" Click="RemoveSwitch_Click"
+                                    <TextBlock Grid.Column="3" Text="{x:Bind VlanDisplay}"
+                                               VerticalAlignment="Center" FontFamily="Consolas" FontSize="12"
+                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                    <Button Grid.Column="4" Tag="{x:Bind}" Click="RemoveSwitch_Click"
                                             Width="32" Height="32" Padding="0"
                                             ToolTipService.ToolTip="Delete / Supprimer">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
@@ -124,12 +130,46 @@
                             <StackPanel Spacing="4"
                                         Visibility="{x:Bind ViewModel.IsExternalSwitch, Mode=OneWay,
                                                       Converter={StaticResource BoolToVisibilityConverter}}">
-                                <TextBlock Text="Physical network adapter" FontSize="12"/>
+                                <TextBlock Text="{Binding [SW_AdapterLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                 <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
                                           SelectedItem="{x:Bind ViewModel.SelectedNetAdapter, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"
-                                          PlaceholderText="Select adapter…"/>
+                                          PlaceholderText="{Binding [SW_AdapterPlaceholder], Source={StaticResource Loc}}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:NetworkAdapterInfo">
+                                            <StackPanel Spacing="2" Padding="0,4">
+                                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13"/>
+                                                <TextBlock Text="{x:Bind Description}" FontSize="11"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{x:Bind MacAddress}" FontFamily="Consolas" FontSize="11"
+                                                           Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
                             </StackPanel>
+
+                            <!-- VLAN -->
+                            <Grid ColumnSpacing="12"
+                                  Visibility="{x:Bind ViewModel.IsNotPrivateSwitch, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="120"/>
+                                </Grid.ColumnDefinitions>
+                                <ToggleSwitch Grid.Column="0"
+                                             Header="{Binding [SW_VlanEnable], Source={StaticResource Loc}}"
+                                             IsOn="{x:Bind ViewModel.EnableVlan, Mode=TwoWay}"/>
+                                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom"
+                                            Visibility="{x:Bind ViewModel.IsVlanVisible, Mode=OneWay,
+                                                          Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="{Binding [SW_VlanId], Source={StaticResource Loc}}" FontSize="12"/>
+                                    <NumberBox Value="{x:Bind ViewModel.NewVlanId, Mode=TwoWay}"
+                                               Minimum="1" Maximum="4094"
+                                               SpinButtonPlacementMode="Inline"/>
+                                </StackPanel>
+                            </Grid>
 
                             <Button Content="{Binding [SW_BtnCreate], Source={StaticResource Loc}}"
                                     Command="{x:Bind ViewModel.CreateSwitchCommand}"

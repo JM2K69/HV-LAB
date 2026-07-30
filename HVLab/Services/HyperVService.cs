@@ -128,12 +128,18 @@ public class HyperVService
             try {
                 Import-Module Hyper-V -ErrorAction Stop
                 $switches = @(Get-VMSwitch -ErrorAction Stop | ForEach-Object {
+                    $vlan = 0
+                    try {
+                        $vna = Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $_.Name -ErrorAction SilentlyContinue
+                        if ($vna -and $vna.OperationMode -eq 'Access') { $vlan = $vna.AccessVlanId }
+                    } catch {}
                     [PSCustomObject]@{
                         Name              = $_.Name
                         SwitchType        = $_.SwitchType.ToString()
                         Notes             = if ($_.Notes) { $_.Notes } else { '' }
                         NetAdapterName    = if ($_.NetAdapterName) { $_.NetAdapterName } else { '' }
                         AllowManagementOS = $_.AllowManagementOS
+                        VlanId            = $vlan
                     }
                 })
                 if ($switches.Count -gt 0) { ConvertTo-Json -InputObject $switches -Depth 2 } else { '[]' }
@@ -161,19 +167,38 @@ public class HyperVService
                     Notes             = GetStr(el, "Notes"),
                     NetAdapterName    = GetStr(el, "NetAdapterName"),
                     AllowManagementOS = el.TryGetProperty("AllowManagementOS", out var v) && v.GetBoolean(),
+                    VlanId            = GetInt(el, "VlanId", 0),
                 });
         }
         catch { }
         return result;
     }
 
-    public async Task CreateExternalSwitchAsync(string name, string netAdapter)
-        => await RunScriptAsync(
-            $"New-VMSwitch -Name '{Esc(name)}' -NetAdapterName '{Esc(netAdapter)}' -AllowManagementOS $true -ErrorAction Stop");
+    public async Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0)
+    {
+        var vlanScript = vlanId > 0
+            ? $"Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName '{Esc(name)}' -Access -VlanId {vlanId} -ErrorAction Stop"
+            : string.Empty;
+        var script = $$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            New-VMSwitch -Name '{{Esc(name)}}' -NetAdapterName '{{Esc(netAdapter)}}' -AllowManagementOS $true -ErrorAction Stop
+            {{vlanScript}}
+            """;
+        await RunScriptAsync(script);
+    }
 
-    public async Task CreateInternalSwitchAsync(string name)
-        => await RunScriptAsync(
-            $"New-VMSwitch -Name '{Esc(name)}' -SwitchType Internal -ErrorAction Stop");
+    public async Task CreateInternalSwitchAsync(string name, int vlanId = 0)
+    {
+        var vlanScript = vlanId > 0
+            ? $"Set-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName '{Esc(name)}' -Access -VlanId {vlanId} -ErrorAction Stop"
+            : string.Empty;
+        var script = $$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            New-VMSwitch -Name '{{Esc(name)}}' -SwitchType Internal -ErrorAction Stop
+            {{vlanScript}}
+            """;
+        await RunScriptAsync(script);
+    }
 
     public async Task CreatePrivateSwitchAsync(string name)
         => await RunScriptAsync(
@@ -185,29 +210,41 @@ public class HyperVService
 
     // ─── Network Adapters ───────────────────────────────────────────────────
 
-    public async Task<List<string>> GetNetworkAdaptersAsync()
+    public async Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync()
     {
         const string script = """
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             try {
-                $names = @(Get-NetAdapter -ErrorAction Stop | Where-Object { $_.Status -eq 'Up' } | Select-Object -ExpandProperty Name)
-                if ($names.Count -gt 0) { ConvertTo-Json -InputObject $names } else { '[]' }
+                $adapters = @(Get-NetAdapter -ErrorAction Stop | Where-Object { $_.Status -eq 'Up' } | ForEach-Object {
+                    [PSCustomObject]@{
+                        Name        = $_.Name
+                        Description = $_.InterfaceDescription
+                        MacAddress  = $_.MacAddress
+                        Status      = $_.Status
+                    }
+                })
+                if ($adapters.Count -gt 0) { ConvertTo-Json -InputObject $adapters -Depth 2 } else { '[]' }
             } catch {
                 Write-Error $_.Exception.Message
                 exit 1
             }
             """;
         var output = await RunScriptAsync(script);
-        var result = new List<string>();
+        var result = new List<NetworkAdapterInfo>();
         if (string.IsNullOrWhiteSpace(output)) return result;
         try
         {
-            var doc = JsonDocument.Parse(output.Trim());
+            var json = output.Trim();
+            if (json.StartsWith('{')) json = $"[{json}]";
+            var doc = JsonDocument.Parse(json);
             foreach (var el in doc.RootElement.EnumerateArray())
-            {
-                var n = el.GetString();
-                if (!string.IsNullOrEmpty(n)) result.Add(n);
-            }
+                result.Add(new NetworkAdapterInfo
+                {
+                    Name        = GetStr(el, "Name"),
+                    Description = GetStr(el, "Description"),
+                    MacAddress  = GetStr(el, "MacAddress"),
+                    Status      = GetStr(el, "Status"),
+                });
         }
         catch { }
         return result;
