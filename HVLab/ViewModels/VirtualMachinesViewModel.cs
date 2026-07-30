@@ -52,14 +52,15 @@ public partial class VirtualMachinesViewModel : ObservableObject
             }
             else if (existing.State != f.State ||
                      existing.Uptime != f.Uptime ||
-                     existing.MemoryMB != f.MemoryMB)
+                     existing.MemoryMB != f.MemoryMB ||
+                     existing.VlanInfo != f.VlanInfo)
             {
-                // Update only changed fields to avoid full item redraw
                 existing.State          = f.State;
                 existing.Uptime         = f.Uptime;
                 existing.MemoryMB       = f.MemoryMB;
                 existing.ProcessorCount = f.ProcessorCount;
                 existing.SwitchName     = f.SwitchName;
+                existing.VlanInfo       = f.VlanInfo;
             }
         }
     }
