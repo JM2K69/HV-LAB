@@ -128,7 +128,30 @@ public class HyperVService
             Remove-VM -Name '{Esc(name)}' -Force -ErrorAction Stop
             """);
 
-    // ─── Virtual Switches ───────────────────────────────────────────────────
+    /// <summary>
+    /// Opens the Hyper-V VM Connect window (vmconnect.exe) for the specified VM.
+    /// Equivalent to double-clicking the VM in Hyper-V Manager.
+    /// </summary>
+    public static void ConnectToVMConsole(string name)
+    {
+        var vmconnect = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.System),
+            "vmconnect.exe");
+
+        if (!File.Exists(vmconnect))
+            throw new InvalidOperationException(
+                "vmconnect.exe introuvable. Assurez-vous que le rôle Hyper-V est installé.");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName        = vmconnect,
+            Arguments       = $"localhost \"{name.Replace("\"", "\\\"")}\"",
+            UseShellExecute = false,
+        };
+        Process.Start(psi);
+    }
+
+    // ─── Virtual Switches
 
     public async Task<List<VirtualSwitch>> GetVirtualSwitchesAsync()
     {
