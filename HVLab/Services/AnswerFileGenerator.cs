@@ -1,5 +1,7 @@
 namespace HVLab.Services;
 
+public enum OsFamily { Server, Client }
+
 public class AnswerFileConfig
 {
     public string ComputerName { get; set; } = "LAB-VM";
@@ -16,6 +18,8 @@ public class AnswerFileConfig
     public string RegisteredOrganization { get; set; } = "HV-LAB";
     /// <summary>Windows Server only — injects a FirstLogonCommand that builds the CBS feature cache, runs DISM cleanup, then reboots.</summary>
     public bool BuildCbsCache { get; set; } = false;
+    /// <summary>Controls which OOBE elements are emitted. Server omits client-only nodes.</summary>
+    public OsFamily OsFamily { get; set; } = OsFamily.Server;
 }
 
 public static class AnswerFileGenerator
@@ -38,9 +42,53 @@ public static class AnswerFileGenerator
                     </AutoLogon>
             """ : string.Empty;
 
+        // OOBE block: client OS has extra nodes not present on Windows Server
+        var oobeBlock = c.OsFamily == OsFamily.Client
+            ? """
+                        <OOBE>
+                            <HideEULAPage>true</HideEULAPage>
+                            <HideLocalAccountSetupPage>true</HideLocalAccountSetupPage>
+                            <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                            <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+                            <SkipUserOOBE>true</SkipUserOOBE>
+                            <SkipMachineOOBE>true</SkipMachineOOBE>
+                            <ProtectYourPC>3</ProtectYourPC>
+                        </OOBE>
+              """
+            : """
+                        <OOBE>
+                            <HideEULAPage>true</HideEULAPage>
+                            <ProtectYourPC>3</ProtectYourPC>
+                        </OOBE>
+              """;
+
+        // AutoLogon on client uses a local user account; on Server Administrator is built-in
+        var userAccounts = c.OsFamily == OsFamily.Client
+            ? $"""
+                        <UserAccounts>
+                            <LocalAccounts>
+                                <LocalAccount wcm:action="add">
+                                    <Password><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></Password>
+                                    <DisplayName>Administrator</DisplayName>
+                                    <Group>Administrators</Group>
+                                    <Name>Administrator</Name>
+                                </LocalAccount>
+                            </LocalAccounts>
+                        </UserAccounts>
+              """
+            : $"""
+                        <UserAccounts>
+                            <AdministratorPassword>
+                                <Value>{X(c.AdminPassword)}</Value>
+                                <PlainText>true</PlainText>
+                            </AdministratorPassword>
+                        </UserAccounts>
+              """;
+
         return $"""
             <?xml version="1.0" encoding="utf-8"?>
-            <unattend xmlns="urn:schemas-microsoft-com:unattend">
+            <unattend xmlns="urn:schemas-microsoft-com:unattend"
+                      xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
 
                 <settings pass="specialize">
                     <component name="Microsoft-Windows-Shell-Setup"
@@ -66,16 +114,8 @@ public static class AnswerFileGenerator
                     <component name="Microsoft-Windows-Shell-Setup"
                                processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
                                language="neutral" versionScope="nonSxS">
-                        <OOBE>
-                            <HideEULAPage>true</HideEULAPage>
-                            <ProtectYourPC>3</ProtectYourPC>
-                        </OOBE>
-                        <UserAccounts>
-                            <AdministratorPassword>
-                                <Value>{X(c.AdminPassword)}</Value>
-                                <PlainText>true</PlainText>
-                            </AdministratorPassword>
-                        </UserAccounts>
+                        {oobeBlock}
+                        {userAccounts}
                         {autoLogon}
                         {firstLogonCommands}
                     </component>
