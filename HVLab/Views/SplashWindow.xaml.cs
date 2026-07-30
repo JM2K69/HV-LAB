@@ -27,19 +27,21 @@ public sealed class SplashWindow : Window
             presenter.SetBorderAndTitleBar(hasBorder: false, hasTitleBar: false);
         }
 
+        // Étendre le contenu dans toute la fenêtre (supprime le fond blanc WinUI)
+        ExtendsContentIntoTitleBar = true;
+
         // Taille et centrage
         AppWindow.Resize(new Windows.Graphics.SizeInt32(520, 360));
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Images", "AppIcon.ico"));
         CenterOnScreen();
 
-        // ── Couche racine ─────────────────────────────────────────────────────
-        var root = new Border
+        // ── Couche racine avec fond noir (évite le flash blanc) ───────────────
+        var rootGrid = new Grid
         {
-            CornerRadius = new CornerRadius(16),
-            Padding      = new Thickness(0)
+            Background = new SolidColorBrush(Color.FromArgb(255, 5, 10, 25))
         };
 
-        var rootGrid = new Grid();
+        Content = rootGrid;
 
         // ── Image de fond (SplashScreen.png) ──────────────────────────────────
         var bgImage = new Image
@@ -156,9 +158,6 @@ public sealed class SplashWindow : Window
         rootGrid.Children.Add(overlay);
         rootGrid.Children.Add(center);
         rootGrid.Children.Add(copyright);
-        root.Child = rootGrid;
-
-        Content = root;
     }
 
     /// <summary>Met à jour le message de statut affiché sous le spinner.</summary>
