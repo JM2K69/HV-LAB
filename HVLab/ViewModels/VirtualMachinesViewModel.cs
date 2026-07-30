@@ -3,15 +3,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
-using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 
 namespace HVLab.ViewModels;
 
 public partial class VirtualMachinesViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
-    private readonly DispatcherQueue _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
-    private CancellationTokenSource? _autoRefreshCts;
+    private DispatcherTimer? _autoRefreshTimer;
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
     [ObservableProperty] private bool   isLoading;
@@ -72,27 +71,15 @@ public partial class VirtualMachinesViewModel : ObservableObject
     public void StartAutoRefresh(TimeSpan interval)
     {
         StopAutoRefresh();
-        _autoRefreshCts = new CancellationTokenSource();
-        var token = _autoRefreshCts.Token;
-        _ = Task.Run(async () =>
-        {
-            using var timer = new PeriodicTimer(interval);
-            while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
-            {
-                _dispatcherQueue.TryEnqueue(async () =>
-                {
-                    try { await RefreshAsync(); }
-                    catch { /* swallow poll errors */ }
-                });
-            }
-        }, token);
+        _autoRefreshTimer = new DispatcherTimer { Interval = interval };
+        _autoRefreshTimer.Tick += async (_, _) => await RefreshAsync();
+        _autoRefreshTimer.Start();
     }
 
     public void StopAutoRefresh()
     {
-        _autoRefreshCts?.Cancel();
-        _autoRefreshCts?.Dispose();
-        _autoRefreshCts = null;
+        _autoRefreshTimer?.Stop();
+        _autoRefreshTimer = null;
     }
 
     // ─── Actions ─────────────────────────────────────────────────────────────
