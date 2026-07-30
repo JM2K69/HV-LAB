@@ -182,8 +182,30 @@
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="{Binding [CVM_AdminPwd], Source={StaticResource Loc}}" FontSize="12"/>
-                                <PasswordBox Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
-                                             PlaceholderText="P@ssw0rd!"/>
+                                <Grid>
+                                    <PasswordBox x:Name="PwdBox"
+                                                 Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
+                                                 PlaceholderText="P@ssw0rd!"
+                                                 Visibility="{x:Bind ViewModel.ShowPassword, Mode=OneWay,
+                                                              Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
+                                    <TextBox x:Name="PwdTextBox"
+                                             Text="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
+                                             PlaceholderText="P@ssw0rd!"
+                                             Visibility="{x:Bind ViewModel.ShowPassword, Mode=OneWay,
+                                                          Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <Button HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Background="Transparent"
+                                            BorderThickness="0"
+                                            Margin="0,0,4,0"
+                                            Padding="4"
+                                            Click="TogglePassword_Click"
+                                            ToolTipService.ToolTip="{Binding [CVM_ShowPwd], Source={StaticResource Loc}}">
+                                        <FontIcon Glyph="{x:Bind ViewModel.PasswordEyeGlyph, Mode=OneWay}"
+                                                  FontSize="14"
+                                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    </Button>
+                                </Grid>
                             </StackPanel>
                         </Grid>
                         <Grid ColumnSpacing="12">

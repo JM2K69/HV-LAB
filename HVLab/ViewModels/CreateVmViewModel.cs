@@ -35,6 +35,11 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private string timeZone       = "Romance Standard Time";
     [ObservableProperty] private string answerFilePreview = "";
     [ObservableProperty] private bool   buildCbsCache    = false;
+    [ObservableProperty] private bool   showPassword     = false;
+
+    public string PasswordEyeGlyph => ShowPassword ? "\uED1A" : "\uE052";
+
+    partial void OnShowPasswordChanged(bool value) => OnPropertyChanged(nameof(PasswordEyeGlyph));
 
     public List<string> Languages { get; } = ["fr-FR", "en-US", "en-GB", "de-DE", "es-ES", "it-IT"];
     public List<string> TimeZones { get; } =

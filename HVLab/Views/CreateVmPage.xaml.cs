@@ -29,4 +29,7 @@ public sealed partial class CreateVmPage : Page
 
     private async void ReloadData_Click(object sender, RoutedEventArgs e)
         => await ViewModel.LoadDataAsync();
+
+    private void TogglePassword_Click(object sender, RoutedEventArgs e)
+        => ViewModel.ShowPassword = !ViewModel.ShowPassword;
 }
