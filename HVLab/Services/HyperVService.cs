@@ -312,7 +312,18 @@ public class HyperVService
                 Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
 
                 if ($generation -eq 2) {
-                    Set-VMFirmware -VMName $vmName -EnableSecureBoot Off -ErrorAction SilentlyContinue
+                    # Secure Boot activé avec le template Microsoft Windows
+                    Set-VMFirmware -VMName $vmName -EnableSecureBoot On `
+                                   -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
+
+                    # Ordre de boot : Hard Disk en premier, ensuite le reste
+                    $hdd     = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+                    $current = (Get-VMFirmware -VMName $vmName).BootOrder
+                    $others  = $current | Where-Object { $_.BootType -ne 'Drive' -or $_.Device -isnot [Microsoft.HyperV.PowerShell.HardDiskDrive] }
+                    Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                } else {
+                    # Gen1 : BIOS - s'assurer que le disque dur est la première entrée de boot
+                    Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
                 }
                 Write-Output "VM '$vmName' créée avec succès"
                 """;
