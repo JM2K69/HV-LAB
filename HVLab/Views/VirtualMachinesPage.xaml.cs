@@ -22,23 +22,32 @@ public sealed partial class VirtualMachinesPage : Page
     {
         base.OnNavigatedTo(e);
         _ = ViewModel.RefreshAsync();
-        ViewModel.StartAutoRefresh(TimeSpan.FromSeconds(8));
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-        ViewModel.StopAutoRefresh();
     }
+
+    private async void Refresh_Click(object sender, RoutedEventArgs e)
+        => await ViewModel.RefreshAsync();
 
     private async void StartVm_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: VirtualMachine vm }) await ViewModel.StartVmAsync(vm);
+        if (sender is Button { Tag: VirtualMachine vm })
+        {
+            await ViewModel.StartVmAsync(vm);
+            await ViewModel.RefreshAsync();
+        }
     }
 
     private async void StopVm_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button { Tag: VirtualMachine vm }) await ViewModel.StopVmAsync(vm);
+        if (sender is Button { Tag: VirtualMachine vm })
+        {
+            await ViewModel.StopVmAsync(vm);
+            await ViewModel.RefreshAsync();
+        }
     }
 
     private void ConnectVm_Click(object sender, RoutedEventArgs e)
@@ -68,6 +77,9 @@ public sealed partial class VirtualMachinesPage : Page
             XamlRoot          = XamlRoot
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+        {
             await ViewModel.RemoveVmAsync(vm);
+            await ViewModel.RefreshAsync();
+        }
     }
 }
