@@ -11,30 +11,40 @@ public partial class VirtualSwitchesViewModel : ObservableObject
     private readonly HyperVService _hvService = new();
     private readonly NatService _natService = new();
 
-    [ObservableProperty] private ObservableCollection<VirtualSwitch> virtualSwitches = [];
-    [ObservableProperty] private ObservableCollection<NatNetwork> natNetworks = [];
-    [ObservableProperty] private ObservableCollection<string> networkAdapters = [];
-    [ObservableProperty] private ObservableCollection<string> internalSwitchNames = [];
+    [ObservableProperty] private ObservableCollection<VirtualSwitch>    virtualSwitches    = [];
+    [ObservableProperty] private ObservableCollection<NatNetwork>       natNetworks        = [];
+    [ObservableProperty] private ObservableCollection<NetworkAdapterInfo> networkAdapters  = [];
+    [ObservableProperty] private ObservableCollection<string>           internalSwitchNames = [];
 
-    [ObservableProperty] private bool isLoading;
+    [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = "Prêt";
 
     // New vSwitch form
-    [ObservableProperty] private string newSwitchName = "";
-    [ObservableProperty] private string newSwitchType = "Internal";
-    [ObservableProperty] private string? selectedNetAdapter;
+    [ObservableProperty] private string              newSwitchName    = "";
+    [ObservableProperty] private string              newSwitchType    = "Internal";
+    [ObservableProperty] private NetworkAdapterInfo? selectedNetAdapter;
+    [ObservableProperty] private bool                enableVlan       = false;
+    [ObservableProperty] private int                 newVlanId        = 1;
 
     // New NAT form
-    [ObservableProperty] private string newNatName = "";
+    [ObservableProperty] private string  newNatName       = "";
     [ObservableProperty] private string? selectedNatSwitch;
-    [ObservableProperty] private string natGatewayIP = "192.168.100.1";
-    [ObservableProperty] private int natPrefixLength = 24;
+    [ObservableProperty] private string  natGatewayIP     = "192.168.100.1";
+    [ObservableProperty] private int     natPrefixLength  = 24;
 
-    public List<string> SwitchTypes { get; } = ["External", "Internal", "Private"];
+    public List<string> SwitchTypes       { get; } = ["External", "Internal", "Private"];
+    public bool         IsExternalSwitch  => NewSwitchType == "External";
+    public bool         IsNotPrivateSwitch => NewSwitchType != "Private";
 
-    public bool IsExternalSwitch => NewSwitchType == "External";
+    public bool IsVlanVisible => EnableVlan && (NewSwitchType == "External" || NewSwitchType == "Internal");
 
-    partial void OnNewSwitchTypeChanged(string value) => OnPropertyChanged(nameof(IsExternalSwitch));
+    partial void OnEnableVlanChanged(bool value)  => OnPropertyChanged(nameof(IsVlanVisible));
+    partial void OnNewSwitchTypeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsExternalSwitch));
+        OnPropertyChanged(nameof(IsNotPrivateSwitch));
+        OnPropertyChanged(nameof(IsVlanVisible));
+    }
 
     [RelayCommand]
     public async Task RefreshAsync()
@@ -77,11 +87,11 @@ public partial class VirtualSwitchesViewModel : ObservableObject
             switch (NewSwitchType)
             {
                 case "External":
-                    if (string.IsNullOrEmpty(SelectedNetAdapter))
+                    if (SelectedNetAdapter is null)
                         throw new InvalidOperationException("Sélectionnez un adaptateur réseau.");
-                    await _hvService.CreateExternalSwitchAsync(NewSwitchName, SelectedNetAdapter);
+                    await _hvService.CreateExternalSwitchAsync(NewSwitchName, SelectedNetAdapter.Name, EnableVlan ? NewVlanId : 0);
                     break;
-                case "Internal": await _hvService.CreateInternalSwitchAsync(NewSwitchName); break;
+                case "Internal": await _hvService.CreateInternalSwitchAsync(NewSwitchName, EnableVlan ? NewVlanId : 0); break;
                 default:         await _hvService.CreatePrivateSwitchAsync(NewSwitchName);  break;
             }
             NewSwitchName = "";
