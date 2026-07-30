@@ -12,6 +12,7 @@
     <AssemblyName>HVLab</AssemblyName>
     <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Images\AppIcon.ico</ApplicationIcon>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <!-- Self-contained: embed WinUI runtime, no system-wide install required -->
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
