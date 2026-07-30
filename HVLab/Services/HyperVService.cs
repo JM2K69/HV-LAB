@@ -111,13 +111,22 @@ public class HyperVService
     }
 
     public async Task StartVMAsync(string name)
-        => await RunScriptAsync($"Start-VM -Name '{Esc(name)}' -ErrorAction Stop");
+        => await RunScriptAsync($"""
+            Import-Module Hyper-V -ErrorAction Stop
+            Start-VM -Name '{Esc(name)}' -ErrorAction Stop
+            """);
 
     public async Task StopVMAsync(string name)
-        => await RunScriptAsync($"Stop-VM -Name '{Esc(name)}' -Force -ErrorAction Stop");
+        => await RunScriptAsync($"""
+            Import-Module Hyper-V -ErrorAction Stop
+            Stop-VM -Name '{Esc(name)}' -Force -ErrorAction Stop
+            """);
 
     public async Task RemoveVMAsync(string name)
-        => await RunScriptAsync($"Remove-VM -Name '{Esc(name)}' -Force -ErrorAction Stop");
+        => await RunScriptAsync($"""
+            Import-Module Hyper-V -ErrorAction Stop
+            Remove-VM -Name '{Esc(name)}' -Force -ErrorAction Stop
+            """);
 
     // ─── Virtual Switches ───────────────────────────────────────────────────
 
