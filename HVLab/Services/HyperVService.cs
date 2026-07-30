@@ -290,19 +290,37 @@ public class HyperVService
                 # Inject unattend.xml into the differencing disk before first boot
                 if ($answerFile -and (Test-Path $answerFile)) {
                     Write-Output "Injection du fichier de réponse dans le disque différentiel..."
-                    $mount   = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
-                    $disk    = $mount | Get-Disk
-                    $parts   = $disk | Get-Partition | Where-Object { $_.Type -eq 'Basic' -or $_.IsActive }
-                    $winPart = $parts | Where-Object { $_.Size -gt 1GB } | Select-Object -First 1
-                    if (-not $winPart) { $winPart = $parts | Select-Object -Last 1 }
-                    $letter  = ($winPart | Add-PartitionAccessPath -AssignDriveLetter -PassThru -ErrorAction SilentlyContinue).DriveLetter
-                    if ($letter) {
-                        $panther = "${letter}:\Windows\Panther"
-                        if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
-                        Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
-                        Write-Output "unattend.xml injecté dans $panther"
+                    $mount = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
+                    $diskNo = ($mount | Get-Disk).Number
+                    try {
+                        # Re-query the letter until Windows assigns it (avoids stale-object race condition)
+                        $deadline = (Get-Date).AddSeconds(20)
+                        $letter   = $null
+                        $winPart  = $null
+                        do {
+                            $parts   = Get-Partition -DiskNumber $diskNo -ErrorAction SilentlyContinue |
+                                           Where-Object { $_.Type -eq 'Basic' -and $_.Size -gt 1GB }
+                            $winPart = $parts | Select-Object -First 1
+                            if ($winPart -and -not $winPart.DriveLetter) {
+                                $winPart | Add-PartitionAccessPath -AssignDriveLetter -ErrorAction SilentlyContinue
+                            }
+                            $letter = (Get-Partition -DiskNumber $diskNo -PartitionNumber $winPart.PartitionNumber `
+                                           -ErrorAction SilentlyContinue).DriveLetter
+                            if ($letter -and $letter -ne "`0") { break }
+                            Start-Sleep -Milliseconds 500
+                        } while ((Get-Date) -lt $deadline)
+
+                        if ($letter -and $letter -ne "`0") {
+                            $panther = "${letter}:\Windows\Panther"
+                            if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
+                            Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
+                            Write-Output "unattend.xml injecté dans $panther"
+                        } else {
+                            Write-Warning "Impossible d'obtenir la lettre de la partition Windows — unattend.xml non injecté"
+                        }
+                    } finally {
+                        Dismount-DiskImage -ImagePath $diffVhd -ErrorAction SilentlyContinue | Out-Null
                     }
-                    Dismount-DiskImage -ImagePath $diffVhd | Out-Null
                 }
 
                 New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
