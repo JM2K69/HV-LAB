@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
 
@@ -9,15 +8,12 @@ namespace HVLab.ViewModels;
 public partial class VirtualMachinesViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
-    private CancellationTokenSource? _autoRefreshCts;
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
     [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = "Pret";
 
     // ─── Refresh ────────────────────────────────────────────────────────────
-
-    [RelayCommand]
     public async Task RefreshAsync()
     {
         IsLoading = true;
@@ -64,67 +60,26 @@ public partial class VirtualMachinesViewModel : ObservableObject
             }
         }
     }
-
-
-
-    // ─── Auto-refresh ────────────────────────────────────────────────────────
-
-    public void StartAutoRefresh(TimeSpan interval)
-    {
-        StopAutoRefresh();
-        _autoRefreshCts = new CancellationTokenSource();
-        var token = _autoRefreshCts.Token;
-        _ = Task.Run(async () =>
-        {
-            using var timer = new PeriodicTimer(interval);
-            while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
-            {
-                try { await RefreshAsync(); }
-                catch (OperationCanceledException) { break; }
-                catch { /* swallow poll errors */ }
-            }
-        }, token);
-    }
-
-    public void StopAutoRefresh()
-    {
-        _autoRefreshCts?.Cancel();
-        _autoRefreshCts?.Dispose();
-        _autoRefreshCts = null;
-    }
-
     // ─── Actions ─────────────────────────────────────────────────────────────
 
     public async Task StartVmAsync(VirtualMachine vm)
     {
         Status = $"Demarrage de '{vm.Name}'...";
-        try
-        {
-            await _hvService.StartVMAsync(vm.Name);
-            await RefreshAsync();
-        }
+        try   { await _hvService.StartVMAsync(vm.Name); }
         catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
     }
 
     public async Task StopVmAsync(VirtualMachine vm)
     {
         Status = $"Arret de '{vm.Name}'...";
-        try
-        {
-            await _hvService.StopVMAsync(vm.Name);
-            await RefreshAsync();
-        }
+        try   { await _hvService.StopVMAsync(vm.Name); }
         catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
     }
 
     public async Task RemoveVmAsync(VirtualMachine vm)
     {
         Status = $"Suppression de '{vm.Name}'...";
-        try
-        {
-            await _hvService.RemoveVMAsync(vm.Name);
-            await RefreshAsync();
-        }
+        try   { await _hvService.RemoveVMAsync(vm.Name); }
         catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
     }
 }
