@@ -143,6 +143,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["NAT_BtnCreate"]    = "Créer le NAT",
         ["NAT_BtnDelete"]    = "Supprimer",
         ["NAT_ColName"]      = "Nom",
+        ["NAT_ColSwitch"]    = "Commutateur",
         ["NAT_ColSubnet"]    = "Sous-réseau",
 
         // ── Base VHDX ───────────────────────────────────────────────────────
@@ -340,6 +341,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["NAT_BtnCreate"]    = "Create NAT",
         ["NAT_BtnDelete"]    = "Delete",
         ["NAT_ColName"]      = "Name",
+        ["NAT_ColSwitch"]    = "Switch",
         ["NAT_ColSubnet"]    = "Subnet",
 
         // ── Base VHDX ───────────────────────────────────────────────────────
