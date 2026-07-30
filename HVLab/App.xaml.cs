@@ -1,4 +1,5 @@
 using HVLab.Services;
+using HVLab.Views;
 using Microsoft.UI.Xaml;
 
 namespace HVLab;
@@ -10,19 +11,42 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        // Load persisted settings before any ViewModel reads them.
         AppSettings.Load();
-        // Apply persisted language
         LocalizationService.Instance.SetLanguage(AppSettings.Current.Language);
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        MainAppWindow = new MainWindow();
-        MainAppWindow.Activate();
+        // Afficher le splash immédiatement
+        var splash = new SplashWindow();
+        splash.Activate();
 
-        // Apply persisted theme immediately after the window is live
-        if (MainAppWindow.Content is FrameworkElement root)
-            ThemeService.ApplyCurrent(root);
+        // Pré-charger les données en tâche de fond puis ouvrir la fenêtre principale
+        _ = StartupAsync(splash);
+    }
+
+    private async Task StartupAsync(SplashWindow splash)
+    {
+        var loc = LocalizationService.Instance;
+
+        splash.SetStatus(loc["Splash_LoadingHyperV"]);
+        await AppStartupCache.Instance.LoadAsync(AppSettings.Current.BaseImagesFolder);
+
+        splash.SetStatus(loc["Splash_Starting"]);
+
+        // Petite pause pour que le message soit visible
+        await Task.Delay(300);
+
+        // Ouvrir la fenêtre principale sur le thread UI
+        splash.DispatcherQueue.TryEnqueue(() =>
+        {
+            MainAppWindow = new MainWindow();
+            MainAppWindow.Activate();
+
+            if (MainAppWindow.Content is FrameworkElement root)
+                ThemeService.ApplyCurrent(root);
+
+            splash.Close();
+        });
     }
 }
