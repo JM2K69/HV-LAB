@@ -16,8 +16,9 @@ public partial class VirtualMachine : ObservableObject
     [ObservableProperty] private long   memoryMB;
     [ObservableProperty] private string switchName     = string.Empty;
     [ObservableProperty] private string uptime         = string.Empty;
+    [ObservableProperty] private string vlanInfo       = string.Empty;  // ex: "10", "10,20", "—"
 
-    // ── Derived display props ─────────────────────────────────────────────
+    // ── Derived display props
     public bool   IsRunning     => State == "Running";
     public string MemoryDisplay => $"{MemoryMB} MB";
     public string GenDisplay    => $"Gen {Generation}";
