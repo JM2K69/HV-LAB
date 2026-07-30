@@ -151,23 +151,26 @@
                             </StackPanel>
 
                             <!-- VLAN -->
-                            <Grid ColumnSpacing="12"
+                            <Grid ColumnSpacing="16"
                                   Visibility="{x:Bind ViewModel.IsNotPrivateSwitch, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="120"/>
                                 </Grid.ColumnDefinitions>
                                 <ToggleSwitch Grid.Column="0"
                                              Header="{Binding [SW_VlanEnable], Source={StaticResource Loc}}"
-                                             IsOn="{x:Bind ViewModel.EnableVlan, Mode=TwoWay}"/>
-                                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom"
+                                             IsOn="{x:Bind ViewModel.EnableVlan, Mode=TwoWay}"
+                                             VerticalAlignment="Bottom"
+                                             Margin="0,0,0,4"/>
+                                <StackPanel Grid.Column="1" Spacing="4"
                                             Visibility="{x:Bind ViewModel.IsVlanVisible, Mode=OneWay,
                                                           Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock Text="{Binding [SW_VlanId], Source={StaticResource Loc}}" FontSize="12"/>
                                     <NumberBox Value="{x:Bind ViewModel.NewVlanId, Mode=TwoWay}"
                                                Minimum="1" Maximum="4094"
-                                               SpinButtonPlacementMode="Inline"/>
+                                               SpinButtonPlacementMode="Inline"
+                                               HorizontalAlignment="Stretch"/>
                                 </StackPanel>
                             </Grid>
 
