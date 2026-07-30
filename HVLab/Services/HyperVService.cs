@@ -60,24 +60,25 @@ public class HyperVService
 
     public async Task<List<VirtualMachine>> GetVirtualMachinesAsync()
     {
+        // $vm.NetworkAdapters is a property already loaded with Get-VM — no extra WMI call per VM.
+        // Import-Module is done once at the top; skipped on subsequent calls if already loaded.
         const string script = """
             [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             try {
                 Import-Module Hyper-V -ErrorAction Stop
                 $vms = @(Get-VM -ErrorAction Stop | ForEach-Object {
-                    $vm = $_
-                    $nic = Get-VMNetworkAdapter -VMName $vm.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+                    $nic = $_.NetworkAdapters | Select-Object -First 1
                     [PSCustomObject]@{
-                        Name           = $vm.Name
-                        State          = $vm.State.ToString()
-                        ProcessorCount = $vm.ProcessorCount
-                        MemoryMB       = [Math]::Round($vm.MemoryStartup / 1MB, 0)
-                        Generation     = $vm.Generation
+                        Name           = $_.Name
+                        State          = $_.State.ToString()
+                        ProcessorCount = $_.ProcessorCount
+                        MemoryMB       = [Math]::Round($_.MemoryStartup / 1MB, 0)
+                        Generation     = $_.Generation
                         SwitchName     = if ($nic) { $nic.SwitchName } else { '' }
-                        Uptime         = $vm.Uptime.ToString()
+                        Uptime         = $_.Uptime.ToString()
                     }
                 })
-                if ($vms.Count -gt 0) { ConvertTo-Json -InputObject $vms -Depth 2 } else { '[]' }
+                if ($vms.Count -gt 0) { ConvertTo-Json -InputObject $vms -Depth 2 -Compress } else { '[]' }
             } catch {
                 Write-Error $_.Exception.Message
                 exit 1
