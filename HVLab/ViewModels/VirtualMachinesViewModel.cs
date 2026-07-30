@@ -3,12 +3,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
+using Microsoft.UI.Dispatching;
 
 namespace HVLab.ViewModels;
 
 public partial class VirtualMachinesViewModel : ObservableObject
 {
     private readonly HyperVService _hvService = new();
+    private readonly DispatcherQueue _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
     private CancellationTokenSource? _autoRefreshCts;
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
@@ -77,9 +79,11 @@ public partial class VirtualMachinesViewModel : ObservableObject
             using var timer = new PeriodicTimer(interval);
             while (!token.IsCancellationRequested && await timer.WaitForNextTickAsync(token).ConfigureAwait(false))
             {
-                try { await RefreshAsync(); }
-                catch (OperationCanceledException) { break; }
-                catch { /* swallow poll errors */ }
+                _dispatcherQueue.TryEnqueue(async () =>
+                {
+                    try { await RefreshAsync(); }
+                    catch { /* swallow poll errors */ }
+                });
             }
         }, token);
     }
