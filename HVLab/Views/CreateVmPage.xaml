@@ -168,6 +168,11 @@
                                   Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
 
+                    <ToggleSwitch Header="{Binding [CVM_DisableWindowsUpdate], Source={StaticResource Loc}}"
+                                  IsOn="{x:Bind ViewModel.DisableWindowsUpdate, Mode=TwoWay}"
+                                  Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                     <StackPanel Spacing="12"
                                 Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
                                               Converter={StaticResource BoolToVisibilityConverter}}">

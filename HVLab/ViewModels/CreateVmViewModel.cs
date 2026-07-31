@@ -37,6 +37,7 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private string timeZone       = "Romance Standard Time";
     [ObservableProperty] private string answerFilePreview = "";
     [ObservableProperty] private bool   buildCbsCache    = false;
+    [ObservableProperty] private bool   disableWindowsUpdate = false;
     [ObservableProperty] private bool   showPassword     = false;
 
     public string PasswordEyeGlyph => ShowPassword ? "\uED1A" : "\uE052";
@@ -166,6 +167,7 @@ public partial class CreateVmViewModel : ObservableObject
         TimeZone      = TimeZone,
         ImageIndex    = 1,
         BuildCbsCache = BuildCbsCache,
+        DisableWindowsUpdate = DisableWindowsUpdate,
         OsFamily      = _detectedOsFamily,
     };
 }

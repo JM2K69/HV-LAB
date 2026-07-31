@@ -18,6 +18,8 @@ public class AnswerFileConfig
     public string RegisteredOrganization { get; set; } = "HV-LAB";
     /// <summary>Windows Server only — injects a FirstLogonCommand that builds the CBS feature cache, runs DISM cleanup, then reboots.</summary>
     public bool BuildCbsCache { get; set; } = false;
+    /// <summary>Injects Microsoft-Windows-WindowsUpdate-AU in specialize pass to disable automatic updates (Server and Client).</summary>
+    public bool DisableWindowsUpdate { get; set; } = false;
     /// <summary>Controls which OOBE elements are emitted. Server omits client-only nodes.</summary>
     public OsFamily OsFamily { get; set; } = OsFamily.Server;
 }
@@ -32,6 +34,18 @@ public static class AnswerFileGenerator
             : string.Empty;
 
         var firstLogonCommands = c.BuildCbsCache ? BuildCbsCacheFirstLogonCommands() : string.Empty;
+
+        var windowsUpdateBlock = c.DisableWindowsUpdate
+            ? """
+
+                    <component name="Microsoft-Windows-WindowsUpdate-AU"
+                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
+                               language="neutral" versionScope="nonSxS">
+                        <NoAutoUpdate>true</NoAutoUpdate>
+                        <AUOptions>1</AUOptions>
+                    </component>
+              """
+            : string.Empty;
 
         var autoLogon = c.AutoLogon ? $"""
                     <AutoLogon>
@@ -108,6 +122,7 @@ public static class AnswerFileGenerator
                         <UILanguage>{c.UILanguage}</UILanguage>
                         <UserLocale>{c.UserLocale}</UserLocale>
                     </component>
+                    {windowsUpdateBlock}
                 </settings>
 
                 <settings pass="oobeSystem">
