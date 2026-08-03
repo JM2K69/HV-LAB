@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
             "switches"  => typeof(VirtualSwitchesPage),
             "basevhdx"  => typeof(BaseVhdxPage),
             "createvm"  => typeof(CreateVmPage),
+            "quickvm"   => typeof(QuickVmPage),
             "settings"  => typeof(SettingsPage),
             _           => (Type?)null
         };
