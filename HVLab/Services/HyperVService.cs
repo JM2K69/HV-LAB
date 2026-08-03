@@ -301,12 +301,65 @@ public class HyperVService
         return result;
     }
 
+    // ─── Create blank VM (new empty VHDX) ───────────────────────────────────
+
+    public async Task CreateBlankVmAsync(
+        string vmName, string switchName,
+        long memoryMB, int cpuCount, int generation, string vmFolder,
+        long diskSizeGB, bool secureBoot = true)
+    {
+        var isGen2       = generation == 2 ? "$true" : "$false";
+        var secureBootPs = secureBoot    ? "$true" : "$false";
+
+        var script = $$"""
+            $vmName      = '{{Esc(vmName)}}'
+            $switchName  = '{{Esc(switchName)}}'
+            $memoryBytes = {{memoryMB}}MB
+            $cpuCount    = {{cpuCount}}
+            $generation  = {{generation}}
+            $vmFolder    = '{{Esc(vmFolder)}}'
+            $diskBytes   = {{diskSizeGB}}GB
+            $isGen2      = {{isGen2}}
+            $secureBoot  = {{secureBootPs}}
+
+            $vmPath    = Join-Path $vmFolder $vmName
+            $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
+            New-Item -Path $vmPath    -ItemType Directory -Force | Out-Null
+            New-Item -Path $vhdFolder -ItemType Directory -Force | Out-Null
+
+            $vhdPath = Join-Path $vhdFolder "$vmName.vhdx"
+            New-VHD -Path $vhdPath -SizeBytes $diskBytes -Dynamic -ErrorAction Stop | Out-Null
+
+            New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
+                   -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
+
+            Set-VM -Name $vmName -ProcessorCount $cpuCount -ErrorAction Stop
+            Add-VMHardDiskDrive -VMName $vmName -Path $vhdPath -ErrorAction Stop
+
+            if ($generation -eq 2) {
+                $sbState = if ($secureBoot) { 'On' } else { 'Off' }
+                Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
+                               -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
+
+                $hdd     = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+                $current = (Get-VMFirmware -VMName $vmName).BootOrder
+                $others  = $current | Where-Object { $_.BootType -ne 'Drive' -or $_.Device -isnot [Microsoft.HyperV.PowerShell.HardDiskDrive] }
+                Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+            } else {
+                Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+            }
+            Write-Output "VM '$vmName' créée avec succès (disque vierge)"
+            """;
+
+        await RunScriptAsync(script);
+    }
+
     // ─── Create VM with differencing disk ───────────────────────────────────
 
     public async Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        string? answerFileContent = null)
+        string? answerFileContent = null, bool secureBoot = true)
     {
         // Write the answer file to a temp path if provided
         string? answerTemp = null;
@@ -318,7 +371,8 @@ public class HyperVService
 
         try
         {
-            var isGen2   = generation == 2 ? "$true" : "$false";
+            var isGen2      = generation == 2 ? "$true" : "$false";
+            var secureBootPs = secureBoot ? "$true" : "$false";
             var script   = $$"""
                 $vmName       = '{{Esc(vmName)}}'
                 $parentVhdx   = '{{Esc(parentVhdxPath)}}'
@@ -329,6 +383,7 @@ public class HyperVService
                 $vmFolder     = '{{Esc(vmFolder)}}'
                 $answerFile   = '{{Esc(answerTemp ?? "")}}'
                 $isGen2       = {{isGen2}}
+                $secureBoot   = {{secureBootPs}}
 
                 $vmPath    = Join-Path $vmFolder $vmName
                 $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
@@ -381,8 +436,9 @@ public class HyperVService
                 Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
 
                 if ($generation -eq 2) {
-                    # Secure Boot activé avec le template Microsoft Windows
-                    Set-VMFirmware -VMName $vmName -EnableSecureBoot On `
+                    # Secure Boot selon le choix utilisateur
+                    $sbState = if ($secureBoot) { 'On' } else { 'Off' }
+                    Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
                                    -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
 
                     # Ordre de boot : Hard Disk en premier, ensuite le reste
