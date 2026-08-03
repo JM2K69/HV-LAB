@@ -1,0 +1,366 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="HVLab.Views.QuickVmPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:HVLab.ViewModels"
+    Background="Transparent">
+
+    <ScrollViewer Padding="36,24,36,28">
+        <StackPanel Spacing="20" MaxWidth="900">
+
+            <!-- Header -->
+            <StackPanel Spacing="2">
+                <TextBlock Text="{Binding [QVM_Title], Source={StaticResource Loc}}"
+                           FontSize="28" FontWeight="SemiBold"/>
+                <TextBlock Text="{Binding [QVM_Subtitle], Source={StaticResource Loc}}"
+                           FontSize="13" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            </StackPanel>
+
+            <ProgressBar IsIndeterminate="True"
+                         Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
+                                      Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <TextBlock Text="{Binding [QVM_ChooseSize], Source={StaticResource Loc}}"
+                       FontWeight="SemiBold" FontSize="15"/>
+
+            <!-- Size tiles: data-driven, no hardcoded content -->
+            <GridView ItemsSource="{x:Bind ViewModel.SizeItems}"
+                      SelectionMode="None"
+                      IsItemClickEnabled="False">
+                <GridView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <ItemsWrapGrid Orientation="Horizontal"
+                                       MaximumRowsOrColumns="3"
+                                       ItemWidth="280"/>
+                    </ItemsPanelTemplate>
+                </GridView.ItemsPanel>
+                <GridView.ItemContainerStyle>
+                    <Style TargetType="GridViewItem">
+                        <Setter Property="Padding" Value="0"/>
+                        <Setter Property="Margin" Value="0,0,12,12"/>
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                        <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+                    </Style>
+                </GridView.ItemContainerStyle>
+                <GridView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:VmSizeItem">
+                        <Button Command="{x:Bind SelectCommand}"
+                                Padding="0" CornerRadius="10"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch">
+                            <Grid>
+                                <!-- Selection highlight border -->
+                                <Border CornerRadius="10" BorderThickness="2"
+                                        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                        Visibility="{x:Bind IsSelected, Mode=OneWay,
+                                                     Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <StackPanel Padding="16,14" Spacing="8">
+                                    <!-- Colour badge with label -->
+                                    <Border Width="48" Height="48" CornerRadius="24"
+                                            HorizontalAlignment="Left"
+                                            Background="{x:Bind AccentColor, Mode=OneTime,
+                                                         Converter={StaticResource StringToSolidColorBrushConverter}}">
+                                        <TextBlock Text="{x:Bind Label, Mode=OneTime}"
+                                                   FontSize="13" FontWeight="Bold"
+                                                   Foreground="White"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center"/>
+                                    </Border>
+                                    <!-- CPU / RAM specs -->
+                                    <StackPanel Orientation="Horizontal" Spacing="16">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon Glyph="&#xE950;" FontSize="11"
+                                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind CpuDisplay, Mode=OneTime}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon Glyph="&#xE179;" FontSize="11"
+                                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind MemoryDisplay, Mode=OneTime}"
+                                                       FontSize="12"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <!-- Localised use-case description -->
+                                    <TextBlock Text="{x:Bind UseCaseText, Mode=OneTime}"
+                                               FontSize="11" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </GridView.ItemTemplate>
+            </GridView>
+
+            <!-- Configuration panel — visible once a tile is selected -->
+            <StackPanel Spacing="16"
+                        Visibility="{x:Bind ViewModel.ConfigVisible, Mode=OneWay,
+                                     Converter={StaticResource BoolToVisibilityConverter}}">
+
+                <!-- Selected profile summary + generation picker -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Badge -->
+                        <Border Grid.Column="0" Width="56" Height="56" CornerRadius="28"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}">
+                            <TextBlock Text="{x:Bind ViewModel.SelectedSize.Label, Mode=OneWay}"
+                                       FontSize="18" FontWeight="Bold" Foreground="White"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+
+                        <!-- Specs -->
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="20">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE950;" FontSize="14"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SelectedSize.CpuDisplay, Mode=OneWay}"
+                                               FontSize="14" FontWeight="SemiBold"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE179;" FontSize="14"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SelectedSize.MemoryDisplay, Mode=OneWay}"
+                                               FontSize="14" FontWeight="SemiBold"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Generation picker -->
+                        <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding [CVM_Generation], Source={StaticResource Loc}}"
+                                       FontSize="12"/>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.Generations}"
+                                      SelectedItem="{x:Bind ViewModel.Generation, Mode=TwoWay}"
+                                      Width="100"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Disk mode selector -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="14">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xEDA2;" FontSize="15"
+                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                            <TextBlock Text="{Binding [QVM_DiskMode], Source={StaticResource Loc}}"
+                                       FontWeight="SemiBold" FontSize="15"/>
+                        </StackPanel>
+
+                        <!-- Two clickable mode cards -->
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Blank disk -->
+                            <Button Grid.Column="0" Padding="0" CornerRadius="8"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Command="{x:Bind ViewModel.SelectBlankModeCommand}">
+                                <Grid>
+                                    <Border CornerRadius="8" BorderThickness="2"
+                                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                            Visibility="{x:Bind ViewModel.IsBlankDisk, Mode=OneWay,
+                                                         Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <StackPanel Padding="14,12" Spacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE7C3;" FontSize="18"
+                                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Text="{Binding [QVM_DiskMode_Blank], Source={StaticResource Loc}}"
+                                                       FontWeight="SemiBold" FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding [QVM_DiskMode_BlankDesc], Source={StaticResource Loc}}"
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+
+                            <!-- Differencing disk -->
+                            <Button Grid.Column="1" Padding="0" CornerRadius="8"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Stretch"
+                                    Command="{x:Bind ViewModel.SelectDiffModeCommand}">
+                                <Grid>
+                                    <Border CornerRadius="8" BorderThickness="2"
+                                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                                            Visibility="{x:Bind ViewModel.IsDifferencingDisk, Mode=OneWay,
+                                                         Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <StackPanel Padding="14,12" Spacing="6">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE8A1;" FontSize="18"
+                                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                                            <TextBlock Text="{Binding [QVM_DiskMode_Diff], Source={StaticResource Loc}}"
+                                                       FontWeight="SemiBold" FontSize="14"
+                                                       VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding [QVM_DiskMode_DiffDesc], Source={StaticResource Loc}}"
+                                                   FontSize="11" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Button>
+                        </Grid>
+
+                        <!-- Disk size (blank mode only) -->
+                        <StackPanel Spacing="4"
+                                    Visibility="{x:Bind ViewModel.IsBlankDisk, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding [QVM_DiskSizeGB], Source={StaticResource Loc}}" FontSize="12"/>
+                            <NumberBox Value="{x:Bind ViewModel.DiskSizeGB, Mode=TwoWay}"
+                                       Minimum="8" Maximum="2048"
+                                       SpinButtonPlacementMode="Inline" SmallChange="10"/>
+                        </StackPanel>
+
+                        <!-- Base VHDX picker (differencing mode only) -->
+                        <StackPanel Spacing="4"
+                                    Visibility="{x:Bind ViewModel.IsDifferencingDisk, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding [CVM_BaseImage], Source={StaticResource Loc}}" FontSize="12"/>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.SelectedBaseVhdx, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      FontFamily="Consolas" FontSize="12"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Identity + Network -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="{Binding [CVM_Identity], Source={StaticResource Loc}}"
+                                   FontWeight="SemiBold" FontSize="15"/>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- VM name (single mode only) -->
+                            <StackPanel Grid.Column="0" Spacing="4"
+                                        Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                                     Converter={StaticResource BoolToVisibilityInverseConverter}}">
+                                <TextBlock Text="{Binding [CVM_VmName], Source={StaticResource Loc}}" FontSize="12"/>
+                                <TextBox Text="{x:Bind ViewModel.VmName, Mode=TwoWay}"
+                                         PlaceholderText="Ex. : SRV-LAB-01"/>
+                            </StackPanel>
+
+                            <!-- Switch picker -->
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="{Binding [CVM_Switch], Source={StaticResource Loc}}" FontSize="12"/>
+                                <ComboBox ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
+                                          SelectedItem="{x:Bind ViewModel.SelectedSwitch, Mode=TwoWay}"
+                                          HorizontalAlignment="Stretch"/>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Secure Boot -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xE72E;" FontSize="15"
+                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                            <TextBlock Text="{Binding [QVM_SecureBoot], Source={StaticResource Loc}}"
+                                       FontWeight="SemiBold" FontSize="15"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding [QVM_SecureBootDesc], Source={StaticResource Loc}}"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.SecureBoot, Mode=TwoWay}"
+                                      IsEnabled="{x:Bind ViewModel.SecureBootEnabled, Mode=OneWay}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Bulk creation -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="14">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xE8A4;" FontSize="15"
+                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                            <TextBlock Text="{Binding [CVM_BulkMode], Source={StaticResource Loc}}"
+                                       FontWeight="SemiBold" FontSize="15"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding [CVM_BulkModeDesc], Source={StaticResource Loc}}"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.BulkMode, Mode=TwoWay}"/>
+
+                        <!-- Bulk options row -->
+                        <Grid ColumnSpacing="12"
+                              Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                           Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="140"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Spacing="4">
+                                <TextBlock Text="{Binding [CVM_BulkPrefix], Source={StaticResource Loc}}" FontSize="12"/>
+                                <TextBox Text="{x:Bind ViewModel.BulkPrefix, Mode=TwoWay}"
+                                         PlaceholderText="Ex. : SRV" FontFamily="Consolas"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="4">
+                                <TextBlock Text="{Binding [CVM_BulkCount], Source={StaticResource Loc}}" FontSize="12"/>
+                                <NumberBox Value="{x:Bind ViewModel.BulkCount, Mode=TwoWay}"
+                                           Minimum="1" Maximum="99"
+                                           SpinButtonPlacementMode="Inline" SmallChange="1"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Preview -->
+                        <StackPanel Spacing="4"
+                                    Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{Binding [CVM_BulkPreview], Source={StaticResource Loc}}" FontSize="12"/>
+                            <TextBlock Text="{x:Bind ViewModel.BulkNamesPreview, Mode=OneWay}"
+                                       FontFamily="Consolas" FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Create button -->
+                <Button Command="{x:Bind ViewModel.CreateVmCommand}"
+                        Style="{StaticResource AccentButtonStyle}"
+                        HorizontalAlignment="Stretch" Padding="0,14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE945;" FontSize="16"/>
+                        <TextBlock Text="{Binding [CVM_BtnCreate], Source={StaticResource Loc}}"
+                                   FontSize="14"/>
+                    </StackPanel>
+                </Button>
+
+                <!-- Status feedback -->
+                <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"
+                           FontSize="13" HorizontalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>
