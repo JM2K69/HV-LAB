@@ -16,6 +16,7 @@
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
             <converters:BoolToVisibilityInverseConverter x:Key="BoolToVisibilityInverseConverter"/>
             <converters:StateToColorConverter x:Key="StateToColorConverter"/>
+            <converters:StringToSolidColorBrushConverter x:Key="StringToSolidColorBrushConverter"/>
             <services:LocalizationHelper x:Key="Loc"/>
         </ResourceDictionary>
     </Application.Resources>
