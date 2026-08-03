@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
 namespace HVLab.Services;
@@ -67,6 +67,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["Nav_Switches"]     = "Commutateurs & NAT",
         ["Nav_BaseVhdx"]     = "Images de base VHDX",
         ["Nav_CreateVM"]     = "Créer une VM",
+        ["Nav_QuickVM"]      = "Quick VM",
         ["Nav_Settings"]     = "Paramètres",
 
         // ── Common ──────────────────────────────────────────────────────────
@@ -222,8 +223,33 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["CVM_BuildCbsCache"]= "Initialiser le cache CBS des fonctionnalités (Windows Server uniquement)",
         ["CVM_DisableWindowsUpdate"] = "Désactiver les mises à jour automatiques Windows Update",
         ["CVM_ShowPwd"]      = "Afficher / masquer le mot de passe",
+        ["CVM_BulkMode"]     = "Création en lot (Bulk)",
+        ["CVM_BulkModeDesc"] = "Crée plusieurs VMs numérotées automatiquement : SRV-01, SRV-02…",
+        ["CVM_BulkPrefix"]   = "Préfixe",
+        ["CVM_BulkCount"]    = "Nombre de VMs",
+        ["CVM_BulkPreview"]  = "Aperçu",
 
-        // ── Settings ────────────────────────────────────────────────────────
+        // ── Quick VM
+        ["QVM_Title"]         = "Quick VM — Création rapide",
+        ["QVM_Subtitle"]      = "Choisissez un profil de taille, configurez les options et créez une ou plusieurs VMs en un clic.",
+        ["QVM_ChooseSize"]    = "Choisir un profil",
+        ["QVM_SecureBoot"]    = "Secure Boot",
+        ["QVM_SecureBootDesc"]= "Activer le Secure Boot (Génération 2 uniquement)",
+        ["QVM_UseCase_XXS"]   = "Routeur, proxy, pare-feu léger",
+        ["QVM_UseCase_XS"]    = "Serveur DNS / DHCP, agent",
+        ["QVM_UseCase_S"]     = "Serveur membre, web, base de données légère",
+        ["QVM_UseCase_M"]     = "Contrôleur de domaine, Exchange, SQL",
+        ["QVM_UseCase_L"]     = "Hyper-V imbriqué, SCCM, services lourds",
+        ["QVM_UseCase_XL"]    = "Labo haute charge, virtualisation imbriquée",
+        ["QVM_DiskMode"]      = "Type de disque",
+        ["QVM_DiskMode_Blank"]      = "Vierge",
+        ["QVM_DiskMode_BlankDesc"]  = "Nouveau disque VHDX vide, prêt à l'installation",
+        ["QVM_DiskMode_Diff"]       = "Différentielle",
+        ["QVM_DiskMode_DiffDesc"]   = "Disque différentiel basé sur une image parente",
+        ["QVM_DiskSizeGB"]    = "Taille du disque (Go)",
+        ["Nav_QuickVM"]       = "Quick VM",
+
+        // ── Settings
         ["SET_Title"]        = "Paramètres",
         ["SET_SecFiles"]     = "Emplacements des fichiers",
         ["SET_BaseImages"]   = "Images de base VHDX",
@@ -282,10 +308,23 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["Nav_VMs"]          = "Virtual Machines",
         ["Nav_Switches"]     = "Switch & NAT",
         ["Nav_BaseVhdx"]     = "Base VHDX Images",
-        ["Nav_CreateVM"]     = "Create a VM",
+        ["Nav_CreateVM"]     = "Create VM",
         ["Nav_Settings"]     = "Settings",
+        // ── Quick VM
+        ["QVM_Title"]         = "Quick VM Creation",
+        ["QVM_Subtitle"]      = "Choose a size profile, configure the options and create one or more VMs in one click.",
+        ["QVM_ChooseSize"]    = "Choose a profile",
+        ["QVM_SecureBoot"]    = "Secure Boot",
+        ["QVM_SecureBootDesc"]= "Enable Secure Boot (Generation 2 only)",
+        ["QVM_UseCase_XXS"]   = "Router, proxy, lightweight firewall",
+        ["QVM_UseCase_XS"]    = "DNS / DHCP server, agent",
+        ["QVM_UseCase_S"]     = "Member server, web, lightweight database",
+        ["QVM_UseCase_M"]     = "Domain controller, Exchange, SQL",
+        ["QVM_UseCase_L"]     = "Nested Hyper-V, SCCM, heavy services",
+        ["QVM_UseCase_XL"]    = "High-load lab, nested virtualisation",
+        ["Nav_QuickVM"]       = "Quick VM",
 
-        // ── Common ──────────────────────────────────────────────────────────
+        // ── Create VM
         ["Btn_Refresh"]      = "Refresh",
         ["Btn_Browse"]       = "Browse…",
         ["Btn_Save"]         = "Save settings",
@@ -407,8 +446,28 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["BV_BtnCreate"]     = "Create base image",
         ["BV_DeleteTitle"]   = "Delete image",
         ["BV_DeleteConfirm"] = "Permanently delete",
+        // -- Quick VM
+        ["QVM_Title"]         = "Quick VM Creation",
+        ["QVM_Subtitle"]      = "Choose a size profile, configure the options and create one or more VMs in one click.",
+        ["QVM_ChooseSize"]    = "Choose a profile",
+        ["QVM_SecureBoot"]    = "Secure Boot",
+        ["QVM_SecureBootDesc"]= "Enable Secure Boot (Generation 2 only)",
+        ["QVM_UseCase_XXS"]   = "Router, proxy, lightweight firewall",
+        ["QVM_UseCase_XS"]    = "DNS / DHCP server, agent",
+        ["QVM_UseCase_S"]     = "Member server, web, lightweight database",
+        ["QVM_UseCase_M"]     = "Domain controller, Exchange, SQL",
+        ["QVM_UseCase_L"]     = "Nested Hyper-V, SCCM, heavy services",
+        ["QVM_UseCase_XL"]    = "High-load lab, nested virtualisation",
+        ["QVM_DiskMode"]      = "Disk type",
+        ["QVM_DiskMode_Blank"]      = "Blank",
+        ["QVM_DiskMode_BlankDesc"]  = "New empty VHDX disk, ready for OS installation",
+        ["QVM_DiskMode_Diff"]       = "Differencing",
+        ["QVM_DiskMode_DiffDesc"]   = "Differencing disk based on a parent image",
+        ["QVM_DiskSizeGB"]    = "Disk size (GB)",
+        ["Nav_QuickVM"]       = "Quick VM",
 
-        // ── Create VM ───────────────────────────────────────────────────────
+
+        // ── Create VM
         ["CVM_Title"]        = "Create a VM",
         ["CVM_Identity"]     = "Identity",
         ["CVM_VmName"]       = "VM name",
@@ -438,8 +497,13 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["CVM_BuildCbsCache"]= "Build CBS feature cache on first boot (Windows Server only)",
         ["CVM_DisableWindowsUpdate"] = "Disable automatic Windows Update",
         ["CVM_ShowPwd"]      = "Show / hide password",
+        ["CVM_BulkMode"]     = "Bulk creation",
+        ["CVM_BulkModeDesc"] = "Create multiple automatically numbered VMs: SRV-01, SRV-02…",
+        ["CVM_BulkPrefix"]   = "Prefix",
+        ["CVM_BulkCount"]    = "Number of VMs",
+        ["CVM_BulkPreview"]  = "Preview",
 
-        // ── Settings ────────────────────────────────────────────────────────
+        // ── Settings
         ["SET_Title"]        = "Settings",
         ["SET_SecFiles"]     = "File locations",
         ["SET_BaseImages"]   = "Base VHDX images",
