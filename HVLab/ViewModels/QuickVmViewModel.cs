@@ -39,8 +39,8 @@ public partial class QuickVmViewModel : ObservableObject
         OnPropertyChanged(nameof(IsDifferencingDisk));
     }
 
-    public bool IsBlankDisk        => !useDifferencingDisk;
-    public bool IsDifferencingDisk =>  useDifferencingDisk;
+    public bool IsBlankDisk        => !UseDifferencingDisk;
+    public bool IsDifferencingDisk =>  UseDifferencingDisk;
 
     [ObservableProperty] private double diskSizeGB = 40;
 
@@ -62,6 +62,10 @@ public partial class QuickVmViewModel : ObservableObject
     [ObservableProperty] private bool secureBoot = true;
 
     public bool SecureBootEnabled => Generation == 2;
+
+    // ── PXE / Network boot ───────────────────────────────────────────────────
+
+    [ObservableProperty] private bool pxeBoot = false;
 
     // ── Bulk mode ────────────────────────────────────────────────────────────
 
@@ -158,7 +162,7 @@ public partial class QuickVmViewModel : ObservableObject
             { Status = "Sélectionnez un commutateur."; return; }
 
         // Differencing mode needs a valid parent image
-        if (useDifferencingDisk &&
+        if (UseDifferencingDisk &&
             (string.IsNullOrWhiteSpace(SelectedBaseVhdx) || !File.Exists(SelectedBaseVhdx)))
             { Status = "Sélectionnez une image VHDX de base valide."; return; }
 
@@ -181,16 +185,16 @@ public partial class QuickVmViewModel : ObservableObject
                 Status = $"Création {i}/{BulkCount} : '{name}'…";
                 try
                 {
-                    if (useDifferencingDisk)
+                    if (UseDifferencingDisk)
                         await _hvService.CreateVMWithDifferencingDiskAsync(
                             name, SelectedBaseVhdx!, SelectedSwitch!,
                             memMB, cpuCnt, Generation, vmFolder,
-                            null, SecureBoot);
+                            null, SecureBoot, PxeBoot);
                     else
                         await _hvService.CreateBlankVmAsync(
                             name, SelectedSwitch!,
                             memMB, cpuCnt, Generation, vmFolder,
-                            (long)diskSizeGB, SecureBoot);
+                            (long)DiskSizeGB, SecureBoot, PxeBoot);
 
                     created.Add(name);
                 }
@@ -210,16 +214,16 @@ public partial class QuickVmViewModel : ObservableObject
             Status = $"Création de '{VmName}'…";
             try
             {
-                if (useDifferencingDisk)
+                if (UseDifferencingDisk)
                     await _hvService.CreateVMWithDifferencingDiskAsync(
                         VmName, SelectedBaseVhdx!, SelectedSwitch!,
                         memMB, cpuCnt, Generation, vmFolder,
-                        null, SecureBoot);
+                        null, SecureBoot, PxeBoot);
                 else
                     await _hvService.CreateBlankVmAsync(
                         VmName, SelectedSwitch!,
                         memMB, cpuCnt, Generation, vmFolder,
-                        (long)diskSizeGB, SecureBoot);
+                        (long)DiskSizeGB, SecureBoot, PxeBoot);
 
                 Status = $"✓ VM '{VmName}' créée avec succès !";
                 VmName = "";
