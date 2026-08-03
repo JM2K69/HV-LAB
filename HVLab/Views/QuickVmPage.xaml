@@ -293,6 +293,24 @@
                     </StackPanel>
                 </Border>
 
+                <!-- PXE / Network boot -->
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xEDA3;" FontSize="15"
+                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                            <TextBlock Text="{Binding [QVM_PxeBoot], Source={StaticResource Loc}}"
+                                       FontWeight="SemiBold" FontSize="15"/>
+                        </StackPanel>
+                        <TextBlock Text="{Binding [QVM_PxeBootDesc], Source={StaticResource Loc}}"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.PxeBoot, Mode=TwoWay}"/>
+                    </StackPanel>
+                </Border>
+
                 <!-- Bulk creation -->
                 <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"

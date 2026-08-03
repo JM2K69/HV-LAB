@@ -306,10 +306,11 @@ public class HyperVService
     public async Task CreateBlankVmAsync(
         string vmName, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        long diskSizeGB, bool secureBoot = true)
+        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false)
     {
         var isGen2       = generation == 2 ? "$true" : "$false";
-        var secureBootPs = secureBoot    ? "$true" : "$false";
+        var secureBootPs = secureBoot ? "$true" : "$false";
+        var pxeBootPs    = pxeBoot    ? "$true" : "$false";
 
         var script = $$"""
             $vmName      = '{{Esc(vmName)}}'
@@ -321,6 +322,7 @@ public class HyperVService
             $diskBytes   = {{diskSizeGB}}GB
             $isGen2      = {{isGen2}}
             $secureBoot  = {{secureBootPs}}
+            $pxeBoot     = {{pxeBootPs}}
 
             $vmPath    = Join-Path $vmFolder $vmName
             $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
@@ -342,11 +344,21 @@ public class HyperVService
                                -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
 
                 $hdd     = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+                $nic     = (Get-VMFirmware -VMName $vmName).BootOrder |
+                               Where-Object { $_.BootType -eq 'Network' } | Select-Object -First 1
                 $current = (Get-VMFirmware -VMName $vmName).BootOrder
-                $others  = $current | Where-Object { $_.BootType -ne 'Drive' -or $_.Device -isnot [Microsoft.HyperV.PowerShell.HardDiskDrive] }
-                Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                $others  = $current | Where-Object { $_ -ne $hdd -and $_ -ne $nic }
+                if ($pxeBoot -and $nic) {
+                    Set-VMFirmware -VMName $vmName -BootOrder (@($nic) + @($hdd) + $others) -ErrorAction SilentlyContinue
+                } else {
+                    Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                }
             } else {
-                Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+                if ($pxeBoot) {
+                    Set-VMBios -VMName $vmName -StartupOrder @('LegacyNetworkAdapter', 'IDE', 'CD', 'Floppy') -ErrorAction SilentlyContinue
+                } else {
+                    Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+                }
             }
             Write-Output "VM '$vmName' créée avec succès (disque vierge)"
             """;
@@ -359,7 +371,7 @@ public class HyperVService
     public async Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        string? answerFileContent = null, bool secureBoot = true)
+        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false)
     {
         // Write the answer file to a temp path if provided
         string? answerTemp = null;
@@ -373,6 +385,7 @@ public class HyperVService
         {
             var isGen2      = generation == 2 ? "$true" : "$false";
             var secureBootPs = secureBoot ? "$true" : "$false";
+            var pxeBootPs    = pxeBoot    ? "$true" : "$false";
             var script   = $$"""
                 $vmName       = '{{Esc(vmName)}}'
                 $parentVhdx   = '{{Esc(parentVhdxPath)}}'
@@ -384,6 +397,7 @@ public class HyperVService
                 $answerFile   = '{{Esc(answerTemp ?? "")}}'
                 $isGen2       = {{isGen2}}
                 $secureBoot   = {{secureBootPs}}
+                $pxeBoot      = {{pxeBootPs}}
 
                 $vmPath    = Join-Path $vmFolder $vmName
                 $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
@@ -441,14 +455,24 @@ public class HyperVService
                     Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
                                    -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
 
-                    # Ordre de boot : Hard Disk en premier, ensuite le reste
+                    # Ordre de boot : PXE ou HDD en premier
                     $hdd     = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+                    $nic     = (Get-VMFirmware -VMName $vmName).BootOrder |
+                                   Where-Object { $_.BootType -eq 'Network' } | Select-Object -First 1
                     $current = (Get-VMFirmware -VMName $vmName).BootOrder
-                    $others  = $current | Where-Object { $_.BootType -ne 'Drive' -or $_.Device -isnot [Microsoft.HyperV.PowerShell.HardDiskDrive] }
-                    Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                    $others  = $current | Where-Object { $_ -ne $hdd -and $_ -ne $nic }
+                    if ($pxeBoot -and $nic) {
+                        Set-VMFirmware -VMName $vmName -BootOrder (@($nic) + @($hdd) + $others) -ErrorAction SilentlyContinue
+                    } else {
+                        Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                    }
                 } else {
-                    # Gen1 : BIOS - s'assurer que le disque dur est la première entrée de boot
-                    Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+                    # Gen1 : BIOS
+                    if ($pxeBoot) {
+                        Set-VMBios -VMName $vmName -StartupOrder @('LegacyNetworkAdapter', 'IDE', 'CD', 'Floppy') -ErrorAction SilentlyContinue
+                    } else {
+                        Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+                    }
                 }
                 Write-Output "VM '$vmName' créée avec succès"
                 """;
