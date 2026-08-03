@@ -26,6 +26,35 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private string  vmFolder;
     [ObservableProperty] private string  baseVhdxFolder;
 
+    // ─── Bulk mode ──────────────────────────────────────────────────────────────
+
+    [ObservableProperty] private bool   bulkMode   = false;
+    [ObservableProperty] private string bulkPrefix = "SRV";
+    [ObservableProperty] private int    bulkCount  = 2;
+
+    partial void OnBulkModeChanged(bool value)
+    {
+        if (value && string.IsNullOrWhiteSpace(VmName))
+            VmName = $"{BulkPrefix}-01";
+        OnPropertyChanged(nameof(BulkNamesPreview));
+    }
+
+    partial void OnBulkPrefixChanged(string value) => OnPropertyChanged(nameof(BulkNamesPreview));
+    partial void OnBulkCountChanged(int value)      => OnPropertyChanged(nameof(BulkNamesPreview));
+
+    public string BulkNamesPreview
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(BulkPrefix) || BulkCount < 1) return "";
+            var names = Enumerable.Range(1, Math.Min(BulkCount, 10))
+                                  .Select(i => $"{BulkPrefix}-{i:D2}");
+            return BulkCount > 10
+                ? string.Join("  ", names) + $"  … (+{BulkCount - 10})"
+                : string.Join("  ", names);
+        }
+    }
+
     // ─── Answer file (injected into the differencing disk at creation time) ────
 
     [ObservableProperty] private bool   useAnswerFile  = true;
@@ -129,35 +158,76 @@ public partial class CreateVmViewModel : ObservableObject
     [RelayCommand]
     public async Task CreateVmAsync()
     {
-        if (string.IsNullOrWhiteSpace(VmName))                               { Status = "Saisissez un nom."; return; }
         if (string.IsNullOrWhiteSpace(SelectedBaseVhdx) || !File.Exists(SelectedBaseVhdx))
             { Status = "Sélectionnez une image VHDX de base valide."; return; }
-        if (string.IsNullOrWhiteSpace(SelectedSwitch))                       { Status = "Sélectionnez un commutateur."; return; }
+        if (string.IsNullOrWhiteSpace(SelectedSwitch))
+            { Status = "Sélectionnez un commutateur."; return; }
 
-        IsLoading = true;
-        Status = $"Création de la VM '{VmName}'…";
-        try
+        if (BulkMode)
         {
-            string? answerXml = UseAnswerFile
-                ? AnswerFileGenerator.Generate(BuildConfig())
-                : null;
+            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = "Saisissez un préfixe."; return; }
+            if (BulkCount < 1)                         { Status = "La quantité doit être ≥ 1."; return; }
 
-            await _hvService.CreateVMWithDifferencingDiskAsync(
-                VmName, SelectedBaseVhdx, SelectedSwitch,
-                MemoryMB, CpuCount, Generation, VmFolder,
-                answerXml);
+            IsLoading = true;
+            var created = new List<string>();
+            var errors  = new List<string>();
 
-            Status = $"✓ VM '{VmName}' créée avec succès !";
-            VmName       = "";
-            ComputerName = "LAB-VM";
+            for (int i = 1; i <= BulkCount; i++)
+            {
+                string name = $"{BulkPrefix}-{i:D2}";
+                Status = $"Création {i}/{BulkCount} : '{name}'…";
+                try
+                {
+                    string compName = name.Length > 15 ? name[..15] : name;
+                    string? answerXml = UseAnswerFile
+                        ? AnswerFileGenerator.Generate(BuildConfig(compName))
+                        : null;
+
+                    await _hvService.CreateVMWithDifferencingDiskAsync(
+                        name, SelectedBaseVhdx, SelectedSwitch,
+                        MemoryMB, CpuCount, Generation, VmFolder,
+                        answerXml);
+
+                    created.Add(name);
+                }
+                catch (Exception ex) { errors.Add($"{name}: {ex.Message}"); }
+            }
+
+            IsLoading = false;
+            if (errors.Count == 0)
+                Status = $"✓ {created.Count} VM(s) créées avec succès : {string.Join(", ", created)}";
+            else
+                Status = $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
-        finally { IsLoading = false; }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(VmName)) { Status = "Saisissez un nom."; return; }
+
+            IsLoading = true;
+            Status = $"Création de la VM '{VmName}'…";
+            try
+            {
+                string? answerXml = UseAnswerFile
+                    ? AnswerFileGenerator.Generate(BuildConfig())
+                    : null;
+
+                await _hvService.CreateVMWithDifferencingDiskAsync(
+                    VmName, SelectedBaseVhdx, SelectedSwitch,
+                    MemoryMB, CpuCount, Generation, VmFolder,
+                    answerXml);
+
+                Status = $"✓ VM '{VmName}' créée avec succès !";
+                VmName       = "";
+                ComputerName = "LAB-VM";
+            }
+            catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+            finally { IsLoading = false; }
+        }
     }
 
-    private AnswerFileConfig BuildConfig() => new()
+    private AnswerFileConfig BuildConfig(string? computerNameOverride = null) => new()
     {
-        ComputerName  = string.IsNullOrWhiteSpace(ComputerName) ? VmName : ComputerName,
+        ComputerName  = computerNameOverride ?? (string.IsNullOrWhiteSpace(ComputerName) ? VmName : ComputerName),
         AdminPassword = AdminPassword,
         ProductKey    = ProductKey,
         UILanguage    = UiLanguage,

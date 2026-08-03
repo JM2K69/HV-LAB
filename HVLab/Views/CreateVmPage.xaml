@@ -31,7 +31,9 @@
                 <StackPanel Spacing="14">
                     <TextBlock Text="{Binding [CVM_Identity], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
 
-                    <StackPanel Spacing="4">
+                    <StackPanel Spacing="4"
+                                Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                              Converter={StaticResource BoolToVisibilityInverseConverter}}">
                         <TextBlock Text="{Binding [CVM_VmName], Source={StaticResource Loc}}" FontSize="12"/>
                         <TextBox Text="{x:Bind ViewModel.VmName, Mode=TwoWay}"
                                  PlaceholderText="Ex. : WIN11-LAB-01"/>
@@ -269,6 +271,58 @@
                                         Command="{x:Bind ViewModel.UpdateAnswerPreviewCommand}"/>
                             </StackPanel>
                         </Expander>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Bulk creation -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="14">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE8A4;" FontSize="16"
+                                  Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                        <TextBlock Text="{Binding [CVM_BulkMode], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
+                    </StackPanel>
+
+                    <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                             Message="{Binding [CVM_BulkModeDesc], Source={StaticResource Loc}}"/>
+
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.BulkMode, Mode=TwoWay}"/>
+
+                    <Grid ColumnSpacing="12"
+                          Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                        Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="140"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="{Binding [CVM_BulkPrefix], Source={StaticResource Loc}}" FontSize="12"/>
+                            <TextBox Text="{x:Bind ViewModel.BulkPrefix, Mode=TwoWay}"
+                                     PlaceholderText="Ex. : SRV"
+                                     FontFamily="Consolas"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding [CVM_BulkCount], Source={StaticResource Loc}}" FontSize="12"/>
+                            <NumberBox Value="{x:Bind ViewModel.BulkCount, Mode=TwoWay}"
+                                       Minimum="1" Maximum="99" SpinButtonPlacementMode="Inline"
+                                       SmallChange="1"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Preview of generated names -->
+                    <StackPanel Spacing="4"
+                                Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                              Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{Binding [CVM_BulkPreview], Source={StaticResource Loc}}" FontSize="12"/>
+                        <TextBlock Text="{x:Bind ViewModel.BulkNamesPreview, Mode=OneWay}"
+                                   FontFamily="Consolas" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   TextWrapping="Wrap"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
