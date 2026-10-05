@@ -186,7 +186,7 @@ public partial class CreateVmViewModel : ObservableObject
                     await _hvService.CreateVMWithDifferencingDiskAsync(
                         name, SelectedBaseVhdx, SelectedSwitch,
                         MemoryMB, CpuCount, Generation, VmFolder,
-                        answerXml);
+                        answerXml, secureBoot: true, pxeBoot: false);
 
                     created.Add(name);
                 }
@@ -214,7 +214,7 @@ public partial class CreateVmViewModel : ObservableObject
                 await _hvService.CreateVMWithDifferencingDiskAsync(
                     VmName, SelectedBaseVhdx, SelectedSwitch,
                     MemoryMB, CpuCount, Generation, VmFolder,
-                    answerXml);
+                    answerXml, secureBoot: true, pxeBoot: false);
 
                 Status = $"✓ VM '{VmName}' créée avec succès !";
                 VmName       = "";
