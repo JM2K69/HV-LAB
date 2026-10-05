@@ -61,7 +61,7 @@ public static class AnswerFileGenerator
             ? """
                         <OOBE>
                             <HideEULAPage>true</HideEULAPage>
-                            <HideLocalAccountSetupPage>true</HideLocalAccountSetupPage>
+                            <HideLocalAccountScreen>true</HideLocalAccountScreen>
                             <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
                             <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
                             <SkipUserOOBE>true</SkipUserOOBE>
