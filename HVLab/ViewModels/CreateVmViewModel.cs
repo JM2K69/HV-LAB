@@ -95,6 +95,9 @@ public partial class CreateVmViewModel : ObservableObject
         var suggested = KmsKeyCatalog.SuggestForOs(vhdx.OsIdentifier);
         if (suggested is not null)
             SelectedKmsKey = suggested;
+
+        // Always refresh unattend preview so client/server profile is applied immediately
+        UpdateAnswerPreview();
     }
 
     public IReadOnlyList<KmsKeyEntry> KmsKeys { get; } = KmsKeyCatalog.All;
