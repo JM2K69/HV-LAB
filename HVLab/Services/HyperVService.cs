@@ -343,15 +343,22 @@ public class HyperVService
                 Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
                                -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
 
-                $hdd     = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
-                $nic     = (Get-VMFirmware -VMName $vmName).BootOrder |
-                               Where-Object { $_.BootType -eq 'Network' } | Select-Object -First 1
-                $current = (Get-VMFirmware -VMName $vmName).BootOrder
-                $others  = $current | Where-Object { $_ -ne $hdd -and $_ -ne $nic }
-                if ($pxeBoot -and $nic) {
-                    Set-VMFirmware -VMName $vmName -BootOrder (@($nic) + @($hdd) + $others) -ErrorAction SilentlyContinue
+                $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+                $nic = Get-VMNetworkAdapter -VMName $vmName | Select-Object -First 1
+
+                if ($pxeBoot -and $nic -and $hdd) {
+                    Set-VMFirmware -VMName $vmName -BootOrder $nic,$hdd -ErrorAction Stop
+                } elseif ($hdd -and $nic) {
+                    Set-VMFirmware -VMName $vmName -BootOrder $hdd,$nic -ErrorAction Stop
+                } elseif ($hdd) {
+                    Set-VMFirmware -VMName $vmName -FirstBootDevice $hdd -ErrorAction Stop
                 } else {
-                    Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                    throw "Aucun disque de démarrage trouvé pour '$vmName'."
+                }
+
+                $first = (Get-VMFirmware -VMName $vmName).BootOrder | Select-Object -First 1
+                if (-not $pxeBoot -and $first.BootType -eq 'Network') {
+                    throw "BootOrder invalide pour '$vmName': Network en premier alors que PXE est désactivé."
                 }
             } else {
                 if ($pxeBoot) {
@@ -455,16 +462,22 @@ public class HyperVService
                     Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
                                    -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
 
-                    # Ordre de boot : PXE ou HDD en premier
-                    $hdd     = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
-                    $nic     = (Get-VMFirmware -VMName $vmName).BootOrder |
-                                   Where-Object { $_.BootType -eq 'Network' } | Select-Object -First 1
-                    $current = (Get-VMFirmware -VMName $vmName).BootOrder
-                    $others  = $current | Where-Object { $_ -ne $hdd -and $_ -ne $nic }
-                    if ($pxeBoot -and $nic) {
-                        Set-VMFirmware -VMName $vmName -BootOrder (@($nic) + @($hdd) + $others) -ErrorAction SilentlyContinue
+                    # Boot order strict: HDD first unless PXE explicitly requested
+                    $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
+                    $nic = Get-VMNetworkAdapter -VMName $vmName | Select-Object -First 1
+                    if ($pxeBoot -and $nic -and $hdd) {
+                        Set-VMFirmware -VMName $vmName -BootOrder $nic,$hdd -ErrorAction Stop
+                    } elseif ($hdd -and $nic) {
+                        Set-VMFirmware -VMName $vmName -BootOrder $hdd,$nic -ErrorAction Stop
+                    } elseif ($hdd) {
+                        Set-VMFirmware -VMName $vmName -FirstBootDevice $hdd -ErrorAction Stop
                     } else {
-                        Set-VMFirmware -VMName $vmName -BootOrder (@($hdd) + $others) -ErrorAction SilentlyContinue
+                        throw "Aucun disque de démarrage trouvé pour '$vmName'."
+                    }
+
+                    $first = (Get-VMFirmware -VMName $vmName).BootOrder | Select-Object -First 1
+                    if (-not $pxeBoot -and $first.BootType -eq 'Network') {
+                        throw "BootOrder invalide pour '$vmName': Network en premier alors que PXE est désactivé."
                     }
                 } else {
                     # Gen1 : BIOS

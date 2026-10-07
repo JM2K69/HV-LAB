@@ -47,55 +47,37 @@ public static class AnswerFileGenerator
               """
             : string.Empty;
 
+        var autoLogonUser = "HVLabAdmin";
+
         var autoLogon = c.AutoLogon ? $"""
                     <AutoLogon>
                         <Password><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></Password>
                         <Enabled>true</Enabled>
                         <LogonCount>3</LogonCount>
-                        <Username>Administrator</Username>
+                        <Username>{autoLogonUser}</Username>
+                        <Domain>.</Domain>
                     </AutoLogon>
             """ : string.Empty;
 
-        // OOBE block: client OS has extra nodes not present on Windows Server
-        var oobeBlock = c.OsFamily == OsFamily.Client
-            ? """
-                        <OOBE>
-                            <HideEULAPage>true</HideEULAPage>
-                            <HideLocalAccountScreen>true</HideLocalAccountScreen>
-                            <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
-                            <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
-                            <SkipUserOOBE>true</SkipUserOOBE>
-                            <SkipMachineOOBE>true</SkipMachineOOBE>
-                            <ProtectYourPC>3</ProtectYourPC>
-                        </OOBE>
-              """
-            : """
+        // OOBE block: keep only cross-version safe nodes to reduce client/server OOBE parsing issues
+        const string oobeBlock = """
                         <OOBE>
                             <HideEULAPage>true</HideEULAPage>
                             <ProtectYourPC>3</ProtectYourPC>
                         </OOBE>
               """;
 
-        // AutoLogon on client uses a local user account; on Server Administrator is built-in
-        var userAccounts = c.OsFamily == OsFamily.Client
-            ? $"""
+        // Use one explicit local admin account for both client/server to avoid localized built-in Administrator issues
+        var userAccounts = $"""
                         <UserAccounts>
                             <LocalAccounts>
                                 <LocalAccount wcm:action="add">
                                     <Password><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></Password>
-                                    <DisplayName>Administrator</DisplayName>
+                                    <DisplayName>HVLab Admin</DisplayName>
                                     <Group>Administrators</Group>
-                                    <Name>Administrator</Name>
+                                    <Name>HVLabAdmin</Name>
                                 </LocalAccount>
                             </LocalAccounts>
-                        </UserAccounts>
-              """
-            : $"""
-                        <UserAccounts>
-                            <AdministratorPassword>
-                                <Value>{X(c.AdminPassword)}</Value>
-                                <PlainText>true</PlainText>
-                            </AdministratorPassword>
                         </UserAccounts>
               """;
 
