@@ -12,6 +12,10 @@
     <AssemblyName>HVLab</AssemblyName>
     <GenerateAppxPackageOnBuild>false</GenerateAppxPackageOnBuild>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Unpackaged app (no MSIX): installed by copying the publish folder (see Install.ps1) -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <!-- Only ship the languages the app supports (FR/EN) -->
+    <SatelliteResourceLanguages>en;fr</SatelliteResourceLanguages>
     <ApplicationIcon>Images\AppIcon.ico</ApplicationIcon>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <!-- Self-contained: embed WinUI runtime, no system-wide install required -->
@@ -27,13 +31,14 @@
     <Description>Gestionnaire Hyper-V — VM, vSwitch, NAT, VHDX</Description>
     <Copyright>Copyright © 2026</Copyright>
   </PropertyGroup>
-  <!-- Release: single-file, optimized, no debug symbols -->
+  <!-- Release: self-contained folder (no single-file: WinUI resources must sit next to the exe,
+       and self-extraction would load DLLs from the user's %TEMP% in an elevated process) -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <Optimize>true</Optimize>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
-    <PublishSingleFile>true</PublishSingleFile>
-    <WindowsPackageType>None</WindowsPackageType>
+    <PublishSingleFile>false</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
     <PublishDir>publish\</PublishDir>
   </PropertyGroup>
   <ItemGroup>
@@ -49,5 +54,31 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
+
+  <!-- Post-publish fix-ups for the unpackaged self-contained folder:
+       1. dotnet publish omits the compiled XAML (*.xbf) of an unpackaged WinUI app, which then
+          crashes natively at startup (0xc0000374) — copy them from the build output.
+       2. The Windows App SDK copies ~85 culture folders of WinUI .mui resources that
+          SatelliteResourceLanguages does not filter: keep only en-US / fr-FR (en-US is the fallback). -->
+  <Target Name="HvlFinalizePublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <_HvlPublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(PublishDir)'))</_HvlPublishDir>
+      <_HvlOutDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(OutDir)'))</_HvlOutDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_HvlXbf Include="$(_HvlOutDir)**\*.xbf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_HvlXbf)"
+          DestinationFiles="@(_HvlXbf->'$(_HvlPublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Error Condition="'@(_HvlXbf)' == ''" Text="HV-LAB: no .xbf found in $(_HvlOutDir) — the published app would crash at startup." />
+    <ItemGroup>
+      <_HvlCultureDir Include="$([System.IO.Directory]::GetDirectories('$(_HvlPublishDir)'))" />
+      <_HvlCultureDirToRemove Include="@(_HvlCultureDir)"
+          Condition="$([System.Text.RegularExpressions.Regex]::IsMatch('%(Filename)%(Extension)', '^[a-z]{2,3}(-[A-Za-z0-9]+)+$')) and '%(Filename)%(Extension)' != 'en-US' and '%(Filename)%(Extension)' != 'fr-FR'" />
+    </ItemGroup>
+    <RemoveDir Directories="@(_HvlCultureDirToRemove)" />
+    <Message Importance="high" Text="HV-LAB: copied @(_HvlXbf->Count()) .xbf, removed @(_HvlCultureDirToRemove->Count()) unused language folders in $(_HvlPublishDir)" />
+  </Target>
 
 </Project>
