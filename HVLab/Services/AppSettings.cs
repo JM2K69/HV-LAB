@@ -31,10 +31,6 @@ public sealed class AppSettings
     /// <summary>Root folder where VM differencing disks and config live.</summary>
     public string VmsFolder { get; set; } = @"C:\HV-LAB\VMs";
 
-    /// <summary>Default Windows PowerShell path used for Hyper-V scripts.</summary>
-    public string PowerShellPath { get; set; } =
-        @"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe";
-
     /// <summary>
     /// Application theme preference: "System" (default), "Light", or "Dark".
     /// </summary>

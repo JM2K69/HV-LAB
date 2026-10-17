@@ -25,6 +25,7 @@ public static class Program
         }
         catch (Exception ex)
         {
+            HVLab.Services.CrashLogger.Log("Program.Main", ex);
             _ = NativeMethods.MessageBox(IntPtr.Zero, ex.ToString(), "HV-LAB — Erreur fatale", 0x10);
         }
     }

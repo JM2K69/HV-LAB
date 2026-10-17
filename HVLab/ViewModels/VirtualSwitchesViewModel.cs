@@ -119,6 +119,8 @@ public partial class VirtualSwitchesViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(NewNatName) || string.IsNullOrWhiteSpace(SelectedNatSwitch))
         { Status = LocalizationService.Instance["SW_ErrNoNat"]; return; }
+        if (NatService.NormalizeGateway(NatGatewayIP, NatPrefixLength) is null)
+        { Status = LocalizationService.Instance["SW_ErrInvalidGateway"]; return; }
         IsLoading = true;
         Status = string.Format(LocalizationService.Instance["SW_CreatingNat"], NewNatName);
         try
