@@ -136,3 +136,22 @@ public class VirtualMachinesViewModelTests
         Assert.False(v.CanStop);
     }
 }
+
+public class PowerShellRunnerTests
+{
+    [Fact]
+    public async Task Script_error_tokens_are_translated_in_the_exception()
+    {
+        var ex = await Assert.ThrowsAsync<PowerShellException>(() =>
+            new PowerShellRunner().RunAsync(@"throw ""##Err_FileExists|C:\x.vhdx"""));
+        Assert.Equal(LocalizationService.T("Err_FileExists", @"C:\x.vhdx"), ex.Message);
+    }
+
+    [Fact]
+    public async Task Output_and_unicode_survive_the_stdin_bootstrap()
+    {
+        // ’ (U+2019) closes a single-quoted PowerShell string: Esc() is required
+        var output = await new PowerShellRunner().RunAsync($"Write-Output '{PowerShellRunner.Esc("é ’ ok")}'");
+        Assert.Equal("é ’ ok", output.Trim());
+    }
+}

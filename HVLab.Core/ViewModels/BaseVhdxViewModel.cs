@@ -7,12 +7,15 @@ using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
-public partial class BaseVhdxViewModel : ObservableObject
+public partial class BaseVhdxViewModel : PageViewModelBase
 {
     private readonly IVhdxService   _vhdxService;
     private readonly IDialogService _dialogs;
 
     [ObservableProperty] private ObservableCollection<BaseVhdx> baseVhdxList = [];
+
+    public bool IsImageListEmpty => IsEmptyAfterLoad(BaseVhdxList.Count);
+    protected override void OnEmptyStateChanged() => OnPropertyChanged(nameof(IsImageListEmpty));
     [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = T("St_Ready");
     [ObservableProperty] private string baseFolder;
@@ -202,8 +205,9 @@ public partial class BaseVhdxViewModel : ObservableObject
             BaseVhdxList.Clear();
             foreach (var img in images) BaseVhdxList.Add(img);
             Status = T("BV_ImagesIn", images.Count, BaseFolder);
+            MarkLoaded();
         }
-        catch (Exception ex) { Status = T("St_Error", ex.Message); }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); }
         finally { IsLoading = false; }
     }
 
@@ -327,6 +331,6 @@ public partial class BaseVhdxViewModel : ObservableObject
             Status = T("BV_Deleted", vhdx.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = T("St_Error", ex.Message); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
     }
 }

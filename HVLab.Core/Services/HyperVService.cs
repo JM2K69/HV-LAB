@@ -139,7 +139,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
 
         if (!File.Exists(vmconnect))
             throw new InvalidOperationException(
-                "vmconnect.exe introuvable. Assurez-vous que le rôle Hyper-V est installé.");
+                LocalizationService.Instance["Err_VmConnect"]);
 
         var psi = new ProcessStartInfo
         {
@@ -335,12 +335,12 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 } elseif ($hdd) {
                     Set-VMFirmware -VMName $vmName -FirstBootDevice $hdd -ErrorAction Stop
                 } else {
-                    throw "Aucun disque de démarrage trouvé pour '$vmName'."
+                    throw "##Err_NoBootDisk|$vmName"
                 }
 
                 $first = (Get-VMFirmware -VMName $vmName).BootOrder | Select-Object -First 1
                 if (-not $pxeBoot -and $first.BootType -eq 'Network') {
-                    throw "BootOrder invalide pour '$vmName': Network en premier alors que PXE est désactivé."
+                    throw "##Err_BootOrder|$vmName"
                 }
             } else {
                 if ($pxeBoot) {
@@ -411,7 +411,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                             Start-Sleep -Milliseconds 400
                         } while ((Get-Date) -lt $deadline)
 
-                        if (-not $winPart) { throw "Partition Windows introuvable sur le disque différentiel" }
+                        if (-not $winPart) { throw "##Err_NoWinPartition" }
 
                         # Mount to folder — no drive letter, no AutoPlay, no Explorer window
                         $winPart | Add-PartitionAccessPath -AccessPath $mountPath -ErrorAction Stop
@@ -449,12 +449,12 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                     } elseif ($hdd) {
                         Set-VMFirmware -VMName $vmName -FirstBootDevice $hdd -ErrorAction Stop
                     } else {
-                        throw "Aucun disque de démarrage trouvé pour '$vmName'."
+                        throw "##Err_NoBootDisk|$vmName"
                     }
 
                     $first = (Get-VMFirmware -VMName $vmName).BootOrder | Select-Object -First 1
                     if (-not $pxeBoot -and $first.BootType -eq 'Network') {
-                        throw "BootOrder invalide pour '$vmName': Network en premier alors que PXE est désactivé."
+                        throw "##Err_BootOrder|$vmName"
                     }
                 } else {
                     # Gen1 : BIOS
@@ -484,7 +484,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
     {
         var snippet = output.Trim();
         if (snippet.Length > 200) snippet = snippet[..200] + "…";
-        return new InvalidOperationException($"Réponse PowerShell illisible ({what}) : {snippet}", inner);
+        return new InvalidOperationException(LocalizationService.T("Err_Unreadable", what, snippet), inner);
     }
 
     internal static string GetStr(JsonElement el, string key)

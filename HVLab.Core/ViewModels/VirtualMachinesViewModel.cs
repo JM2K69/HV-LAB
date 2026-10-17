@@ -7,7 +7,7 @@ using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
-public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogService dialogs) : ObservableObject
+public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogService dialogs) : PageViewModelBase
 {
     private readonly IHyperVService _hvService = hvService;
     private readonly IDialogService _dialogs   = dialogs;
@@ -16,20 +16,10 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = T("St_Ready");
 
-    /// <summary>Last error (shown in an InfoBar); empty when the last operation succeeded.</summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasError))]
-    [NotifyPropertyChangedFor(nameof(IsEmpty))]
-    private string errorMessage = string.Empty;
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEmpty))]
-    private bool hasLoaded;
-
-    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
-
     /// <summary>True once a successful refresh returned no VM: shows the empty state.</summary>
-    public bool IsEmpty => HasLoaded && !HasError && VirtualMachines.Count == 0;
+    public bool IsEmpty => IsEmptyAfterLoad(VirtualMachines.Count);
+
+    protected override void OnEmptyStateChanged() => OnPropertyChanged(nameof(IsEmpty));
 
     // Serializes refreshes: a poll tick never overlaps a manual refresh.
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
@@ -44,10 +34,8 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         {
             var vms = await _hvService.GetVirtualMachinesAsync();
             ApplyDiff(vms);
-            Status       = T("VM_Count", vms.Count);
-            ErrorMessage = string.Empty;
-            HasLoaded    = true;
-            OnPropertyChanged(nameof(IsEmpty));
+            Status = T("VM_Count", vms.Count);
+            MarkLoaded();
         }
         catch (Exception ex) { ErrorMessage = ex.Message; }
         finally

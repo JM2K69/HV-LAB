@@ -7,7 +7,7 @@ using HVLab.Services;
 namespace HVLab.ViewModels;
 
 public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatService natService, IDialogService dialogs)
-    : ObservableObject
+    : PageViewModelBase
 {
     private readonly IHyperVService _hvService  = hvService;
     private readonly INatService    _natService = natService;
@@ -17,6 +17,15 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
     [ObservableProperty] private ObservableCollection<NatNetwork>       natNetworks        = [];
     [ObservableProperty] private ObservableCollection<NetworkAdapterInfo> networkAdapters  = [];
     [ObservableProperty] private ObservableCollection<string>           internalSwitchNames = [];
+
+    public bool IsSwitchListEmpty => IsEmptyAfterLoad(VirtualSwitches.Count);
+    public bool IsNatListEmpty    => IsEmptyAfterLoad(NatNetworks.Count);
+
+    protected override void OnEmptyStateChanged()
+    {
+        OnPropertyChanged(nameof(IsSwitchListEmpty));
+        OnPropertyChanged(nameof(IsNatListEmpty));
+    }
 
     [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = LocalizationService.Instance["St_Ready"];
@@ -79,8 +88,9 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             foreach (var a in adapters) NetworkAdapters.Add(a);
 
             Status = string.Format(LocalizationService.Instance["SW_Summary"], switches.Count, nats.Count);
+            MarkLoaded();
         }
-        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); }
         finally { IsLoading = false; }
     }
 
@@ -106,7 +116,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = LocalizationService.Instance["SW_CreatedSwitch"];
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
     }
 
     [RelayCommand]
@@ -124,7 +134,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = string.Format(LocalizationService.Instance["SW_DeletedSwitch"], sw.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
     }
 
     [RelayCommand]
@@ -143,7 +153,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = LocalizationService.Instance["SW_CreatedNat"];
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
     }
 
     [RelayCommand]
@@ -161,6 +171,6 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = string.Format(LocalizationService.Instance["SW_DeletedNat"], nat.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
     }
 }
