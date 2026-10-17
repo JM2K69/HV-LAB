@@ -176,6 +176,11 @@
                                   Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
 
+                    <ToggleSwitch Header="{Binding [CVM_AutoLogon], Source={StaticResource Loc}}"
+                                  IsOn="{x:Bind ViewModel.AutoLogon, Mode=TwoWay}"
+                                  Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                     <StackPanel Spacing="12"
                                 Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
                                               Converter={StaticResource BoolToVisibilityConverter}}">
@@ -194,12 +199,12 @@
                                 <Grid>
                                     <PasswordBox x:Name="PwdBox"
                                                  Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
-                                                 PlaceholderText="P@ssw0rd!"
+                                                 PlaceholderText="{Binding [CVM_PwdRequired], Source={StaticResource Loc}}"
                                                  Visibility="{x:Bind ViewModel.ShowPassword, Mode=OneWay,
                                                               Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
                                     <TextBox x:Name="PwdTextBox"
                                              Text="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
-                                             PlaceholderText="P@ssw0rd!"
+                                             PlaceholderText="{Binding [CVM_PwdRequired], Source={StaticResource Loc}}"
                                              Visibility="{x:Bind ViewModel.ShowPassword, Mode=OneWay,
                                                           Converter={StaticResource BoolToVisibilityConverter}}"/>
                                     <Button HorizontalAlignment="Right"
@@ -332,10 +337,23 @@
             <Button Command="{x:Bind ViewModel.CreateVmCommand}"
                     Style="{StaticResource AccentButtonStyle}"
                     HorizontalAlignment="Stretch"
+                    IsEnabled="{x:Bind ViewModel.IsCreating, Mode=OneWay,
+                                Converter={StaticResource BoolInverseConverter}}"
                     Padding="0,14">
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <FontIcon Glyph="&#xE945;" FontSize="16"/>
                     <TextBlock Text="{Binding [CVM_BtnCreate], Source={StaticResource Loc}}" FontSize="14"/>
+                </StackPanel>
+            </Button>
+
+            <!-- Cancel (visible while creating) -->
+            <Button Command="{x:Bind ViewModel.CancelCommand}"
+                    HorizontalAlignment="Stretch"
+                    Visibility="{x:Bind ViewModel.IsCreating, Mode=OneWay,
+                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE711;" FontSize="14"/>
+                    <TextBlock Text="{Binding [Btn_Cancel], Source={StaticResource Loc}}"/>
                 </StackPanel>
             </Button>
 
