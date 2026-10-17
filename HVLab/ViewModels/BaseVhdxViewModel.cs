@@ -254,6 +254,12 @@ public partial class BaseVhdxViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Set by the view: asks the user to confirm overwriting an existing base image
+    /// (differencing disks built on it would break). Returns true to overwrite.
+    /// </summary>
+    public Func<string, Task<bool>>? ConfirmOverwriteAsync { get; set; }
+
     [RelayCommand]
     public async Task CreateBaseVhdxAsync()
     {
@@ -262,17 +268,28 @@ public partial class BaseVhdxViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(WimPath) || !File.Exists(WimPath))
             { Status = "Sélectionnez un fichier WIM/ESD valide."; return; }
 
-        IsCreating = true; IsLoading = true;
         var vhdxPath = System.IO.Path.Combine(BaseFolder, $"{PreviewFileName}.vhdx");
+        if (File.Exists(vhdxPath)
+            && (ConfirmOverwriteAsync is null || !await ConfirmOverwriteAsync(vhdxPath)))
+            return;
+
+        // Build into a temporary file (not matching BASE_*.vhdx) and move it into place only on success,
+        // so a failed build never leaves a partial image listed as valid.
+        var buildPath = System.IO.Path.Combine(BaseFolder, $"~building_{PreviewFileName}.vhdx");
+        IsCreating = true; IsLoading = true;
         try
         {
+            if (File.Exists(buildPath))
+                await _vhdxService.DiscardPartialVhdxAsync(buildPath);
+
             BuildStatus = $"Création du VHDX : {System.IO.Path.GetFileName(vhdxPath)}…";
-            await _vhdxService.CreateBaseVhdxAsync(vhdxPath, SizeGB);
+            await _vhdxService.CreateBaseVhdxAsync(buildPath, SizeGB);
 
             BuildStatus = "Application de l'image Windows (quelques minutes)…";
             // No answer file on the base image — it must stay in generalized/sysprep state.
             // unattend.xml will be injected at VM creation time (into the differencing disk).
-            await _vhdxService.ApplyWindowsImageAsync(vhdxPath, WimPath, ImageIndex, Generation, answerFileContent: null);
+            await _vhdxService.ApplyWindowsImageAsync(buildPath, WimPath, ImageIndex, Generation, answerFileContent: null);
+            await Task.Run(() => File.Move(buildPath, vhdxPath, overwrite: true));
 
             BuildStatus = "✓ Image créée avec succès !";
             Status = $"Image créée : {vhdxPath}";
@@ -282,6 +299,7 @@ public partial class BaseVhdxViewModel : ObservableObject
         {
             BuildStatus = $"✗ Erreur : {ex.Message}";
             Status = $"Échec : {ex.Message}";
+            try { await _vhdxService.DiscardPartialVhdxAsync(buildPath); } catch { /* best effort */ }
         }
         finally { IsCreating = false; IsLoading = false; }
     }

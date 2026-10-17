@@ -8,8 +8,8 @@ public class HyperVService
 {
     // ─── PowerShell runner ──────────────────────────────────────────────────
 
-    // Full path to Windows PowerShell (always present on Windows, required for Hyper-V cmdlets).
-    // pwsh.exe (PowerShell 7) does NOT have the Hyper-V module; use powershell.exe.
+    // Fixed path to Windows PowerShell 5.1 (System32) — intentionally not user-configurable,
+    // since scripts run elevated. Hyper-V cmdlets are loaded from the Windows PowerShell module path.
     private static readonly string PowerShellExe =
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.System),

@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
+using Colors = Microsoft.UI.Colors;
 
 namespace HVLab.Converters;
 
@@ -33,15 +34,27 @@ public class BoolToVisibilityInverseConverter : IValueConverter
         => value is not Visibility.Visible;
 }
 
+/// <summary>
+/// Maps a Hyper-V VM state to a badge colour: success (Running), caution (transitional /
+/// Saved / Paused), neutral (Off) and critical (anything unexpected). Fluent status colours
+/// dark enough to keep white text readable on both light and dark themes.
+/// </summary>
 public class StateToColorConverter : IValueConverter
 {
+    private static readonly SolidColorBrush Success  = new(Color.FromArgb(255, 15, 123, 15));
+    private static readonly SolidColorBrush Caution  = new(Color.FromArgb(255, 157, 93, 0));
+    private static readonly SolidColorBrush Neutral  = new(Color.FromArgb(255, 93, 93, 93));
+    private static readonly SolidColorBrush Critical = new(Color.FromArgb(255, 196, 43, 28));
+
     public object Convert(object value, Type targetType, object parameter, string language)
-    {
-        var color = value?.ToString() == "Running"
-            ? Color.FromArgb(255, 15, 123, 15)
-            : Color.FromArgb(255, 196, 43, 28);
-        return new SolidColorBrush(color);
-    }
+        => value?.ToString() switch
+        {
+            "Running" => Success,
+            "Off"     => Neutral,
+            "Saved" or "Paused" or "Starting" or "Stopping" or "Saving"
+                or "Pausing" or "Resuming" or "Reset" => Caution,
+            _ => Critical,
+        };
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
         => throw new NotImplementedException();
