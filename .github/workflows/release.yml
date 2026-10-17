@@ -33,17 +33,24 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          # Tag v1.2.3-beta.1 -> Version 1.2.3-beta.1, numeric 1.2.3 (assembly/file versions)
+          # Single source: VersionPrefix in Directory.Build.props. The tag must match it:
+          # v1.2.3 -> release 1.2.3 ; v1.2.3-beta.1 -> pre-release 1.2.3-beta.1 (suffix "beta.1")
+          $prefix = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.VersionPrefix.Trim()
           $ref = '${{ github.ref_name }}'
-          if ('${{ github.ref_type }}' -eq 'tag' -and $ref -match '^v(?<num>\d+\.\d+\.\d+)(?<pre>-[0-9A-Za-z.-]+)?$') {
-              $num = $Matches.num; $ver = $ref.Substring(1); $pre = [bool]$Matches.pre
+          if ('${{ github.ref_type }}' -eq 'tag') {
+              if ($ref -notmatch '^v(?<num>\d+\.\d+\.\d+)(-(?<suffix>[0-9A-Za-z.-]+))?$') { throw "Tag '$ref' is not vX.Y.Z[-suffix]" }
+              if ($Matches.num -ne $prefix) {
+                  throw "Tag $ref does not match VersionPrefix $prefix in Directory.Build.props: update it first."
+              }
+              $suffix = $Matches.suffix
           } else {
-              $num = '0.0.0'; $ver = "0.0.0-ci.${{ github.run_number }}"; $pre = $true
+              $suffix = "ci.${{ github.run_number }}"   # manual run: artifact only
           }
-          "version=$ver"    >> $env:GITHUB_OUTPUT
-          "numeric=$num"    >> $env:GITHUB_OUTPUT
-          "prerelease=$($pre.ToString().ToLower())" >> $env:GITHUB_OUTPUT
-          Write-Host "Version $ver (assembly $num.0), prerelease=$pre"
+          $ver = if ($suffix) { "$prefix-$suffix" } else { $prefix }
+          "version=$ver"   >> $env:GITHUB_OUTPUT
+          "suffix=$suffix" >> $env:GITHUB_OUTPUT
+          "prerelease=$(([bool]$suffix).ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $ver (assembly/file $prefix.0)"
 
       - name: Test
         run: dotnet test HVLab.Core.Tests/HVLab.Core.Tests.csproj -c Release
@@ -51,9 +58,7 @@ jobs:
       - name: Publish (self-contained folder)
         run: >
           dotnet publish HVLab/HVLab.csproj -p:PublishProfile=HVLab-Release
-          -p:Version=${{ steps.version.outputs.version }}
-          -p:AssemblyVersion=${{ steps.version.outputs.numeric }}.0
-          -p:FileVersion=${{ steps.version.outputs.numeric }}.0
+          -p:VersionSuffix=${{ steps.version.outputs.suffix }}
 
       - name: Package
         id: package

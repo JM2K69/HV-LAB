@@ -66,7 +66,7 @@ dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release
 
 ### Release (GitHub Actions)
 
-Pousser un tag `vX.Y.Z` (ou `vX.Y.Z-beta.1` pour une pré-version) lance `.github/workflows/release.yml` :
+La version a une source unique, `VersionPrefix` dans `Directory.Build.props` (versions d'assembly, de fichier, du manifeste et affichée dans l'app en découlent). Modifiez-la, commitez, puis poussez un tag correspondant `vX.Y.Z` (ou `vX.Y.Z-beta.1` pour une pré-version) ; le workflow refuse un tag qui ne correspond pas. Il lance `.github/workflows/release.yml` :
 tests, publication autonome, `HV-LAB-X.Y.Z-win-x64.zip` + SHA256, puis une release GitHub avec les étapes d'installation.
 
 ```powershell

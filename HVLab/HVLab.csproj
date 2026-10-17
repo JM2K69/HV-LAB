@@ -23,9 +23,7 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
-    <Version>1.0.0</Version>
-    <FileVersion>1.0.0.0</FileVersion>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <!-- Version: see Directory.Build.props (VersionPrefix) -->
     <Company>HV-LAB</Company>
     <Product>HV-LAB Manager</Product>
     <Description>Gestionnaire Hyper-V — VM, vSwitch, NAT, VHDX</Description>
@@ -63,6 +61,20 @@
           crashes natively at startup (0xc0000374) — copy them from the build output.
        2. The Windows App SDK copies ~85 culture folders of WinUI .mui resources that
           SatelliteResourceLanguages does not filter: keep only en-US / fr-FR (en-US is the fallback). -->
+  <!-- app.manifest carries its own assemblyIdentity version: generate a copy stamped with
+       VersionPrefix.0 so the Win32 manifest matches the assembly and file versions. -->
+  <Target Name="HvlStampManifestVersion" BeforeTargets="BeforeBuild">
+    <PropertyGroup>
+      <_HvlManifestOut>$(IntermediateOutputPath)app.manifest</_HvlManifestOut>
+      <_HvlManifestText>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)\app.manifest'))</_HvlManifestText>
+      <_HvlManifestText>$([System.Text.RegularExpressions.Regex]::Replace('$(_HvlManifestText)', 'assemblyIdentity version="[^"]*"', 'assemblyIdentity version="$(VersionPrefix).0"'))</_HvlManifestText>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_HvlManifestOut)" Lines="$(_HvlManifestText)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <PropertyGroup>
+      <ApplicationManifest>$(_HvlManifestOut)</ApplicationManifest>
+    </PropertyGroup>
+  </Target>
+
   <Target Name="HvlFinalizePublish" AfterTargets="Publish">
     <PropertyGroup>
       <_HvlPublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(PublishDir)'))</_HvlPublishDir>

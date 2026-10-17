@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Single source of the application version, shared by every project (app, HVLab.Core, tests).
+    AssemblyVersion and FileVersion (X.Y.Z.0), the app.manifest identity and the version shown in
+    the app are all derived from it. A release tag vX.Y.Z must match VersionPrefix (checked by the
+    release workflow, which also adds the pre-release suffix of tags like vX.Y.Z-beta.1).
+  -->
+  <PropertyGroup>
+    <VersionPrefix>1.0.0</VersionPrefix>
+  </PropertyGroup>
+</Project>
