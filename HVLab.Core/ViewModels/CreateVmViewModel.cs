@@ -10,8 +10,8 @@ namespace HVLab.ViewModels;
 
 public partial class CreateVmViewModel : ObservableObject
 {
-    private readonly HyperVService _hvService = new();
-    private readonly VhdxService _vhdxService = new();
+    private readonly IHyperVService _hvService;
+    private readonly IVhdxService   _vhdxService;
 
     [ObservableProperty] private ObservableCollection<string> baseVhdxList = [];
     [ObservableProperty] private ObservableCollection<string> virtualSwitches = [];
@@ -126,8 +126,10 @@ public partial class CreateVmViewModel : ObservableObject
     public List<long> MemoryOptions { get; } = [512, 1024, 2048, 4096, 8192, 16384];
     public List<int>  CpuOptions    { get; } = [1, 2, 4, 8, 12, 16];
 
-    public CreateVmViewModel()
+    public CreateVmViewModel(IHyperVService hvService, IVhdxService vhdxService)
     {
+        _hvService   = hvService;
+        _vhdxService = vhdxService;
         vmFolder       = AppSettings.Current.VmsFolder;
         baseVhdxFolder = AppSettings.Current.BaseImagesFolder;
         // Pre-seed computer name from VM name when it changes

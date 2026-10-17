@@ -5,10 +5,11 @@ using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
-public partial class DashboardViewModel : ObservableObject
+public partial class DashboardViewModel(IHyperVService hvService, IVhdxService vhdxService, AppStartupCache startupCache)
+    : ObservableObject
 {
-    private readonly HyperVService _hvService = new();
-    private readonly VhdxService _vhdxService = new();
+    private readonly IHyperVService _hvService   = hvService;
+    private readonly IVhdxService   _vhdxService = vhdxService;
 
     [ObservableProperty] private int runningVmCount;
     [ObservableProperty] private int stoppedVmCount;
@@ -32,7 +33,7 @@ public partial class DashboardViewModel : ObservableObject
             List<HVLab.Models.BaseVhdx>       images;
 
             // Les données pré-chargées par le splash ne servent qu'au premier affichage
-            if (AppStartupCache.Instance.TryConsume(out vms, out switches, out images, out var startupError))
+            if (startupCache.TryConsume(out vms, out switches, out images, out var startupError))
             {
                 if (startupError is not null) throw startupError;
             }

@@ -8,7 +8,7 @@ namespace HVLab.Views;
 
 public sealed partial class SettingsPage : Page
 {
-    public SettingsViewModel ViewModel { get; } = new();
+    public SettingsViewModel ViewModel { get; } = App.GetService<SettingsViewModel>();
     public LocalizationService Loc => LocalizationService.Instance;
 
     public SettingsPage() => InitializeComponent();

@@ -9,7 +9,7 @@ namespace HVLab.Views;
 
 public sealed partial class CreateVmPage : Page
 {
-    public CreateVmViewModel ViewModel { get; } = new();
+    public CreateVmViewModel ViewModel { get; } = App.GetService<CreateVmViewModel>();
     public LocalizationService Loc => LocalizationService.Instance;
 
     public CreateVmPage() => InitializeComponent();

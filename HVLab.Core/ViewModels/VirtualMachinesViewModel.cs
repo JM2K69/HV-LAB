@@ -1,14 +1,16 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
 using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
-public partial class VirtualMachinesViewModel : ObservableObject
+public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogService dialogs) : ObservableObject
 {
-    private readonly HyperVService _hvService = new();
+    private readonly IHyperVService _hvService = hvService;
+    private readonly IDialogService _dialogs   = dialogs;
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
     [ObservableProperty] private bool   isLoading;
@@ -94,14 +96,32 @@ public partial class VirtualMachinesViewModel : ObservableObject
     }
     // ─── Actions ─────────────────────────────────────────────────────────────
 
+    [RelayCommand]
+    private Task ReloadAsync() => RefreshAsync();
+
+    [RelayCommand]
     public Task StartVmAsync(VirtualMachine vm)
         => RunVmActionAsync(vm, "Starting", T("VM_Starting", vm.Name), () => _hvService.StartVMAsync(vm.Name));
 
+    [RelayCommand]
     public Task StopVmAsync(VirtualMachine vm)
         => RunVmActionAsync(vm, "Stopping", T("VM_Stopping", vm.Name), () => _hvService.StopVMAsync(vm.Name));
 
-    public Task RemoveVmAsync(VirtualMachine vm)
-        => RunVmActionAsync(vm, null, T("VM_Removing", vm.Name), () => _hvService.RemoveVMAsync(vm.Name));
+    [RelayCommand]
+    public async Task RemoveVmAsync(VirtualMachine vm)
+    {
+        var confirmed = await _dialogs.ConfirmAsync(
+            T("VM_DeleteTitle"), $"{T("VM_DeleteConfirm")} « {vm.Name} » ?", T("VM_BtnDelete"));
+        if (confirmed)
+            await RunVmActionAsync(vm, null, T("VM_Removing", vm.Name), () => _hvService.RemoveVMAsync(vm.Name));
+    }
+
+    [RelayCommand]
+    private void ConnectVm(VirtualMachine vm)
+    {
+        try   { _hvService.ConnectToVMConsole(vm.Name); }
+        catch (Exception ex) { ErrorMessage = $"{T("VM_ErrConsole")} {ex.Message}"; }
+    }
 
     /// <summary>
     /// Runs one action per VM at a time: shows the transitional state immediately,

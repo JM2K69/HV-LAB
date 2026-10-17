@@ -11,6 +11,16 @@ namespace HVLab.Services;
 /// FrameworkElement of the main window.  By default "System" follows the
 /// Windows accent / personalization settings via Mica.
 /// </summary>
+/// <summary><see cref="IThemeService"/> for the main window.</summary>
+public sealed class WindowThemeService : IThemeService
+{
+    public void Apply(string theme)
+    {
+        if (App.MainAppWindow?.Content is FrameworkElement root)
+            ThemeService.Apply(root, theme);
+    }
+}
+
 public static class ThemeService
 {
     /// <summary>

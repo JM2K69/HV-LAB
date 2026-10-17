@@ -18,7 +18,7 @@ public sealed class PowerShellException(string message, string details, int exit
 /// Runs scripts with Windows PowerShell 5.1. The script is streamed over stdin — never written
 /// to %TEMP%, where a non-elevated process could swap it before the elevated run.
 /// </summary>
-public static class PowerShellRunner
+public sealed class PowerShellRunner : IPowerShellRunner
 {
     // Fixed path to Windows PowerShell 5.1 (System32) — intentionally not user-configurable,
     // since scripts run elevated. Hyper-V cmdlets are loaded from the Windows PowerShell module path.
@@ -53,7 +53,7 @@ public static class PowerShellRunner
     /// On cancellation or timeout the whole process tree is killed and
     /// <see cref="OperationCanceledException"/> / <see cref="TimeoutException"/> is thrown.
     /// </summary>
-    public static async Task<string> RunAsync(
+    public async Task<string> RunAsync(
         string script,
         IProgress<string>? progress = null,
         TimeSpan? timeout = null,

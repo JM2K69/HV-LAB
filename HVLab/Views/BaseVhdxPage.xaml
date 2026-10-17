@@ -1,6 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.BaseVhdxPage"
+    x:Name="PageRoot"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:helpers="using:HVLab.Helpers"
@@ -137,7 +138,7 @@
                             <TextBlock Grid.Column="4" Text="{x:Bind CreatedAtDisplay}"
                                        VerticalAlignment="Center" FontSize="12"/>
 
-                            <Button Grid.Column="5" Tag="{x:Bind}" Click="DeleteVhdx_Click"
+                            <Button Grid.Column="5" Command="{Binding ViewModel.DeleteBaseVhdxCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
                                     Width="32" Height="32" Padding="0"
                                     AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', Name)}"
                                     ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
