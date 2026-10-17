@@ -18,6 +18,7 @@ public sealed class AppStartupCache
     public List<VirtualSwitch>  VirtualSwitches  { get; private set; } = [];
     public List<BaseVhdx>       BaseVhdxImages   { get; private set; } = [];
     public Exception?           Error            { get; private set; }
+    public HyperVEnvironment    Environment      { get; private set; } = HyperVEnvironment.Ok;
 
     /// <summary>Pré-charge les données Hyper-V au démarrage.</summary>
     public async Task LoadAsync(string baseVhdxFolder)
@@ -29,6 +30,11 @@ public sealed class AppStartupCache
         {
             var hvService   = new HyperVService();
             var vhdxService = new VhdxService();
+
+            try { Environment = await hvService.GetEnvironmentStatusAsync(); }
+            catch (Exception ex) { CrashLogger.Log("GetEnvironmentStatusAsync", ex); }
+            if (Environment == HyperVEnvironment.FeatureMissing)
+                throw new InvalidOperationException(LocalizationService.Instance["Env_FeatureMissing"]);
 
             var vmTask      = hvService.GetVirtualMachinesAsync();
             var swTask      = hvService.GetVirtualSwitchesAsync();

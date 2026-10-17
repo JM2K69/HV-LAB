@@ -24,6 +24,34 @@ public sealed partial class MainWindow : Window
 
         // ── Window size ──────────────────────────────────────────────────────
         AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 800));
+
+        ShowEnvironment(AppStartupCache.Instance.Environment);
+    }
+
+    private void ShowEnvironment(HyperVEnvironment env)
+    {
+        EnvInfoBar.IsOpen = env != HyperVEnvironment.Ok;
+        EnvInfoBar.Message = env switch
+        {
+            HyperVEnvironment.FeatureMissing => Loc["Env_FeatureMissing"],
+            HyperVEnvironment.ServiceStopped => Loc["Env_ServiceStopped"],
+            _ => string.Empty,
+        };
+        EnvStartServiceButton.Visibility = env == HyperVEnvironment.ServiceStopped
+            ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void EnvStartService_Click(object sender, RoutedEventArgs e)
+    {
+        var hv = new HyperVService();
+        EnvStartServiceButton.IsEnabled = false;
+        try
+        {
+            await hv.StartHyperVServiceAsync();
+            ShowEnvironment(await hv.GetEnvironmentStatusAsync());
+        }
+        catch (Exception ex) { EnvInfoBar.Message = ex.Message; }
+        finally { EnvStartServiceButton.IsEnabled = true; }
     }
 
     private void NavView_Loaded(object sender, RoutedEventArgs e)

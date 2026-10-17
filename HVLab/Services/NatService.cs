@@ -2,6 +2,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using HVLab.Models;
+using static HVLab.Services.HyperVService;
+using static HVLab.Services.PowerShellRunner;
 
 namespace HVLab.Services;
 
@@ -57,17 +59,17 @@ public class NatService
         if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
         try
         {
-            var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(ExtractJson(json));
             foreach (var el in doc.RootElement.EnumerateArray())
                 result.Add(new NatNetwork
                 {
                     Name = GetStr(el, "Name"),
                     InternalIPInterfaceAddressPrefix = GetStr(el, "InternalIPInterfaceAddressPrefix"),
-                    Active     = el.TryGetProperty("Active",     out var v) && v.GetBoolean(),
+                    Active     = el.TryGetProperty("Active",     out var v) && v.ValueKind == JsonValueKind.True,
                     SwitchName = GetStr(el, "SwitchName"),
                 });
         }
-        catch { }
+        catch (JsonException ex) { throw ParseError("NAT", json, ex); }
         return result;
     }
 
@@ -119,8 +121,4 @@ public class NatService
         => await HyperVService.RunScriptAsync(
             $"Remove-NetNat -Name '{Esc(name)}' -Confirm:$false -ErrorAction Stop");
 
-    private static string Esc(string s) => s.Replace("'", "''");
-
-    private static string GetStr(JsonElement el, string key)
-        => el.TryGetProperty(key, out var v) ? v.GetString() ?? "" : "";
 }
