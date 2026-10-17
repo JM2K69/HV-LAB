@@ -1,60 +1,44 @@
 using System.Diagnostics;
 using System.Text.Json;
 using HVLab.Models;
+using static HVLab.Services.PowerShellRunner;
 
 namespace HVLab.Services;
+
+public enum HyperVEnvironment { Ok, FeatureMissing, ServiceStopped }
 
 public class HyperVService
 {
     // ─── PowerShell runner ──────────────────────────────────────────────────
 
-    // Fixed path to Windows PowerShell 5.1 (System32) — intentionally not user-configurable,
-    // since scripts run elevated. Hyper-V cmdlets are loaded from the Windows PowerShell module path.
-    private static readonly string PowerShellExe =
-        Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.System),
-            @"WindowsPowerShell\v1.0\powershell.exe");
+    internal static Task<string> RunScriptAsync(
+        string script, IProgress<string>? progress = null,
+        TimeSpan? timeout = null, CancellationToken ct = default)
+        => PowerShellRunner.RunAsync(script, progress, timeout, ct);
 
-    internal static async Task<string> RunScriptAsync(string script)
+    /// <summary>PowerShell expression that yields <paramref name="text"/> without any quoting concern (base64 UTF-8).</summary>
+    internal static string PsLiteral(string text)
+        => $"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(text))}'))";
+
+    // ─── Environment ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Quick host check (no Get-WindowsOptionalFeature, which takes seconds):
+    /// Hyper-V PowerShell module present and vmms service running.
+    /// </summary>
+    public async Task<HyperVEnvironment> GetEnvironmentStatusAsync()
     {
-        var path = Path.Combine(Path.GetTempPath(), $"hvlab_{Guid.NewGuid():N}.ps1");
-        try
-        {
-            await File.WriteAllTextAsync(path, script, System.Text.Encoding.UTF8);
-            var psi = new ProcessStartInfo
-            {
-                FileName               = PowerShellExe,
-                Arguments              = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"{path}\"",
-                RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
-                StandardOutputEncoding = System.Text.Encoding.UTF8,
-                StandardErrorEncoding  = System.Text.Encoding.UTF8
-            };
-            using var proc = Process.Start(psi)
-                ?? throw new InvalidOperationException("Impossible de démarrer powershell.exe");
-
-            // Read both streams concurrently to prevent deadlocks on large output.
-            var stdoutTask = proc.StandardOutput.ReadToEndAsync();
-            var stderrTask = proc.StandardError.ReadToEndAsync();
-            await proc.WaitForExitAsync();
-            var stdout = await stdoutTask;
-            var stderr = await stderrTask;
-
-            if (proc.ExitCode != 0)
-            {
-                var msg = !string.IsNullOrWhiteSpace(stderr) ? stderr.Trim() : stdout.Trim();
-                throw new InvalidOperationException(
-                    string.IsNullOrEmpty(msg) ? $"PowerShell a retourné le code {proc.ExitCode}." : msg);
-            }
-            return stdout;
-        }
-        finally
-        {
-            try { File.Delete(path); } catch { /* ignore */ }
-        }
+        const string script = """
+            if (-not (Get-Module -ListAvailable -Name Hyper-V)) { 'FeatureMissing'; return }
+            $svc = Get-Service -Name vmms -ErrorAction SilentlyContinue
+            if (-not $svc) { 'FeatureMissing' } elseif ($svc.Status -ne 'Running') { 'ServiceStopped' } else { 'Ok' }
+            """;
+        var output = (await RunScriptAsync(script, timeout: TimeSpan.FromSeconds(30))).Trim();
+        return Enum.TryParse<HyperVEnvironment>(output, out var env) ? env : HyperVEnvironment.Ok;
     }
+
+    public Task StartHyperVServiceAsync()
+        => RunScriptAsync("Start-Service -Name vmms -ErrorAction Stop", timeout: TimeSpan.FromSeconds(60));
 
     // ─── Virtual Machines ───────────────────────────────────────────────────
 
@@ -103,7 +87,7 @@ public class HyperVService
         if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
         try
         {
-            var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(ExtractJson(json));
             foreach (var el in doc.RootElement.EnumerateArray())
                 result.Add(new VirtualMachine
                 {
@@ -117,7 +101,7 @@ public class HyperVService
                     VlanInfo       = GetStr(el, "VlanInfo"),
                 });
         }
-        catch { /* return empty on parse error */ }
+        catch (JsonException ex) { throw ParseError("VM", json, ex); }
         return result;
     }
 
@@ -125,10 +109,6 @@ public class HyperVService
         => await RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
             Start-VM -Name '{{Esc(name)}}' -ErrorAction Stop
-            $i = 0
-            while ((Get-VM -Name '{{Esc(name)}}').State -ne 'Running' -and $i -lt 30) {
-                Start-Sleep -Milliseconds 500; $i++
-            }
             """);
 
     public async Task StopVMAsync(string name)
@@ -209,7 +189,7 @@ public class HyperVService
         if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
         try
         {
-            var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(ExtractJson(json));
             foreach (var el in doc.RootElement.EnumerateArray())
                 result.Add(new VirtualSwitch
                 {
@@ -217,11 +197,11 @@ public class HyperVService
                     SwitchType        = GetStr(el, "SwitchType"),
                     Notes             = GetStr(el, "Notes"),
                     NetAdapterName    = GetStr(el, "NetAdapterName"),
-                    AllowManagementOS = el.TryGetProperty("AllowManagementOS", out var v) && v.GetBoolean(),
+                    AllowManagementOS = el.TryGetProperty("AllowManagementOS", out var v) && v.ValueKind == JsonValueKind.True,
                     VlanId            = GetInt(el, "VlanId", 0),
                 });
         }
-        catch { }
+        catch (JsonException ex) { throw ParseError("commutateurs", json, ex); }
         return result;
     }
 
@@ -285,9 +265,9 @@ public class HyperVService
         if (string.IsNullOrWhiteSpace(output)) return result;
         try
         {
-            var json = output.Trim();
+            var json = ExtractJson(output);
             if (json.StartsWith('{')) json = $"[{json}]";
-            var doc = JsonDocument.Parse(json);
+            using var doc = JsonDocument.Parse(json);
             foreach (var el in doc.RootElement.EnumerateArray())
                 result.Add(new NetworkAdapterInfo
                 {
@@ -297,7 +277,7 @@ public class HyperVService
                     Status      = GetStr(el, "Status"),
                 });
         }
-        catch { }
+        catch (JsonException ex) { throw ParseError("cartes réseau", output, ex); }
         return result;
     }
 
@@ -306,8 +286,10 @@ public class HyperVService
     public async Task CreateBlankVmAsync(
         string vmName, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false)
+        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false,
+        IProgress<string>? progress = null, CancellationToken ct = default)
     {
+        InputValidator.EnsureVmName(vmName);
         var isGen2       = generation == 2 ? "$true" : "$false";
         var secureBootPs = secureBoot ? "$true" : "$false";
         var pxeBootPs    = pxeBoot    ? "$true" : "$false";
@@ -370,7 +352,7 @@ public class HyperVService
             Write-Output "VM '$vmName' créée avec succès (disque vierge)"
             """;
 
-        await RunScriptAsync(script);
+        await RunScriptAsync(script, progress, ct: ct);
     }
 
     // ─── Create VM with differencing disk ───────────────────────────────────
@@ -378,17 +360,13 @@ public class HyperVService
     public async Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false)
+        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false,
+        IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        // Write the answer file to a temp path if provided
-        string? answerTemp = null;
-        if (!string.IsNullOrWhiteSpace(answerFileContent))
-        {
-            answerTemp = Path.Combine(Path.GetTempPath(), $"hvlab_unattend_{Guid.NewGuid():N}.xml");
-            await File.WriteAllTextAsync(answerTemp, answerFileContent, System.Text.Encoding.UTF8);
-        }
-
-        try
+        InputValidator.EnsureVmName(vmName);
+        // The answer file (it holds the admin password) is embedded in the script streamed over
+        // stdin — it is never written to %TEMP%.
+        var answerXml = string.IsNullOrWhiteSpace(answerFileContent) ? "''" : PsLiteral(answerFileContent);
         {
             var isGen2      = generation == 2 ? "$true" : "$false";
             var secureBootPs = secureBoot ? "$true" : "$false";
@@ -401,7 +379,7 @@ public class HyperVService
                 $cpuCount     = {{cpuCount}}
                 $generation   = {{generation}}
                 $vmFolder     = '{{Esc(vmFolder)}}'
-                $answerFile   = '{{Esc(answerTemp ?? "")}}'
+                $answerXml    = {{answerXml}}
                 $isGen2       = {{isGen2}}
                 $secureBoot   = {{secureBootPs}}
                 $pxeBoot      = {{pxeBootPs}}
@@ -415,7 +393,7 @@ public class HyperVService
                 New-VHD -Path $diffVhd -ParentPath $parentVhdx -Differencing -ErrorAction Stop | Out-Null
 
                 # Inject unattend.xml into the differencing disk before first boot
-                if ($answerFile -and (Test-Path $answerFile)) {
+                if ($answerXml) {
                     Write-Output "Injection du fichier de réponse dans le disque différentiel..."
                     $mount  = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
                     $diskNo = ($mount | Get-Disk).Number
@@ -441,7 +419,7 @@ public class HyperVService
 
                         $panther = Join-Path $mountPath 'Windows\Panther'
                         if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
-                        Copy-Item -Path $answerFile -Destination (Join-Path $panther 'unattend.xml') -Force
+                        [System.IO.File]::WriteAllText((Join-Path $panther 'unattend.xml'), $answerXml, [System.Text.Encoding]::UTF8)
                         Write-Output "unattend.xml injecté dans $panther"
                     } finally {
                         try { $winPart | Remove-PartitionAccessPath -AccessPath $mountPath -ErrorAction SilentlyContinue } catch {}
@@ -489,25 +467,39 @@ public class HyperVService
                 }
                 Write-Output "VM '$vmName' créée avec succès"
                 """;
-            await RunScriptAsync(script);
-        }
-        finally
-        {
-            if (answerTemp is not null)
-                try { File.Delete(answerTemp); } catch { /* ignore */ }
+            await RunScriptAsync(script, progress, ct: ct);
         }
     }
 
     // ─── Helpers ────────────────────────────────────────────────────────────
 
-    private static string Esc(string s) => s.Replace("'", "''");
+    /// <summary>Keeps only the JSON payload (from the first '[' or '{'), ignoring stray output before it.</summary>
+    internal static string ExtractJson(string output)
+    {
+        var text = output.Trim();
+        var i = text.IndexOfAny(['[', '{']);
+        return i > 0 ? text[i..] : text;
+    }
 
-    private static string GetStr(JsonElement el, string key)
-        => el.TryGetProperty(key, out var v) ? v.GetString() ?? "" : "";
+    internal static InvalidOperationException ParseError(string what, string output, Exception inner)
+    {
+        var snippet = output.Trim();
+        if (snippet.Length > 200) snippet = snippet[..200] + "…";
+        return new InvalidOperationException($"Réponse PowerShell illisible ({what}) : {snippet}", inner);
+    }
 
-    private static int GetInt(JsonElement el, string key, int def = 0)
+    internal static string GetStr(JsonElement el, string key)
+        => !el.TryGetProperty(key, out var v) ? ""
+         : v.ValueKind switch
+           {
+               JsonValueKind.String => v.GetString() ?? "",
+               JsonValueKind.Null or JsonValueKind.Undefined => "",
+               _ => v.ToString(),
+           };
+
+    internal static int GetInt(JsonElement el, string key, int def = 0)
         => el.TryGetProperty(key, out var v) && v.TryGetInt32(out var n) ? n : def;
 
-    private static long GetLong(JsonElement el, string key, long def = 0)
+    internal static long GetLong(JsonElement el, string key, long def = 0)
         => el.TryGetProperty(key, out var v) && v.TryGetInt64(out var n) ? n : def;
 }

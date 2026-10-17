@@ -42,7 +42,12 @@
                  Severity="Informational"
                  Title="Construction en cours / Building"
                  Message="{x:Bind ViewModel.BuildStatus, Mode=OneWay}"
-                 IsClosable="False"/>
+                 IsClosable="False">
+            <InfoBar.ActionButton>
+                <Button Content="{Binding [Btn_Cancel], Source={StaticResource Loc}}"
+                        Command="{x:Bind ViewModel.CancelBuildCommand}"/>
+            </InfoBar.ActionButton>
+        </InfoBar>
 
         <!-- Main content -->
         <Grid Grid.Row="3" RowSpacing="12">

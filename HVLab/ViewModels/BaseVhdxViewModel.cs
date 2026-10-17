@@ -260,6 +260,11 @@ public partial class BaseVhdxViewModel : ObservableObject
     /// </summary>
     public Func<string, Task<bool>>? ConfirmOverwriteAsync { get; set; }
 
+    private CancellationTokenSource? _cts;
+
+    [RelayCommand]
+    private void CancelBuild() => _cts?.Cancel();
+
     [RelayCommand]
     public async Task CreateBaseVhdxAsync()
     {
@@ -277,6 +282,7 @@ public partial class BaseVhdxViewModel : ObservableObject
         // so a failed build never leaves a partial image listed as valid.
         var buildPath = System.IO.Path.Combine(BaseFolder, $"~building_{PreviewFileName}.vhdx");
         IsCreating = true; IsLoading = true;
+        _cts = new CancellationTokenSource();
         try
         {
             if (File.Exists(buildPath))
@@ -288,7 +294,8 @@ public partial class BaseVhdxViewModel : ObservableObject
             BuildStatus = "Application de l'image Windows (quelques minutes)…";
             // No answer file on the base image — it must stay in generalized/sysprep state.
             // unattend.xml will be injected at VM creation time (into the differencing disk).
-            await _vhdxService.ApplyWindowsImageAsync(buildPath, WimPath, ImageIndex, Generation, answerFileContent: null);
+            await _vhdxService.ApplyWindowsImageAsync(buildPath, WimPath, ImageIndex, Generation, answerFileContent: null,
+                progress: new Progress<string>(line => BuildStatus = line), ct: _cts.Token);
             await Task.Run(() => File.Move(buildPath, vhdxPath, overwrite: true));
 
             BuildStatus = "✓ Image créée avec succès !";
@@ -297,11 +304,13 @@ public partial class BaseVhdxViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            BuildStatus = $"✗ Erreur : {ex.Message}";
-            Status = $"Échec : {ex.Message}";
+            var cancelled = ex is OperationCanceledException;
+            BuildStatus = cancelled ? LocalizationService.Instance["Op_Cancelled"] : $"✗ Erreur : {ex.Message}";
+            Status      = cancelled ? LocalizationService.Instance["Op_Cancelled"] : $"Échec : {ex.Message}";
+            // Process tree was killed on cancel: dismount and delete the partial disk
             try { await _vhdxService.DiscardPartialVhdxAsync(buildPath); } catch { /* best effort */ }
         }
-        finally { IsCreating = false; IsLoading = false; }
+        finally { IsCreating = false; IsLoading = false; _cts.Dispose(); _cts = null; }
     }
 
     public async Task DeleteBaseVhdxAsync(BaseVhdx vhdx)

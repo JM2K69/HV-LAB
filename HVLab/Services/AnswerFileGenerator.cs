@@ -5,7 +5,8 @@ public enum OsFamily { Server, Client }
 public class AnswerFileConfig
 {
     public string ComputerName { get; set; } = "LAB-VM";
-    public string AdminPassword { get; set; } = "P@ssw0rd!";
+    /// <summary>No default: the user must type one (validated before creation).</summary>
+    public string AdminPassword { get; set; } = "";
     public string ProductKey { get; set; } = "";
     public string UILanguage { get; set; } = "fr-FR";
     public string InputLocale { get; set; } = "040c:0000040c";
@@ -13,7 +14,8 @@ public class AnswerFileConfig
     public string UserLocale { get; set; } = "fr-FR";
     public string TimeZone { get; set; } = "Romance Standard Time";
     public int ImageIndex { get; set; } = 1;
-    public bool AutoLogon { get; set; } = true;
+    /// <summary>Off by default: auto-logon stores the password in plain text in the registry.</summary>
+    public bool AutoLogon { get; set; } = false;
     public string RegisteredOwner { get; set; } = "HV-LAB";
     public string RegisteredOrganization { get; set; } = "HV-LAB";
     /// <summary>Windows Server only — injects a FirstLogonCommand that builds the CBS feature cache, runs DISM cleanup, then reboots.</summary>
@@ -33,7 +35,7 @@ public static class AnswerFileGenerator
             ? $"<ProductKey>{X(c.ProductKey)}</ProductKey>"
             : string.Empty;
 
-        var firstLogonCommands = c.BuildCbsCache ? BuildCbsCacheFirstLogonCommands() : string.Empty;
+        var firstLogonCommands = BuildFirstLogonCommands(c.BuildCbsCache);
 
         var windowsUpdateBlock = c.DisableWindowsUpdate
             ? """
@@ -126,7 +128,25 @@ public static class AnswerFileGenerator
         .Replace("&", "&amp;").Replace("<", "&lt;")
         .Replace(">", "&gt;").Replace("\"", "&quot;");
 
-    private static string BuildCbsCacheFirstLogonCommands()
+    // Deletes the answer file (plain-text password) left in the guest's Panther folder.
+    private const string DeleteUnattendCommand =
+        @"cmd.exe /c del /f /q %WINDIR%\Panther\unattend.xml";
+
+    private static string BuildFirstLogonCommands(bool buildCbsCache)
+    {
+        var cbs = buildCbsCache ? BuildCbsCacheCommand(order: 2) : string.Empty;
+        return $"""
+                    <FirstLogonCommands>
+                        <SynchronousCommand wcm:action="add">
+                            <Order>1</Order>
+                            <CommandLine>{DeleteUnattendCommand}</CommandLine>
+                            <Description>HV-LAB remove unattend.xml</Description>
+                        </SynchronousCommand>{cbs}
+                    </FirstLogonCommands>
+            """;
+    }
+
+    private static string BuildCbsCacheCommand(int order)
     {
         // PowerShell script displayed in a visible console window — no user interaction required.
         // Encoded as UTF-16LE Base64 so special characters survive unattend XML embedding.
@@ -154,13 +174,12 @@ public static class AnswerFileGenerator
 
         var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(psScript));
         return $"""
-                    <FirstLogonCommands>
+
                         <SynchronousCommand wcm:action="add">
-                            <Order>1</Order>
+                            <Order>{order}</Order>
                             <CommandLine>powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand {encoded}</CommandLine>
                             <Description>HV-LAB CBS Cache Init</Description>
                         </SynchronousCommand>
-                    </FirstLogonCommands>
             """;
     }
 

@@ -1,6 +1,7 @@
 using HVLab.Models;
 using HVLab.Services;
 using HVLab.ViewModels;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
@@ -12,19 +13,27 @@ public sealed partial class VirtualMachinesPage : Page
     public VirtualMachinesViewModel ViewModel { get; } = new();
     public LocalizationService Loc => LocalizationService.Instance;
 
+    // Polls VM state while the page is visible (ApplyDiff updates rows in place).
+    private readonly DispatcherQueueTimer _pollTimer;
+
     public VirtualMachinesPage()
     {
         InitializeComponent();
+        _pollTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _pollTimer.Interval = TimeSpan.FromSeconds(5);
+        _pollTimer.Tick += async (_, _) => await ViewModel.RefreshAsync(silent: true);
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
         _ = ViewModel.RefreshAsync();
+        _pollTimer.Start();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        _pollTimer.Stop();
         base.OnNavigatedFrom(e);
     }
 
@@ -34,19 +43,13 @@ public sealed partial class VirtualMachinesPage : Page
     private async void StartVm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: VirtualMachine vm })
-        {
             await ViewModel.StartVmAsync(vm);
-            await ViewModel.RefreshAsync();
-        }
     }
 
     private async void StopVm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: VirtualMachine vm })
-        {
             await ViewModel.StopVmAsync(vm);
-            await ViewModel.RefreshAsync();
-        }
     }
 
     private void ConnectVm_Click(object sender, RoutedEventArgs e)
@@ -76,9 +79,6 @@ public sealed partial class VirtualMachinesPage : Page
             XamlRoot          = XamlRoot
         };
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
             await ViewModel.RemoveVmAsync(vm);
-            await ViewModel.RefreshAsync();
-        }
     }
 }
