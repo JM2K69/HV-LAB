@@ -16,14 +16,14 @@ public sealed partial class SettingsPage : Page
     private void BrowseBaseImages_Click(object sender, RoutedEventArgs e)
     {
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier des images de base VHDX");
+        var folder = Win32FolderPicker.Pick(hwnd, Loc["SET_PickBaseFolder"]);
         if (folder is not null) ViewModel.BaseImagesFolder = folder;
     }
 
     private void BrowseVms_Click(object sender, RoutedEventArgs e)
     {
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier des machines virtuelles");
+        var folder = Win32FolderPicker.Pick(hwnd, Loc["SET_PickVmsFolder"]);
         if (folder is not null) ViewModel.VmsFolder = folder;
     }
 }
