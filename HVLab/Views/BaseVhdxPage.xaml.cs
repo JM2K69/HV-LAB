@@ -13,12 +13,32 @@ public sealed partial class BaseVhdxPage : Page
     public BaseVhdxViewModel ViewModel { get; } = new();
     public LocalizationService Loc => LocalizationService.Instance;
 
-    public BaseVhdxPage() => InitializeComponent();
+    public BaseVhdxPage()
+    {
+        InitializeComponent();
+        ViewModel.ConfirmOverwriteAsync = ConfirmOverwriteAsync;
+    }
+
+    private async Task<bool> ConfirmOverwriteAsync(string vhdxPath)
+    {
+        var dialog = new ContentDialog
+        {
+            Title             = Loc["BV_OverwriteTitle"],
+            Content           = string.Format(Loc["BV_OverwriteConfirm"], System.IO.Path.GetFileName(vhdxPath)),
+            PrimaryButtonText = Loc["BV_BtnOverwrite"],
+            CloseButtonText   = Loc["Btn_Cancel"],
+            DefaultButton     = ContentDialogButton.Close,
+            XamlRoot          = XamlRoot
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        _ = ViewModel.RefreshAsync();
+        // Page is cached: don't refresh over a build in progress
+        if (!ViewModel.IsCreating)
+            _ = ViewModel.RefreshAsync();
     }
 
     private void BrowseWim_Click(object sender, RoutedEventArgs e)

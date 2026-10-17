@@ -8,7 +8,6 @@ public partial class SettingsViewModel : ObservableObject
 {
     [ObservableProperty] private string baseImagesFolder;
     [ObservableProperty] private string vmsFolder;
-    [ObservableProperty] private string powerShellPath;
     [ObservableProperty] private string selectedTheme;
     [ObservableProperty] private string selectedLanguage;
     [ObservableProperty] private string status = string.Empty;
@@ -21,7 +20,6 @@ public partial class SettingsViewModel : ObservableObject
         var s = AppSettings.Current;
         baseImagesFolder = s.BaseImagesFolder;
         vmsFolder        = s.VmsFolder;
-        powerShellPath   = s.PowerShellPath;
         selectedTheme    = s.Theme;
         selectedLanguage = s.Language;
     }
@@ -29,7 +27,6 @@ public partial class SettingsViewModel : ObservableObject
     // Propagate changes live to the singleton so other VMs pick them up
     partial void OnBaseImagesFolderChanged(string value) => AppSettings.Current.BaseImagesFolder = value;
     partial void OnVmsFolderChanged(string value)        => AppSettings.Current.VmsFolder        = value;
-    partial void OnPowerShellPathChanged(string value)   => AppSettings.Current.PowerShellPath   = value;
 
     partial void OnSelectedThemeChanged(string value)
     {

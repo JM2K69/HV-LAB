@@ -44,8 +44,8 @@ public sealed partial class MainWindow : Window
             "settings"  => typeof(SettingsPage),
             _           => (Type?)null
         };
-        if (pageType is not null)
-            ContentFrame.Navigate(pageType);
+        if (pageType is not null && ContentFrame.CurrentSourcePageType != pageType)
+            ContentFrame.Navigate(pageType, null, args.RecommendedNavigationTransitionInfo);
     }
 }
 

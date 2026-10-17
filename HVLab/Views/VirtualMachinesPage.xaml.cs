@@ -15,7 +15,6 @@ public sealed partial class VirtualMachinesPage : Page
     public VirtualMachinesPage()
     {
         InitializeComponent();
-        LocalizationService.Instance.PropertyChanged += (_, _) => Bindings.Update();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
