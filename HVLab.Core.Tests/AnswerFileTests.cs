@@ -1,0 +1,91 @@
+using System.Xml.Linq;
+using HVLab.Models;
+using HVLab.Services;
+
+namespace HVLab.Core.Tests;
+
+public class AnswerFileTests
+{
+    private static readonly XNamespace U = "urn:schemas-microsoft-com:unattend";
+
+    private static XDocument Generate(Action<AnswerFileConfig>? configure = null)
+    {
+        var config = new AnswerFileConfig { ComputerName = "LAB-01", AdminPassword = "Secret1!" };
+        configure?.Invoke(config);
+        return XDocument.Parse(AnswerFileGenerator.Generate(config));
+    }
+
+    [Fact]
+    public void Defaults_have_no_password_and_no_autologon()
+    {
+        var config = new AnswerFileConfig();
+        Assert.Equal("", config.AdminPassword);
+        Assert.False(config.AutoLogon);
+        Assert.Empty(Generate().Descendants(U + "AutoLogon"));
+    }
+
+    [Fact]
+    public void AutoLogon_is_emitted_only_when_enabled()
+        => Assert.Single(Generate(c => c.AutoLogon = true).Descendants(U + "AutoLogon"));
+
+    [Fact]
+    public void Special_characters_in_password_are_escaped()
+    {
+        var doc = Generate(c => c.AdminPassword = "a<b&\"c>");
+        var value = doc.Descendants(U + "LocalAccount").Descendants(U + "Value").Single().Value;
+        Assert.Equal("a<b&\"c>", value);
+    }
+
+    [Fact]
+    public void First_logon_deletes_the_cached_answer_file()
+    {
+        var commands = Generate().Descendants(U + "SynchronousCommand").ToList();
+        Assert.Contains(commands, c => c.Element(U + "CommandLine")!.Value.Contains(@"Panther\unattend.xml"));
+        Assert.Equal("1", commands[0].Element(U + "Order")!.Value);
+    }
+
+    [Fact]
+    public void Cbs_cache_command_comes_after_the_cleanup()
+    {
+        var orders = Generate(c => c.BuildCbsCache = true)
+            .Descendants(U + "SynchronousCommand").Select(c => c.Element(U + "Order")!.Value).ToList();
+        Assert.Equal(["1", "2"], orders);
+    }
+
+    [Fact]
+    public void Product_key_is_set_in_specialize_only_when_provided()
+    {
+        Assert.Empty(Generate().Descendants(U + "ProductKey"));
+        Assert.Equal("W269N-WFGWX-YVC9B-4J6C9-T83GX",
+            Generate(c => c.ProductKey = "W269N-WFGWX-YVC9B-4J6C9-T83GX").Descendants(U + "ProductKey").Single().Value);
+    }
+}
+
+public class CatalogTests
+{
+    [Theory]
+    [InlineData("WindowsServer2025Standard(DesktopExperience)", "Windows Server 2025", "Standard")]
+    [InlineData("WindowsServer2022Datacenter", "Windows Server 2022", "Datacenter")]
+    [InlineData("Windows11Pro", "Windows 11", "Pro")]
+    public void Kms_key_is_suggested_from_the_os_identifier(string osId, string group, string edition)
+    {
+        var entry = KmsKeyCatalog.SuggestForOs(osId);
+        Assert.NotNull(entry);
+        Assert.Equal(group, entry.Group);
+        Assert.Equal(edition, entry.OsName);
+    }
+
+    [Fact]
+    public void Home_editions_are_flagged_as_generic_keys()
+        => Assert.All(KmsKeyCatalog.All.Where(k => k.OsName.StartsWith("Home")), k => Assert.True(k.IsGeneric));
+
+    [Fact]
+    public void Base_image_file_name_round_trips()
+    {
+        var name = BaseVhdx.BuildFileName("WindowsServer2025Standard", "10.0.26100.4652", 60);
+        var parsed = BaseVhdx.FromFile(Path.Combine(Path.GetTempPath(), name + ".vhdx"));
+        Assert.Equal("WindowsServer2025Standard", parsed.OsIdentifier);
+        Assert.Equal("10.0.26100.4652", parsed.OsVersion);
+        Assert.Equal(60, parsed.SizeGB);
+    }
+}

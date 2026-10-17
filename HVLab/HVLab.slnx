@@ -1,3 +1,5 @@
 <Solution>
   <Project Path="HVLab.csproj" />
+  <Project Path="../HVLab.Core/HVLab.Core.csproj" />
+  <Project Path="../HVLab.Core.Tests/HVLab.Core.Tests.csproj" />
 </Solution>

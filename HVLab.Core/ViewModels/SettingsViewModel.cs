@@ -15,8 +15,11 @@ public partial class SettingsViewModel : ObservableObject
     public List<string> Themes    { get; } = ["System", "Light", "Dark"];
     public List<string> Languages { get; } = ["fr", "en"];
 
-    public SettingsViewModel()
+    private readonly IThemeService _theme;
+
+    public SettingsViewModel(IThemeService theme)
     {
+        _theme = theme;
         var s = AppSettings.Current;
         baseImagesFolder = s.BaseImagesFolder;
         vmsFolder        = s.VmsFolder;
@@ -31,8 +34,7 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnSelectedThemeChanged(string value)
     {
         AppSettings.Current.Theme = value;
-        if (App.MainAppWindow?.Content is Microsoft.UI.Xaml.FrameworkElement root)
-            ThemeService.Apply(root, value);
+        _theme.Apply(value);
     }
 
     partial void OnSelectedLanguageChanged(string value)

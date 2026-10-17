@@ -97,7 +97,7 @@ public sealed class AppSettings
     {
         Directory.CreateDirectory(SettingsDir);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(SettingsFile, json);
+        WriteAtomically(json);
     }
 
     /// <summary>Persist current settings to disk (async).</summary>
@@ -105,6 +105,14 @@ public sealed class AppSettings
     {
         Directory.CreateDirectory(SettingsDir);
         var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(SettingsFile, json).ConfigureAwait(false);
+        await Task.Run(() => WriteAtomically(json)).ConfigureAwait(false);
+    }
+
+    // Write to a temp file then replace: a crash mid-write never leaves a truncated settings.json
+    private static void WriteAtomically(string json)
+    {
+        var temp = SettingsFile + ".tmp";
+        File.WriteAllText(temp, json);
+        File.Move(temp, SettingsFile, overwrite: true);
     }
 }

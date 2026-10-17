@@ -1,5 +1,6 @@
 using HVLab.Services;
 using HVLab.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 
 namespace HVLab;
@@ -7,6 +8,15 @@ namespace HVLab;
 public partial class App : Application
 {
     public static MainWindow? MainAppWindow { get; private set; }
+
+    /// <summary>Application services: Core services/view models + UI-layer implementations.</summary>
+    public static IServiceProvider Services { get; } = new ServiceCollection()
+        .AddHVLabCore()
+        .AddSingleton<IThemeService, WindowThemeService>()
+        .AddSingleton<IDialogService, DialogService>()
+        .BuildServiceProvider();
+
+    public static T GetService<T>() where T : notnull => Services.GetRequiredService<T>();
 
     public App()
     {
@@ -38,7 +48,7 @@ public partial class App : Application
         try
         {
             splash.SetStatus(loc["Splash_LoadingHyperV"]);
-            await AppStartupCache.Instance.LoadAsync(AppSettings.Current.BaseImagesFolder);
+            await GetService<AppStartupCache>().LoadAsync(AppSettings.Current.BaseImagesFolder);
 
             splash.SetStatus(loc["Splash_Starting"]);
 

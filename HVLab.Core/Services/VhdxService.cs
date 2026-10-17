@@ -4,7 +4,7 @@ using static HVLab.Services.PowerShellRunner;
 
 namespace HVLab.Services;
 
-public class VhdxService
+public class VhdxService(IPowerShellRunner ps) : IVhdxService
 {
     // ─── WIM / DISM analysis ─────────────────────────────────────────────────
 
@@ -38,7 +38,7 @@ public class VhdxService
             }
             """;
 
-        var json = await HyperVService.RunScriptAsync(script);
+        var json = await ps.RunAsync(script);
         if (string.IsNullOrWhiteSpace(json)) return [];
 
         try
@@ -77,7 +77,7 @@ public class VhdxService
     /// Reads the Windows build version of WIM index 1 with Get-WindowsImage -Index
     /// (structured property — independent of the OS display language, unlike dism.exe text).
     /// </summary>
-    private static async Task<string> GetWimVersionAsync(string wimPath)
+    private async Task<string> GetWimVersionAsync(string wimPath)
     {
         var script = $$"""
             $img = Get-WindowsImage -ImagePath '{{Esc(wimPath)}}' -Index 1 -ErrorAction Stop
@@ -85,7 +85,7 @@ public class VhdxService
             """;
         try
         {
-            var result = await HyperVService.RunScriptAsync(script);
+            var result = await ps.RunAsync(script);
             return result.Trim();
         }
         catch { return string.Empty; }
@@ -126,7 +126,7 @@ public class VhdxService
             New-VHD -Path $vhdxPath -SizeBytes {{sizeGB}}GB -Dynamic -ErrorAction Stop | Out-Null
             Write-Output "##BV_Created|$vhdxPath"
             """;
-        await HyperVService.RunScriptAsync(script);
+        await ps.RunAsync(script);
     }
 
     /// <summary>Dismounts (if needed) and deletes a partially built VHDX.</summary>
@@ -137,7 +137,7 @@ public class VhdxService
             Dismount-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue | Out-Null
             if (Test-Path $vhdxPath) { Remove-Item $vhdxPath -Force }
             """;
-        await HyperVService.RunScriptAsync(script);
+        await ps.RunAsync(script);
     }
 
     public async Task ApplyWindowsImageAsync(
@@ -237,7 +237,7 @@ public class VhdxService
 
                 Write-Output "##Prg_Ready"
                 """;
-            await HyperVService.RunScriptAsync(script, progress, ct: ct);
+            await ps.RunAsync(script, progress, ct: ct);
         }
     }
 }

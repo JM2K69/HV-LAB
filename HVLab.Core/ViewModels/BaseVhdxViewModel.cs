@@ -9,7 +9,8 @@ namespace HVLab.ViewModels;
 
 public partial class BaseVhdxViewModel : ObservableObject
 {
-    private readonly VhdxService _vhdxService = new();
+    private readonly IVhdxService   _vhdxService;
+    private readonly IDialogService _dialogs;
 
     [ObservableProperty] private ObservableCollection<BaseVhdx> baseVhdxList = [];
     [ObservableProperty] private bool   isLoading;
@@ -175,13 +176,15 @@ public partial class BaseVhdxViewModel : ObservableObject
         WimImages.Clear();
 
         if (!string.IsNullOrWhiteSpace(value) && File.Exists(value))
-            _ = AnalyzeWimAsync();
+            AnalyzeWimCommand.Execute(null);
     }
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
-    public BaseVhdxViewModel()
+    public BaseVhdxViewModel(IVhdxService vhdxService, IDialogService dialogs)
     {
+        _vhdxService = vhdxService;
+        _dialogs     = dialogs;
         baseFolder = AppSettings.Current.BaseImagesFolder;
         RefreshEditions();
     }
@@ -255,11 +258,6 @@ public partial class BaseVhdxViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Set by the view: asks the user to confirm overwriting an existing base image
-    /// (differencing disks built on it would break). Returns true to overwrite.
-    /// </summary>
-    public Func<string, Task<bool>>? ConfirmOverwriteAsync { get; set; }
 
     private CancellationTokenSource? _cts;
 
@@ -275,8 +273,10 @@ public partial class BaseVhdxViewModel : ObservableObject
             { Status = T("BV_SelectWim"); return; }
 
         var vhdxPath = System.IO.Path.Combine(BaseFolder, $"{PreviewFileName}.vhdx");
+        // Overwriting breaks every differencing disk built on this image: ask first
         if (File.Exists(vhdxPath)
-            && (ConfirmOverwriteAsync is null || !await ConfirmOverwriteAsync(vhdxPath)))
+            && !await _dialogs.ConfirmAsync(T("BV_OverwriteTitle"),
+                   T("BV_OverwriteConfirm", System.IO.Path.GetFileName(vhdxPath)), T("BV_BtnOverwrite")))
             return;
 
         // Build into a temporary file (not matching BASE_*.vhdx) and move it into place only on success,
@@ -314,8 +314,11 @@ public partial class BaseVhdxViewModel : ObservableObject
         finally { IsCreating = false; IsLoading = false; _cts.Dispose(); _cts = null; }
     }
 
+    [RelayCommand]
     public async Task DeleteBaseVhdxAsync(BaseVhdx vhdx)
     {
+        if (!await _dialogs.ConfirmAsync(T("BV_DeleteTitle"), $"{T("BV_DeleteConfirm")} « {vhdx.Name}.vhdx » ?", T("Btn_Delete")))
+            return;
         IsLoading = true;
         Status = T("BV_Deleting", vhdx.Name);
         try
