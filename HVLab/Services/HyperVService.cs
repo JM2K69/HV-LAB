@@ -349,7 +349,7 @@ public class HyperVService
                     Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
                 }
             }
-            Write-Output "VM '$vmName' créée avec succès (disque vierge)"
+            Write-Output "##Prg_VmCreated|$vmName"
             """;
 
         await RunScriptAsync(script, progress, ct: ct);
@@ -394,7 +394,7 @@ public class HyperVService
 
                 # Inject unattend.xml into the differencing disk before first boot
                 if ($answerXml) {
-                    Write-Output "Injection du fichier de réponse dans le disque différentiel..."
+                    Write-Output "##Prg_Inject"
                     $mount  = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
                     $diskNo = ($mount | Get-Disk).Number
                     # Use a temp folder path instead of a drive letter to avoid triggering Windows AutoPlay / Explorer
@@ -420,7 +420,6 @@ public class HyperVService
                         $panther = Join-Path $mountPath 'Windows\Panther'
                         if (-not (Test-Path $panther)) { New-Item -Path $panther -ItemType Directory -Force | Out-Null }
                         [System.IO.File]::WriteAllText((Join-Path $panther 'unattend.xml'), $answerXml, [System.Text.Encoding]::UTF8)
-                        Write-Output "unattend.xml injecté dans $panther"
                     } finally {
                         try { $winPart | Remove-PartitionAccessPath -AccessPath $mountPath -ErrorAction SilentlyContinue } catch {}
                         try { Remove-Item $mountPath -Force -ErrorAction SilentlyContinue } catch {}
@@ -465,7 +464,7 @@ public class HyperVService
                         Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
                     }
                 }
-                Write-Output "VM '$vmName' créée avec succès"
+                Write-Output "##Prg_VmCreated|$vmName"
                 """;
             await RunScriptAsync(script, progress, ct: ct);
         }

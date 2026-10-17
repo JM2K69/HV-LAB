@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
+using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
@@ -12,7 +13,7 @@ public partial class BaseVhdxViewModel : ObservableObject
 
     [ObservableProperty] private ObservableCollection<BaseVhdx> baseVhdxList = [];
     [ObservableProperty] private bool   isLoading;
-    [ObservableProperty] private string status = "Prêt";
+    [ObservableProperty] private string status = T("St_Ready");
     [ObservableProperty] private string baseFolder;
 
     // ─── Structured form fields ──────────────────────────────────────────────
@@ -134,12 +135,12 @@ public partial class BaseVhdxViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(OsVersion) || OsVersion == "0.0.0.0")
                 OsVersion = match.Version;
 
-            WimAnalysisStatus = $"✓ Index {match.ImageIndex} — {match.ImageName}";
+            WimAnalysisStatus = T("BV_WimMatch", match.ImageIndex, match.ImageName);
         }
         else
         {
             MatchedWimImage   = null;
-            WimAnalysisStatus = $"⚠ Aucun index trouvé pour « {SelectedEdition} »" +
+            WimAnalysisStatus = T("BV_WimNoMatch", SelectedEdition) +
                                 (ShowDesktopExperience ? $" (Desktop Experience : {DesktopExperience})" : "");
         }
     }
@@ -191,15 +192,15 @@ public partial class BaseVhdxViewModel : ObservableObject
     public async Task RefreshAsync()
     {
         IsLoading = true;
-        Status = "Recherche des images…";
+        Status = T("BV_Searching");
         try
         {
             var images = await _vhdxService.GetBaseVhdxListAsync(BaseFolder);
             BaseVhdxList.Clear();
             foreach (var img in images) BaseVhdxList.Add(img);
-            Status = $"{images.Count} image(s) dans {BaseFolder}";
+            Status = T("BV_ImagesIn", images.Count, BaseFolder);
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+        catch (Exception ex) { Status = T("St_Error", ex.Message); }
         finally { IsLoading = false; }
     }
 
@@ -212,12 +213,12 @@ public partial class BaseVhdxViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(WimPath) || !File.Exists(WimPath))
         {
-            WimAnalysisStatus = "Sélectionnez d'abord un fichier WIM/ESD.";
+            WimAnalysisStatus = T("BV_SelectWimFirst");
             return;
         }
 
         IsAnalyzingWim    = true;
-        WimAnalysisStatus = "Analyse du fichier WIM en cours…";
+        WimAnalysisStatus = T("BV_Analyzing");
         WimAnalyzed       = false;
         WimImages.Clear();
         MatchedWimImage   = null;
@@ -229,7 +230,7 @@ public partial class BaseVhdxViewModel : ObservableObject
 
             if (images.Count == 0)
             {
-                WimAnalysisStatus = "⚠ Aucune image trouvée dans ce fichier.";
+                WimAnalysisStatus = T("BV_NoImagesInWim");
                 return;
             }
 
@@ -246,7 +247,7 @@ public partial class BaseVhdxViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            WimAnalysisStatus = $"✗ Erreur d'analyse : {ex.Message}";
+            WimAnalysisStatus = T("BV_AnalyzeError", ex.Message);
         }
         finally
         {
@@ -269,9 +270,9 @@ public partial class BaseVhdxViewModel : ObservableObject
     public async Task CreateBaseVhdxAsync()
     {
         if (string.IsNullOrWhiteSpace(OsVersion))
-            { Status = "La version OS n'a pas pu être détectée — saisissez-la manuellement."; return; }
+            { Status = T("BV_NoOsVersion"); return; }
         if (string.IsNullOrWhiteSpace(WimPath) || !File.Exists(WimPath))
-            { Status = "Sélectionnez un fichier WIM/ESD valide."; return; }
+            { Status = T("BV_SelectWim"); return; }
 
         var vhdxPath = System.IO.Path.Combine(BaseFolder, $"{PreviewFileName}.vhdx");
         if (File.Exists(vhdxPath)
@@ -288,25 +289,25 @@ public partial class BaseVhdxViewModel : ObservableObject
             if (File.Exists(buildPath))
                 await _vhdxService.DiscardPartialVhdxAsync(buildPath);
 
-            BuildStatus = $"Création du VHDX : {System.IO.Path.GetFileName(vhdxPath)}…";
+            BuildStatus = T("BV_CreatingVhdx", System.IO.Path.GetFileName(vhdxPath));
             await _vhdxService.CreateBaseVhdxAsync(buildPath, SizeGB);
 
-            BuildStatus = "Application de l'image Windows (quelques minutes)…";
+            BuildStatus = T("BV_Applying");
             // No answer file on the base image — it must stay in generalized/sysprep state.
             // unattend.xml will be injected at VM creation time (into the differencing disk).
             await _vhdxService.ApplyWindowsImageAsync(buildPath, WimPath, ImageIndex, Generation, answerFileContent: null,
-                progress: new Progress<string>(line => BuildStatus = line), ct: _cts.Token);
+                progress: new Progress<string>(line => BuildStatus = TranslateProgress(line)), ct: _cts.Token);
             await Task.Run(() => File.Move(buildPath, vhdxPath, overwrite: true));
 
-            BuildStatus = "✓ Image créée avec succès !";
-            Status = $"Image créée : {vhdxPath}";
+            BuildStatus = T("BV_BuildOk");
+            Status = T("BV_Created", vhdxPath);
             await RefreshAsync();
         }
         catch (Exception ex)
         {
             var cancelled = ex is OperationCanceledException;
-            BuildStatus = cancelled ? LocalizationService.Instance["Op_Cancelled"] : $"✗ Erreur : {ex.Message}";
-            Status      = cancelled ? LocalizationService.Instance["Op_Cancelled"] : $"Échec : {ex.Message}";
+            BuildStatus = cancelled ? T("Op_Cancelled") : T("BV_BuildError", ex.Message);
+            Status      = cancelled ? T("Op_Cancelled") : T("BV_BuildFailed", ex.Message);
             // Process tree was killed on cancel: dismount and delete the partial disk
             try { await _vhdxService.DiscardPartialVhdxAsync(buildPath); } catch { /* best effort */ }
         }
@@ -316,13 +317,13 @@ public partial class BaseVhdxViewModel : ObservableObject
     public async Task DeleteBaseVhdxAsync(BaseVhdx vhdx)
     {
         IsLoading = true;
-        Status = $"Suppression de '{vhdx.Name}'…";
+        Status = T("BV_Deleting", vhdx.Name);
         try
         {
             await Task.Run(() => File.Delete(vhdx.FilePath));
-            Status = $"Image '{vhdx.Name}' supprimée.";
+            Status = T("BV_Deleted", vhdx.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; IsLoading = false; }
+        catch (Exception ex) { Status = T("St_Error", ex.Message); IsLoading = false; }
     }
 }

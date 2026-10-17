@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
+using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
@@ -163,7 +164,7 @@ public partial class QuickVmViewModel : ObservableObject
             if (prevSwitch is not null && VirtualSwitches.Contains(prevSwitch)) SelectedSwitch   = prevSwitch;
             if (prevVhdx   is not null && BaseVhdxList.Contains(prevVhdx))     SelectedBaseVhdx = prevVhdx;
         }
-        catch (Exception ex) { Status = $"Erreur lors du chargement : {ex.Message}"; }
+        catch (Exception ex) { Status = T("St_LoadError", ex.Message); }
         finally { IsLoading = false; }
     }
 
@@ -173,14 +174,14 @@ public partial class QuickVmViewModel : ObservableObject
     public async Task CreateVmAsync()
     {
         if (SelectedSize is null)
-            { Status = "Sélectionnez une taille."; return; }
+            { Status = T("St_SelectSize"); return; }
         if (string.IsNullOrWhiteSpace(SelectedSwitch))
-            { Status = "Sélectionnez un commutateur."; return; }
+            { Status = T("St_SelectSwitch"); return; }
 
         // Differencing mode needs a valid parent image
         if (UseDifferencingDisk &&
             (string.IsNullOrWhiteSpace(SelectedBaseVhdx) || !File.Exists(SelectedBaseVhdx)))
-            { Status = "Sélectionnez une image VHDX de base valide."; return; }
+            { Status = T("St_SelectBaseVhdx"); return; }
 
         long   memMB    = SelectedSize.Profile.MemoryMB;
         int    cpuCnt   = SelectedSize.Profile.CpuCount;
@@ -188,8 +189,8 @@ public partial class QuickVmViewModel : ObservableObject
 
         if (BulkMode)
         {
-            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = "Saisissez un préfixe."; return; }
-            if (BulkCount < 1)                         { Status = "La quantité doit être ≥ 1."; return; }
+            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = T("St_EnterPrefix"); return; }
+            if (BulkCount < 1)                         { Status = T("St_CountMin"); return; }
 
             var names = Enumerable.Range(1, BulkCount).Select(i => $"{BulkPrefix}-{i:D2}").ToList();
             if (names.Select(InputValidator.CheckVmName).FirstOrDefault(k => k is not null) is { } bad)
@@ -205,7 +206,7 @@ public partial class QuickVmViewModel : ObservableObject
                 {
                     _cts.Token.ThrowIfCancellationRequested();
                     string name = names[i];
-                    Status = $"Création {i + 1}/{names.Count} : '{name}'…";
+                    Status = T("St_CreatingN", i + 1, names.Count, name);
                     try
                     {
                         await CreateOneAsync(name, memMB, cpuCnt, vmFolder, null, _cts.Token);
@@ -215,8 +216,8 @@ public partial class QuickVmViewModel : ObservableObject
                 }
 
                 Status = errors.Count == 0
-                    ? $"✓ {created.Count} VM(s) créées : {string.Join(", ", created)}"
-                    : $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
+                    ? T("St_BulkOk", created.Count, string.Join(", ", created))
+                    : T("St_BulkPartial", created.Count, errors.Count, string.Join(" | ", errors));
             }
             catch (OperationCanceledException)
             {
@@ -231,17 +232,17 @@ public partial class QuickVmViewModel : ObservableObject
 
             IsLoading = true; IsCreating = true;
             _cts = new CancellationTokenSource();
-            Status = $"Création de '{VmName}'…";
+            Status = T("St_CreatingVm", VmName);
             try
             {
                 await CreateOneAsync(VmName, memMB, cpuCnt, vmFolder,
-                                     new Progress<string>(line => Status = line), _cts.Token);
+                                     new Progress<string>(line => Status = TranslateProgress(line)), _cts.Token);
 
-                Status = $"✓ VM '{VmName}' créée avec succès !";
+                Status = T("St_VmCreated", VmName);
                 VmName = "";
             }
             catch (OperationCanceledException) { Status = LocalizationService.Instance["Op_Cancelled"]; }
-            catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+            catch (Exception ex) { Status = T("St_Error", ex.Message); }
             finally { IsLoading = false; IsCreating = false; _cts.Dispose(); _cts = null; }
         }
     }

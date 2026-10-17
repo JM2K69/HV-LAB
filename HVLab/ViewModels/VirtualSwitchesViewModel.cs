@@ -17,7 +17,7 @@ public partial class VirtualSwitchesViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<string>           internalSwitchNames = [];
 
     [ObservableProperty] private bool   isLoading;
-    [ObservableProperty] private string status = "Prêt";
+    [ObservableProperty] private string status = LocalizationService.Instance["St_Ready"];
 
     // New vSwitch form
     [ObservableProperty] private string              newSwitchName    = "";
@@ -50,7 +50,7 @@ public partial class VirtualSwitchesViewModel : ObservableObject
     public async Task RefreshAsync()
     {
         IsLoading = true;
-        Status = "Chargement…";
+        Status = LocalizationService.Instance["St_Loading"];
         try
         {
             // One powershell.exe per query: run them concurrently

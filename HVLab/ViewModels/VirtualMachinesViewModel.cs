@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using HVLab.Models;
 using HVLab.Services;
+using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
@@ -11,7 +12,22 @@ public partial class VirtualMachinesViewModel : ObservableObject
 
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
     [ObservableProperty] private bool   isLoading;
-    [ObservableProperty] private string status = "Pret";
+    [ObservableProperty] private string status = T("St_Ready");
+
+    /// <summary>Last error (shown in an InfoBar); empty when the last operation succeeded.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
+    private string errorMessage = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
+    private bool hasLoaded;
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    /// <summary>True once a successful refresh returned no VM: shows the empty state.</summary>
+    public bool IsEmpty => HasLoaded && !HasError && VirtualMachines.Count == 0;
 
     // Serializes refreshes: a poll tick never overlaps a manual refresh.
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
@@ -26,9 +42,12 @@ public partial class VirtualMachinesViewModel : ObservableObject
         {
             var vms = await _hvService.GetVirtualMachinesAsync();
             ApplyDiff(vms);
-            if (!silent || Status.StartsWith("Erreur")) Status = $"{vms.Count} VM(s)";
+            Status       = T("VM_Count", vms.Count);
+            ErrorMessage = string.Empty;
+            HasLoaded    = true;
+            OnPropertyChanged(nameof(IsEmpty));
         }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+        catch (Exception ex) { ErrorMessage = ex.Message; }
         finally
         {
             if (!silent) IsLoading = false;
@@ -76,13 +95,13 @@ public partial class VirtualMachinesViewModel : ObservableObject
     // ─── Actions ─────────────────────────────────────────────────────────────
 
     public Task StartVmAsync(VirtualMachine vm)
-        => RunVmActionAsync(vm, "Starting", $"Démarrage de '{vm.Name}'…", () => _hvService.StartVMAsync(vm.Name));
+        => RunVmActionAsync(vm, "Starting", T("VM_Starting", vm.Name), () => _hvService.StartVMAsync(vm.Name));
 
     public Task StopVmAsync(VirtualMachine vm)
-        => RunVmActionAsync(vm, "Stopping", $"Arrêt de '{vm.Name}'…", () => _hvService.StopVMAsync(vm.Name));
+        => RunVmActionAsync(vm, "Stopping", T("VM_Stopping", vm.Name), () => _hvService.StopVMAsync(vm.Name));
 
     public Task RemoveVmAsync(VirtualMachine vm)
-        => RunVmActionAsync(vm, null, $"Suppression de '{vm.Name}'…", () => _hvService.RemoveVMAsync(vm.Name));
+        => RunVmActionAsync(vm, null, T("VM_Removing", vm.Name), () => _hvService.RemoveVMAsync(vm.Name));
 
     /// <summary>
     /// Runs one action per VM at a time: shows the transitional state immediately,
@@ -98,12 +117,12 @@ public partial class VirtualMachinesViewModel : ObservableObject
         try
         {
             await action();
-            Status = $"{vm.Name} : OK";
+            Status = T("VM_ActionOk", vm.Name);
         }
         catch (Exception ex)
         {
             vm.State = previousState;
-            Status = $"Erreur : {ex.Message}";
+            ErrorMessage = ex.Message;
         }
         finally { vm.IsBusy = false; }
         await RefreshAsync(silent: true);

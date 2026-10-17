@@ -5,22 +5,33 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     Title="HV-LAB Manager">
 
-    <Grid>
-        <!-- Custom TitleBar drag region (invisible, just defines the draggable area) -->
-        <Grid x:Name="AppTitleBar"
-              Height="40"
-              VerticalAlignment="Top"
-              HorizontalAlignment="Stretch"
-              Canvas.ZIndex="1"
-              IsHitTestVisible="True"/>
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="48"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title bar (row 0): drag region with icon + title; it no longer overlaps the content -->
+        <Grid x:Name="AppTitleBar" Grid.Row="0" Padding="16,0,0,0" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Image Source="ms-appx:///Images/Square44x44Logo.png" Width="16" Height="16"
+                   VerticalAlignment="Center"/>
+            <TextBlock Grid.Column="1" Text="HV-LAB Manager" VerticalAlignment="Center"
+                       Style="{StaticResource CaptionTextBlockStyle}"/>
+        </Grid>
 
         <NavigationView
             x:Name="NavView"
+            Grid.Row="1"
             IsSettingsVisible="False"
             IsBackButtonVisible="Collapsed"
-            CompactModeThresholdWidth="0"
-            ExpandedModeThresholdWidth="0"
-            PaneDisplayMode="Left"
+            IsTitleBarAutoPaddingEnabled="False"
+            PaneDisplayMode="Auto"
+            CompactModeThresholdWidth="640"
+            ExpandedModeThresholdWidth="1000"
             OpenPaneLength="220"
             SelectionChanged="NavView_SelectionChanged"
             Loaded="NavView_Loaded">
@@ -42,32 +53,32 @@
             </NavigationView.PaneHeader>
 
             <NavigationView.MenuItems>
-                <NavigationViewItem Tag="dashboard" Content="{Binding [Nav_Dashboard], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="dashboard" AccessKey="D" Content="{Binding [Nav_Dashboard], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE80F;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="vms" Content="{Binding [Nav_VMs], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="vms" AccessKey="M" Content="{Binding [Nav_VMs], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE7F8;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="switches" Content="{Binding [Nav_Switches], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="switches" AccessKey="R" Content="{Binding [Nav_Switches], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xEDA3;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="basevhdx" Content="{Binding [Nav_BaseVhdx], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="basevhdx" AccessKey="I" Content="{Binding [Nav_BaseVhdx], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xEDA2;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="createvm" Content="{Binding [Nav_CreateVM], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="createvm" AccessKey="C" Content="{Binding [Nav_CreateVM], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE710;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Tag="quickvm" Content="{Binding [Nav_QuickVM], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="quickvm" AccessKey="Q" Content="{Binding [Nav_QuickVM], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE945;"/>
                     </NavigationViewItem.Icon>
@@ -75,7 +86,7 @@
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem Tag="settings" Content="{Binding [Nav_Settings], Source={StaticResource Loc}}">
+                <NavigationViewItem Tag="settings" AccessKey="P" Content="{Binding [Nav_Settings], Source={StaticResource Loc}}">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE713;"/>
                     </NavigationViewItem.Icon>
@@ -92,7 +103,7 @@
                 <InfoBar x:Name="EnvInfoBar"
                          Severity="Error"
                          IsClosable="True"
-                         Margin="16,44,16,0"
+                         Margin="16,8,16,0"
                          Title="{Binding [Env_Title], Source={StaticResource Loc}}">
                     <InfoBar.ActionButton>
                         <Button x:Name="EnvStartServiceButton"

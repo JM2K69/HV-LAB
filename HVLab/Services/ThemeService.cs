@@ -1,4 +1,8 @@
+using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using Windows.UI;
+using Colors = Microsoft.UI.Colors;
 
 namespace HVLab.Services;
 
@@ -34,4 +38,25 @@ public static class ThemeService
     /// </summary>
     public static void ApplyCurrent(FrameworkElement root)
         => Apply(root, AppSettings.Current.Theme);
+
+    /// <summary>
+    /// Colours the caption buttons (min / max / close) of a window whose content extends into the
+    /// title bar so they match the app theme instead of the OS theme. Call it again from
+    /// <see cref="FrameworkElement.ActualThemeChanged"/>.
+    /// </summary>
+    public static void ApplyTitleBar(AppWindow appWindow, ElementTheme actualTheme)
+    {
+        var tb   = appWindow.TitleBar;
+        var dark = actualTheme == ElementTheme.Dark;
+        Color fg = dark ? Colors.White : Colors.Black;
+
+        tb.ButtonBackgroundColor         = Colors.Transparent;
+        tb.ButtonInactiveBackgroundColor = Colors.Transparent;
+        tb.ButtonForegroundColor         = fg;
+        tb.ButtonInactiveForegroundColor = dark ? Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x80, 0, 0, 0);
+        tb.ButtonHoverForegroundColor    = fg;
+        tb.ButtonHoverBackgroundColor    = dark ? Color.FromArgb(0x15, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x0F, 0, 0, 0);
+        tb.ButtonPressedForegroundColor  = fg;
+        tb.ButtonPressedBackgroundColor  = dark ? Color.FromArgb(0x0B, 0xFF, 0xFF, 0xFF) : Color.FromArgb(0x0A, 0, 0, 0);
+    }
 }

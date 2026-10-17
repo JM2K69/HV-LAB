@@ -40,6 +40,9 @@ public sealed partial class VirtualMachinesPage : Page
     private async void Refresh_Click(object sender, RoutedEventArgs e)
         => await ViewModel.RefreshAsync();
 
+    private void CreateVm_Click(object sender, RoutedEventArgs e)
+        => App.MainAppWindow?.NavigateTo("quickvm");
+
     private async void StartVm_Click(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: VirtualMachine vm })

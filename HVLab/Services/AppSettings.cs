@@ -31,6 +31,13 @@ public sealed class AppSettings
     /// <summary>Root folder where VM differencing disks and config live.</summary>
     public string VmsFolder { get; set; } = @"C:\HV-LAB\VMs";
 
+    // Main window placement (physical pixels), restored at startup
+    public int?  WindowX         { get; set; }
+    public int?  WindowY         { get; set; }
+    public int?  WindowWidth     { get; set; }
+    public int?  WindowHeight    { get; set; }
+    public bool  WindowMaximized { get; set; }
+
     /// <summary>
     /// Application theme preference: "System" (default), "Light", or "Dark".
     /// </summary>

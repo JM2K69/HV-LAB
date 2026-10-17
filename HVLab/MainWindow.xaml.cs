@@ -1,3 +1,4 @@
+using HVLab.Helpers;
 using HVLab.Services;
 using HVLab.Views;
 using Microsoft.UI.Xaml;
@@ -22,8 +23,12 @@ public sealed partial class MainWindow : Window
         // ── Icône de l'application (barre des tâches / titre) ──────────────
         AppWindow.SetIcon(System.IO.Path.Combine(AppContext.BaseDirectory, "Images", "AppIcon.ico"));
 
-        // ── Window size ──────────────────────────────────────────────────────
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1200, 800));
+        // ── Window size: DPI-aware, minimum size, last placement restored ────
+        WindowPlacement.Attach(this);
+
+        // ── Caption buttons follow the app theme (also when "System" changes) ─
+        RootGrid.ActualThemeChanged += (s, _) => ThemeService.ApplyTitleBar(AppWindow, s.ActualTheme);
+        RootGrid.Loaded             += (s, _) => ThemeService.ApplyTitleBar(AppWindow, RootGrid.ActualTheme);
 
         ShowEnvironment(AppStartupCache.Instance.Environment);
     }
@@ -56,6 +61,12 @@ public sealed partial class MainWindow : Window
 
     private void NavView_Loaded(object sender, RoutedEventArgs e)
         => NavView.SelectedItem = NavView.MenuItems[0];
+
+    /// <summary>Selects the navigation item with the given tag (e.g. "quickvm").</summary>
+    public void NavigateTo(string tag)
+        => NavView.SelectedItem = NavView.MenuItems.Concat(NavView.FooterMenuItems)
+               .OfType<NavigationViewItem>()
+               .FirstOrDefault(i => i.Tag as string == tag);
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
