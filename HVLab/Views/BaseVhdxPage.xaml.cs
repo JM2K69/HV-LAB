@@ -4,6 +4,7 @@ using HVLab.Services;
 using HVLab.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 
 namespace HVLab.Views;
@@ -14,6 +15,16 @@ public sealed partial class BaseVhdxPage : Page
     public LocalizationService Loc => LocalizationService.Instance;
 
     public BaseVhdxPage() => InitializeComponent();
+
+    // Delete key on the focused list removes the selected image (with confirmation)
+    private void DeleteSelected_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (ImageList.SelectedItem is BaseVhdx vhdx && ViewModel.DeleteBaseVhdxCommand.CanExecute(vhdx))
+        {
+            ViewModel.DeleteBaseVhdxCommand.Execute(vhdx);
+            args.Handled = true;
+        }
+    }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

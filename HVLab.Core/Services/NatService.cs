@@ -85,7 +85,7 @@ public class NatService(IPowerShellRunner ps) : INatService
     public async Task CreateNatNetworkAsync(string switchName, string natName, string gatewayIP, int prefixLength)
     {
         gatewayIP = NormalizeGateway(gatewayIP, prefixLength)
-            ?? throw new ArgumentException($"Invalid IPv4 gateway or prefix: {gatewayIP}/{prefixLength}");
+            ?? throw new ArgumentException(LocalizationService.Instance["SW_ErrInvalidGateway"]);
         var script = $$"""
             $switchName   = '{{Esc(switchName)}}'
             $natName      = '{{Esc(natName)}}'
@@ -95,7 +95,7 @@ public class NatService(IPowerShellRunner ps) : INatService
 
             $adapter = Get-NetAdapter | Where-Object { $_.Name -eq "vEthernet ($switchName)" }
             if (-not $adapter) {
-                throw "Adaptateur introuvable pour le commutateur '$switchName'. Créez d'abord le commutateur interne."
+                throw "##Err_NoAdapter|$switchName"
             }
 
             $existingIP = Get-NetIPAddress -InterfaceIndex $adapter.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
