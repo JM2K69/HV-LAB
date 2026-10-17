@@ -8,7 +8,6 @@ namespace HVLab.Views;
 public sealed partial class DashboardPage : Page
 {
     public DashboardViewModel ViewModel { get; } = App.GetService<DashboardViewModel>();
-    public LocalizationService Loc => LocalizationService.Instance;
 
     public DashboardPage()
     {

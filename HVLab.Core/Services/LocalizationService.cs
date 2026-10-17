@@ -6,8 +6,8 @@ namespace HVLab.Services;
 /// <summary>
 /// Singleton localization service.
 /// Exposes translated strings via an indexer: <c>LocalizationService.Instance["Key"]</c>.
-/// Implements <see cref="INotifyPropertyChanged"/> so that x:Bind Mode=OneWay
-/// on <c>Loc["Key"]</c> automatically refreshes when the language changes.
+/// Implements <see cref="INotifyPropertyChanged"/> so that XAML <c>{Binding [Key]}</c> expressions
+/// (through <c>LocalizationHelper</c>) refresh when the language changes.
 /// </summary>
 public sealed class LocalizationService : INotifyPropertyChanged
 {
@@ -21,7 +21,10 @@ public sealed class LocalizationService : INotifyPropertyChanged
     private string _language = "fr";
     public string CurrentLanguage => _language;
 
-    private Dictionary<string, string> _strings = Strings_fr;
+    // Not initialised inline: Instance is created before the static dictionaries below
+    // (static initialisers run in textual order), so Strings_fr would still be null here.
+    private Dictionary<string, string>? _strings;
+    private Dictionary<string, string> Strings => _strings ??= Strings_fr;
 
     // ── INotifyPropertyChanged ───────────────────────────────────────────────
 
@@ -30,15 +33,14 @@ public sealed class LocalizationService : INotifyPropertyChanged
     private void Notify([CallerMemberName] string? name = null)
         => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-    // ── Indexer (used in x:Bind) ─────────────────────────────────────────────
+    // ── Indexer (used by {Binding [Key]}) ─────────────────────────────────────────
 
     /// <summary>Returns the translated string for <paramref name="key"/>.</summary>
     public string this[string key]
-        => _strings.TryGetValue(key, out var v) ? v : $"[{key}]";
+        => Strings.TryGetValue(key, out var v) ? v : $"[{key}]";
 
-    /// <summary>Same as indexer but callable from x:Bind expressions.</summary>
-    public string GetString(string key)
-        => _strings.TryGetValue(key, out var v) ? v : $"[{key}]";
+    /// <summary>Same as the indexer, as a method.</summary>
+    public string GetString(string key) => this[key];
 
     /// <summary>Translated, formatted string: <c>T("St_Error", ex.Message)</c>.</summary>
     public static string T(string key, params object?[] args)
@@ -65,7 +67,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
     {
         _language = language switch { "en" => "en", _ => "fr" };
         _strings  = _language == "en" ? Strings_en : Strings_fr;
-        // Raising "Item[]" refreshes every x:Bind on this[key]
+        // Raising "Item[]" refreshes every {Binding [key]} bound through LocalizationHelper
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs("Item[]"));
         Notify(nameof(CurrentLanguage));
     }
