@@ -7,7 +7,7 @@ using static HVLab.Services.PowerShellRunner;
 
 namespace HVLab.Services;
 
-public class NatService
+public class NatService(IPowerShellRunner ps) : INatService
 {
     public async Task<List<NatNetwork>> GetNatNetworksAsync()
     {
@@ -49,7 +49,7 @@ public class NatService
                 exit 1
             }
             """;
-        var output = await HyperVService.RunScriptAsync(script);
+        var output = await ps.RunAsync(script);
         return ParseNats(output.Trim());
     }
 
@@ -114,11 +114,11 @@ public class NatService
             New-NetNat -Name $natName -InternalIPInterfaceAddressPrefix $prefix -ErrorAction Stop | Out-Null
             Write-Output "NAT '$natName' créé : $prefix via $gatewayIP"
             """;
-        await HyperVService.RunScriptAsync(script);
+        await ps.RunAsync(script);
     }
 
     public async Task RemoveNatNetworkAsync(string name)
-        => await HyperVService.RunScriptAsync(
+        => await ps.RunAsync(
             $"Remove-NetNat -Name '{Esc(name)}' -Confirm:$false -ErrorAction Stop");
 
 }

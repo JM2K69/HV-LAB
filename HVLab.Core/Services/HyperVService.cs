@@ -7,14 +7,14 @@ namespace HVLab.Services;
 
 public enum HyperVEnvironment { Ok, FeatureMissing, ServiceStopped }
 
-public class HyperVService
+public class HyperVService(IPowerShellRunner ps) : IHyperVService
 {
     // ─── PowerShell runner ──────────────────────────────────────────────────
 
-    internal static Task<string> RunScriptAsync(
+    private Task<string> RunScriptAsync(
         string script, IProgress<string>? progress = null,
         TimeSpan? timeout = null, CancellationToken ct = default)
-        => PowerShellRunner.RunAsync(script, progress, timeout, ct);
+        => ps.RunAsync(script, progress, timeout, ct);
 
     /// <summary>PowerShell expression that yields <paramref name="text"/> without any quoting concern (base64 UTF-8).</summary>
     internal static string PsLiteral(string text)
@@ -131,7 +131,7 @@ public class HyperVService
     /// Opens the Hyper-V VM Connect window (vmconnect.exe) for the specified VM.
     /// Equivalent to double-clicking the VM in Hyper-V Manager.
     /// </summary>
-    public static void ConnectToVMConsole(string name)
+    public void ConnectToVMConsole(string name)
     {
         var vmconnect = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.System),

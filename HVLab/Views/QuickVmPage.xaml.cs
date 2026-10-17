@@ -6,7 +6,7 @@ namespace HVLab.Views;
 
 public sealed partial class QuickVmPage : Page
 {
-    public QuickVmViewModel ViewModel { get; } = new();
+    public QuickVmViewModel ViewModel { get; } = App.GetService<QuickVmViewModel>();
 
     public QuickVmPage() => InitializeComponent();
 
