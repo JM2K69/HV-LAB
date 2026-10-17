@@ -1,171 +1,168 @@
-#Requires -RunAsAdministrator
+﻿#Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-	Installe HyperV Lab Manager sur la machine locale.
+    Installe (ou désinstalle) HV-LAB Manager sur la machine locale.
 
 .DESCRIPTION
-	Ce script :
-	  1. Vérifie que Windows est en version Pro/Enterprise/Education (requis pour Hyper-V)
-	  2. Installe le runtime .NET 8 Desktop si absent
-	  3. Installe le Windows App SDK 1.6 Runtime si absent
-	  4. Active Hyper-V si ce n'est pas déjà fait
-	  5. Lance HVLab.exe (build framework-dependent)
-		 OU installe le MSIX si présent dans le même dossier
+    L'application est publiée en dossier autonome (.NET et Windows App SDK inclus) :
+    aucun runtime à télécharger. Ce script :
+      1. copie le dossier publié vers C:\Program Files\HV-LAB (dossier modifiable par les seuls administrateurs) ;
+      2. crée un raccourci dans le menu Démarrer (et sur le Bureau avec -DesktopShortcut) ;
+      3. vérifie la présence de Hyper-V (et l'active avec -EnableHyperV).
 
-.NOTES
-	Doit être exécuté en tant qu'Administrateur.
-	Testé sur Windows 10/11 Pro et Windows Server 2019/2022.
+    Publier l'application avant l'installation :
+        dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release
+
+.PARAMETER Source
+    Dossier contenant HVLab.exe. Par défaut : HVLab\publish à côté de ce script,
+    sinon le dossier du script lui-même (cas d'une archive de distribution).
+
+.PARAMETER Destination
+    Dossier d'installation. Par défaut : C:\Program Files\HV-LAB.
+
+.PARAMETER DesktopShortcut
+    Crée aussi un raccourci sur le Bureau public.
+
+.PARAMETER EnableHyperV
+    Active la fonctionnalité Hyper-V si elle est absente (redémarrage requis).
+
+.PARAMETER Uninstall
+    Supprime le dossier d'installation et les raccourcis.
+
+.EXAMPLE
+    .\Install.ps1
+.EXAMPLE
+    .\Install.ps1 -DesktopShortcut -EnableHyperV
+.EXAMPLE
+    .\Install.ps1 -Uninstall
 #>
+[CmdletBinding()]
+param(
+    [string]$Source,
+    [string]$Destination = (Join-Path $env:ProgramFiles 'HV-LAB'),
+    [switch]$DesktopShortcut,
+    [switch]$EnableHyperV,
+    [switch]$Uninstall
+)
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-# ── Couleurs ──────────────────────────────────────────────────────────────────
-function Write-Step  ($msg) { Write-Host "  ► $msg" -ForegroundColor Cyan }
-function Write-OK    ($msg) { Write-Host "  ✔ $msg" -ForegroundColor Green }
-function Write-Warn  ($msg) { Write-Host "  ⚠ $msg" -ForegroundColor Yellow }
-function Write-Fail  ($msg) { Write-Host "  ✖ $msg" -ForegroundColor Red }
+function Write-Step ($msg) { Write-Host "  > $msg" -ForegroundColor Cyan }
+function Write-OK   ($msg) { Write-Host "  OK $msg" -ForegroundColor Green }
+function Write-Warn ($msg) { Write-Host "  !  $msg" -ForegroundColor Yellow }
+function Write-Fail ($msg) { Write-Host "  X  $msg" -ForegroundColor Red }
 
-Write-Host ""
-Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Magenta
-Write-Host "║        HyperV Lab Manager — Installation         ║" -ForegroundColor Magenta
-Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Magenta
-Write-Host ""
+$AppName       = 'HV-LAB Manager'
+$ExeName       = 'HVLab.exe'
+$StartMenuLink = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\$AppName.lnk"
+$DesktopLink   = Join-Path $env:PUBLIC "Desktop\$AppName.lnk"
 
-# ── 1. Trouver le .msix dans le même dossier que ce script ───────────────────
-Write-Step "Recherche du package MSIX..."
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$msix = Get-ChildItem -Path $scriptDir -Filter "*.msix" -Recurse |
-		Sort-Object LastWriteTime -Descending |
-		Select-Object -First 1
-
-if (-not $msix) {
-	Write-Fail "Aucun fichier .msix trouvé dans : $scriptDir"
-	exit 1
+function Stop-RunningApp {
+    $running = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($ExeName)) -ErrorAction SilentlyContinue |
+               Where-Object { $_.Path -and $_.Path.StartsWith($Destination, [StringComparison]::OrdinalIgnoreCase) }
+    if ($running) {
+        Write-Warn "$AppName est en cours d'exécution : fermeture..."
+        $running | Stop-Process -Force
+        Start-Sleep -Seconds 1
+    }
 }
-Write-OK "Package trouvé : $($msix.Name)"
 
-# ── 2. Vérifier l'édition Windows ────────────────────────────────────────────
-Write-Step "Vérification de l'édition Windows..."
-$os = Get-WmiObject Win32_OperatingSystem
-$caption = $os.Caption
-
-if ($caption -match "Home") {
-	Write-Fail "Windows Home détecté : Hyper-V n'est pas disponible sur cette édition."
-	Write-Fail "Utilisez Windows 10/11 Pro, Enterprise ou Education."
-	exit 1
+function New-Shortcut ([string]$Path, [string]$Target) {
+    $shell = New-Object -ComObject WScript.Shell
+    $lnk = $shell.CreateShortcut($Path)
+    $lnk.TargetPath       = $Target
+    $lnk.WorkingDirectory = Split-Path $Target -Parent
+    $lnk.IconLocation     = "$Target,0"
+    $lnk.Description      = 'Gestionnaire Hyper-V — VM, vSwitch, NAT, VHDX'
+    $lnk.Save()
 }
-Write-OK "Édition compatible : $caption"
 
-# ── 2. Installer .NET 8 Desktop Runtime si absent ────────────────────────────
-Write-Step "Vérification du runtime .NET 8 Desktop..."
-$dotnet8 = dotnet --list-runtimes 2>$null | Where-Object { $_ -match "Microsoft\.WindowsDesktop\.App 8\." }
-if (-not $dotnet8) {
-    Write-Warn ".NET 8 Desktop Runtime non trouvé — téléchargement..."
-    $dotnetUrl = "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"
-    $dotnetInstaller = "$env:TEMP\dotnet8-desktop-runtime.exe"
-    Invoke-WebRequest -Uri $dotnetUrl -OutFile $dotnetInstaller -UseBasicParsing
-    Start-Process -FilePath $dotnetInstaller -ArgumentList "/quiet /norestart" -Wait
-    Remove-Item $dotnetInstaller -Force
-    Write-OK ".NET 8 Desktop Runtime installé."
+Write-Host ''
+Write-Host "  === $AppName — $(if ($Uninstall) { 'Désinstallation' } else { 'Installation' }) ===" -ForegroundColor Magenta
+Write-Host ''
+
+# ── Désinstallation ──────────────────────────────────────────────────────────
+if ($Uninstall) {
+    Stop-RunningApp
+    foreach ($link in $StartMenuLink, $DesktopLink) {
+        if (Test-Path $link) { Remove-Item $link -Force; Write-OK "Raccourci supprimé : $link" }
+    }
+    if (Test-Path $Destination) {
+        Remove-Item $Destination -Recurse -Force
+        Write-OK "Dossier supprimé : $Destination"
+    } else {
+        Write-Warn "Aucune installation trouvée dans $Destination"
+    }
+    Write-Host ''
+    Write-Host '  Les paramètres utilisateur (%LocalAppData%\HV-LAB) sont conservés.' -ForegroundColor Gray
+    exit 0
+}
+
+# ── 1. Dossier source ────────────────────────────────────────────────────────
+Write-Step 'Recherche des fichiers de l''application...'
+$candidates = if ($Source) { @($Source) } else { @((Join-Path $PSScriptRoot 'HVLab\publish'), $PSScriptRoot) }
+$Source = $candidates | Where-Object { Test-Path (Join-Path $_ $ExeName) } | Select-Object -First 1
+if (-not $Source) {
+    Write-Fail "$ExeName introuvable dans : $($candidates -join ', ')"
+    Write-Fail 'Publiez d''abord l''application : dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release'
+    exit 1
+}
+$Source = (Resolve-Path $Source).Path
+if ($Source.TrimEnd('\') -ieq $Destination.TrimEnd('\')) {
+    Write-Fail 'La source et la destination sont identiques.'
+    exit 1
+}
+Write-OK "Source : $Source"
+
+# ── 2. Hyper-V ───────────────────────────────────────────────────────────────
+Write-Step 'Vérification de Hyper-V...'
+if (Get-Module -ListAvailable -Name Hyper-V) {
+    Write-OK 'Module PowerShell Hyper-V présent.'
 } else {
-    Write-OK ".NET 8 Desktop Runtime déjà présent : $($dotnet8 | Select-Object -First 1)"
+    $feature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -ErrorAction SilentlyContinue
+    if ($EnableHyperV -and $feature) {
+        Write-Warn 'Activation de Hyper-V...'
+        Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart | Out-Null
+        Write-OK 'Hyper-V activé : redémarrez la machine avant d''utiliser l''application.'
+    } elseif ($feature) {
+        Write-Warn 'Hyper-V n''est pas activé. Relancez avec -EnableHyperV ou activez-le manuellement.'
+    } else {
+        Write-Warn 'Hyper-V n''est pas disponible sur cette édition de Windows (Pro, Enterprise, Education ou Server requis).'
+    }
 }
 
-# ── 3. Installer Windows App SDK 1.6 Runtime si absent ───────────────────────
-Write-Step "Vérification du Windows App SDK 1.6 Runtime..."
-$wasdk = Get-AppxPackage -Name "Microsoft.WindowsAppRuntime.1.6" -ErrorAction SilentlyContinue
-if (-not $wasdk) {
-    Write-Warn "Windows App SDK 1.6 non trouvé — téléchargement..."
-    $wasdkUrl = "https://aka.ms/windowsappsdk/1.6/latest/windowsappruntimeinstall-x64.exe"
-    $wasdkInstaller = "$env:TEMP\windowsappsdk-runtime.exe"
-    Invoke-WebRequest -Uri $wasdkUrl -OutFile $wasdkInstaller -UseBasicParsing
-    Start-Process -FilePath $wasdkInstaller -ArgumentList "--quiet" -Wait
-    Remove-Item $wasdkInstaller -Force
-    Write-OK "Windows App SDK 1.6 Runtime installé."
-} else {
-    Write-OK "Windows App SDK 1.6 Runtime déjà présent : $($wasdk.Version)"
+# ── 3. Ancienne installation MSIX ────────────────────────────────────────────
+$legacy = Get-AppxPackage -Name 'HVLab.HyperVLabManager' -AllUsers -ErrorAction SilentlyContinue
+if ($legacy) {
+    Write-Warn "Ancienne version MSIX détectée ($($legacy.Version)) : suppression..."
+    $legacy | Remove-AppxPackage -AllUsers -ErrorAction SilentlyContinue
 }
 
-# ── 4. Activer Hyper-V si absent ─────────────────────────────────────────────
-Write-Step "Vérification de Hyper-V..."
-$hyperv = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -ErrorAction SilentlyContinue
+# ── 4. Copie ─────────────────────────────────────────────────────────────────
+Write-Step "Copie vers $Destination..."
+Stop-RunningApp
+New-Item -Path $Destination -ItemType Directory -Force | Out-Null
+# /MIR : miroir exact (supprime les fichiers d'une version précédente qui n'existent plus)
+& robocopy.exe $Source $Destination /MIR /NFL /NDL /NJH /NJS /NP /R:2 /W:1 | Out-Null
+if ($LASTEXITCODE -ge 8) {
+    Write-Fail "La copie a échoué (robocopy code $LASTEXITCODE)."
+    exit 1
+}
+$global:LASTEXITCODE = 0
+$exe = Join-Path $Destination $ExeName
+Write-OK "$((Get-ChildItem $Destination -Recurse -File).Count) fichiers installés."
 
-if ($hyperv -and $hyperv.State -ne "Enabled") {
-	Write-Warn "Hyper-V non activé — activation en cours (redémarrage possible)..."
-	Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All -NoRestart | Out-Null
-	Write-OK "Hyper-V activé. Un redémarrage sera peut-être nécessaire."
-} elseif ($hyperv) {
-	Write-OK "Hyper-V déjà activé."
-} else {
-	Write-Warn "Impossible de vérifier Hyper-V (peut être un Windows Server avec rôle dédié)."
+# ── 5. Raccourcis ────────────────────────────────────────────────────────────
+Write-Step 'Création des raccourcis...'
+New-Shortcut -Path $StartMenuLink -Target $exe
+Write-OK "Menu Démarrer : $AppName"
+if ($DesktopShortcut) {
+    New-Shortcut -Path $DesktopLink -Target $exe
+    Write-OK "Bureau : $AppName"
 }
 
-# ── 4. Installer le certificat de signature ───────────────────────────────────
-Write-Step "Installation du certificat de signature..."
-
-try {
-	# Extraire le certificat directement depuis le .msix (ZIP)
-	Add-Type -AssemblyName System.IO.Compression.FileSystem
-	$zip  = [System.IO.Compression.ZipFile]::OpenRead($msix.FullName)
-	$entry = $zip.Entries | Where-Object { $_.Name -eq "AppxSignature.p7x" } | Select-Object -First 1
-
-	if ($entry) {
-		$tmpSig = [System.IO.Path]::GetTempFileName() + ".p7x"
-		[System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $tmpSig, $true)
-		$zip.Dispose()
-
-		# Extraire le certificat depuis la signature
-		$cms = New-Object System.Security.Cryptography.Pkcs.SignedCms
-		$cms.Decode([System.IO.File]::ReadAllBytes($tmpSig))
-		$cert = $cms.Certificates | Select-Object -First 1
-
-		if ($cert) {
-			$store = New-Object System.Security.Cryptography.X509Certificates.X509Store(
-				[System.Security.Cryptography.X509Certificates.StoreName]::Root,
-				[System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine)
-			$store.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-
-			# Vérifier si déjà présent
-			$existing = $store.Certificates | Where-Object { $_.Thumbprint -eq $cert.Thumbprint }
-			if (-not $existing) {
-				$store.Add($cert)
-				Write-OK "Certificat installé : $($cert.Subject) [$($cert.Thumbprint.Substring(0,12))...]"
-			} else {
-				Write-OK "Certificat déjà présent : $($cert.Subject)"
-			}
-			$store.Close()
-		}
-		Remove-Item $tmpSig -Force -ErrorAction SilentlyContinue
-	} else {
-		$zip.Dispose()
-		Write-Warn "Signature introuvable dans le MSIX — installation du certificat ignorée."
-	}
-} catch {
-	Write-Warn "Impossible d'extraire le certificat automatiquement : $_"
-	Write-Warn "Installez manuellement le certificat : clic droit sur le .msix → Propriétés → Signatures numériques → Détails → Voir le certificat → Installer."
-}
-
-# ── 5. Installer le package MSIX ─────────────────────────────────────────────
-Write-Step "Installation du package MSIX..."
-
-try {
-	# Désinstaller la version précédente si présente
-	$existing = Get-AppxPackage -Name "HVLab.HyperVLabManager" -ErrorAction SilentlyContinue
-	if ($existing) {
-		Write-Warn "Version précédente détectée ($($existing.Version)) — suppression..."
-		Remove-AppxPackage -Package $existing.PackageFullName -ErrorAction SilentlyContinue
-	}
-
-	Add-AppxPackage -Path $msix.FullName
-	Write-OK "HyperV Lab Manager installé avec succès !"
-} catch {
-	Write-Fail "Échec de l'installation : $_"
-	Write-Fail "Assurez-vous que le certificat est bien dans 'Autorités de certification racines de confiance'."
-	exit 1
-}
-
-Write-Host ""
-Write-Host "  Installation terminée !" -ForegroundColor Green
-Write-Host "  Lancez 'HyperV Lab Manager' depuis le menu Démarrer." -ForegroundColor Green
-Write-Host ""
+Write-Host ''
+Write-Host "  Installation terminée. Lancez « $AppName » depuis le menu Démarrer." -ForegroundColor Green
+Write-Host '  (L''application demande les droits administrateur au démarrage.)' -ForegroundColor Gray
+Write-Host ''

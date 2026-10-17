@@ -29,10 +29,11 @@ A modern **WinUI 3 / .NET 8** desktop application for managing Microsoft Hyper-V
 ## Requirements
 
 - **Windows 10 Pro/Enterprise** or **Windows 11 Pro/Enterprise** (Hyper-V enabled)
-- **.NET 8.0 Runtime** or later
 - **PowerShell 5.1+** (included in Windows)
 - **Hyper-V** enabled and accessible
 - Administrator privileges (required for Hyper-V operations)
+- Nothing else to install: the published build is self-contained (.NET 8 and Windows App SDK included).
+  The **.NET 8 SDK** is only needed to build from source.
 
 ---
 
@@ -51,6 +52,17 @@ dotnet run -c Release
 ```
 
 > ⚠️ The application must be run as **Administrator** to interact with Hyper-V.
+
+### Install (C:\Program Files\HV-LAB)
+
+```powershell
+# 1. Publish the self-contained folder (HVLab\publish)
+dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release
+
+# 2. From an elevated PowerShell: copy to C:\Program Files\HV-LAB + Start menu shortcut
+.\Install.ps1                      # options: -DesktopShortcut  -EnableHyperV
+.\Install.ps1 -Uninstall           # removes the folder and shortcuts (settings are kept)
+```
 
 ---
 
@@ -220,9 +232,10 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 ## Prérequis
 
 - **Windows 10 Pro/Enterprise** ou **Windows 11 Pro/Enterprise** (avec Hyper-V activé)
-- **.NET 8.0 Runtime** ou plus récent
 - **PowerShell 5.1+** (inclus dans Windows)
 - **Hyper-V** activé et configurable
+- Rien d'autre à installer : la version publiée est autonome (.NET 8 et Windows App SDK inclus).
+  Le **SDK .NET 8** n'est nécessaire que pour compiler les sources.
 
 ## Installation rapide
 
