@@ -64,6 +64,18 @@ dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release
 .\Install.ps1 -Uninstall           # supprime le dossier et les raccourcis (les paramètres sont conservés)
 ```
 
+### Release (GitHub Actions)
+
+Pousser un tag `vX.Y.Z` (ou `vX.Y.Z-beta.1` pour une pré-version) lance `.github/workflows/release.yml` :
+tests, publication autonome, `HV-LAB-X.Y.Z-win-x64.zip` + SHA256, puis une release GitHub avec les étapes d'installation.
+
+```powershell
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+Lancer le workflow à la main (Actions > Release > Run workflow) produit seulement le zip en artefact.
+
 ---
 
 ## Structure du Projet

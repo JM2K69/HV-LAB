@@ -1,0 +1,113 @@
+# Builds, tests and publishes HV-LAB Manager.
+#  - Push a tag "vX.Y.Z" (or "vX.Y.Z-beta.1")  -> GitHub release with the zip + SHA256
+#  - Run manually (Actions > Release > Run workflow) -> zip as a build artifact only (no release)
+name: Release
+
+on:
+  push:
+    tags: [ 'v*.*.*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create the release and upload its assets
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Compute version
+        id: version
+        shell: pwsh
+        run: |
+          # Tag v1.2.3-beta.1 -> Version 1.2.3-beta.1, numeric 1.2.3 (assembly/file versions)
+          $ref = '${{ github.ref_name }}'
+          if ('${{ github.ref_type }}' -eq 'tag' -and $ref -match '^v(?<num>\d+\.\d+\.\d+)(?<pre>-[0-9A-Za-z.-]+)?$') {
+              $num = $Matches.num; $ver = $ref.Substring(1); $pre = [bool]$Matches.pre
+          } else {
+              $num = '0.0.0'; $ver = "0.0.0-ci.${{ github.run_number }}"; $pre = $true
+          }
+          "version=$ver"    >> $env:GITHUB_OUTPUT
+          "numeric=$num"    >> $env:GITHUB_OUTPUT
+          "prerelease=$($pre.ToString().ToLower())" >> $env:GITHUB_OUTPUT
+          Write-Host "Version $ver (assembly $num.0), prerelease=$pre"
+
+      - name: Test
+        run: dotnet test HVLab.Core.Tests/HVLab.Core.Tests.csproj -c Release
+
+      - name: Publish (self-contained folder)
+        run: >
+          dotnet publish HVLab/HVLab.csproj -p:PublishProfile=HVLab-Release
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:AssemblyVersion=${{ steps.version.outputs.numeric }}.0
+          -p:FileVersion=${{ steps.version.outputs.numeric }}.0
+
+      - name: Package
+        id: package
+        shell: pwsh
+        run: |
+          $ver  = '${{ steps.version.outputs.version }}'
+          $name = "HV-LAB-$ver-win-x64"
+          $stage = Join-Path $env:RUNNER_TEMP $name
+          New-Item $stage -ItemType Directory | Out-Null
+          Copy-Item HVLab/publish/* $stage -Recurse
+          Copy-Item Install.ps1, README.md, README.fr.md $stage
+
+          # Sanity checks: the app crashes at startup without its compiled XAML
+          if (-not (Test-Path "$stage/HVLab.exe")) { throw 'HVLab.exe missing from the publish output' }
+          if (-not (Get-ChildItem $stage -Recurse -Filter *.xbf)) { throw 'No .xbf in the publish output' }
+
+          $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+          Compress-Archive -Path "$stage/*" -DestinationPath $zip
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  $name.zip" | Set-Content "$zip.sha256" -Encoding ascii
+          Write-Host "$name.zip  $([math]::Round((Get-Item $zip).Length / 1MB, 1)) MB  sha256 $hash"
+          "zip=$zip"   >> $env:GITHUB_OUTPUT
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: |
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.package.outputs.zip }}.sha256
+
+      - name: GitHub release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v3
+        with:
+          name: HV-LAB Manager ${{ steps.version.outputs.version }}
+          prerelease: ${{ steps.version.outputs.prerelease }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            ${{ steps.package.outputs.zip }}
+            ${{ steps.package.outputs.zip }}.sha256
+          body: |
+            ## Installation
+
+            1. Téléchargez `${{ steps.package.outputs.name }}.zip` et extrayez-le.
+            2. Dans un PowerShell **administrateur**, depuis le dossier extrait :
+               ```powershell
+               Unblock-File .\Install.ps1
+               .\Install.ps1            # options : -DesktopShortcut  -EnableHyperV
+               ```
+               L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer.
+            3. Désinstallation : `& "C:\Program Files\HV-LAB\Install.ps1" -Uninstall`
+
+            Version autonome : rien d'autre à installer (.NET 10 et Windows App SDK sont inclus).
+            Prérequis : Windows 10/11 Pro, Enterprise ou Education (ou Windows Server) avec Hyper-V.

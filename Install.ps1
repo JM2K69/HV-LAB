@@ -159,6 +159,8 @@ if ($LASTEXITCODE -ge 8) {
     exit 1
 }
 $global:LASTEXITCODE = 0
+# Files extracted from a downloaded release zip carry the "from the Internet" mark: clear it
+Get-ChildItem $Destination -Recurse -File | Unblock-File
 $exe = Join-Path $Destination $ExeName
 Write-OK "$((Get-ChildItem $Destination -Recurse -File).Count) fichiers installés."
 
