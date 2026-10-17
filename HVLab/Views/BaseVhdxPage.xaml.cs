@@ -10,28 +10,10 @@ namespace HVLab.Views;
 
 public sealed partial class BaseVhdxPage : Page
 {
-    public BaseVhdxViewModel ViewModel { get; } = new();
+    public BaseVhdxViewModel ViewModel { get; } = App.GetService<BaseVhdxViewModel>();
     public LocalizationService Loc => LocalizationService.Instance;
 
-    public BaseVhdxPage()
-    {
-        InitializeComponent();
-        ViewModel.ConfirmOverwriteAsync = ConfirmOverwriteAsync;
-    }
-
-    private async Task<bool> ConfirmOverwriteAsync(string vhdxPath)
-    {
-        var dialog = new ContentDialog
-        {
-            Title             = Loc["BV_OverwriteTitle"],
-            Content           = string.Format(Loc["BV_OverwriteConfirm"], System.IO.Path.GetFileName(vhdxPath)),
-            PrimaryButtonText = Loc["BV_BtnOverwrite"],
-            CloseButtonText   = Loc["Btn_Cancel"],
-            DefaultButton     = ContentDialogButton.Close,
-            XamlRoot          = XamlRoot
-        };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary;
-    }
+    public BaseVhdxPage() => InitializeComponent();
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -53,21 +35,5 @@ public sealed partial class BaseVhdxPage : Page
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
         var folder = Win32FolderPicker.Pick(hwnd, Loc["Browse_BaseFolderTitle"]);
         if (folder is not null) ViewModel.BaseFolder = folder;
-    }
-
-    private async void DeleteVhdx_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: BaseVhdx vhdx }) return;
-        var dialog = new ContentDialog
-        {
-            Title   = Loc["BV_DeleteTitle"],
-            Content = $"{Loc["BV_DeleteConfirm"]} \u00ab {vhdx.Name}.vhdx \u00bb ?",
-            PrimaryButtonText = Loc["Btn_Delete"],
-            CloseButtonText   = Loc["Btn_Cancel"],
-            DefaultButton     = ContentDialogButton.Close,
-            XamlRoot          = XamlRoot
-        };
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-            await ViewModel.DeleteBaseVhdxAsync(vhdx);
     }
 }

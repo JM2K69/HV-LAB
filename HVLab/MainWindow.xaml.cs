@@ -30,7 +30,7 @@ public sealed partial class MainWindow : Window
         RootGrid.ActualThemeChanged += (s, _) => ThemeService.ApplyTitleBar(AppWindow, s.ActualTheme);
         RootGrid.Loaded             += (s, _) => ThemeService.ApplyTitleBar(AppWindow, RootGrid.ActualTheme);
 
-        ShowEnvironment(AppStartupCache.Instance.Environment);
+        ShowEnvironment(App.GetService<AppStartupCache>().Environment);
     }
 
     private void ShowEnvironment(HyperVEnvironment env)
@@ -48,7 +48,7 @@ public sealed partial class MainWindow : Window
 
     private async void EnvStartService_Click(object sender, RoutedEventArgs e)
     {
-        var hv = new HyperVService();
+        var hv = App.GetService<IHyperVService>();
         EnvStartServiceButton.IsEnabled = false;
         try
         {

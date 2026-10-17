@@ -9,8 +9,8 @@ namespace HVLab.ViewModels;
 
 public partial class QuickVmViewModel : ObservableObject
 {
-    private readonly HyperVService _hvService   = new();
-    private readonly VhdxService   _vhdxService = new();
+    private readonly IHyperVService _hvService;
+    private readonly IVhdxService   _vhdxService;
     private CancellationTokenSource? _cts;
 
     [ObservableProperty] private bool isCreating;
@@ -109,8 +109,10 @@ public partial class QuickVmViewModel : ObservableObject
 
     // ── Constructor ──────────────────────────────────────────────────────────
 
-    public QuickVmViewModel()
+    public QuickVmViewModel(IHyperVService hvService, IVhdxService vhdxService)
     {
+        _hvService   = hvService;
+        _vhdxService = vhdxService;
         foreach (var profile in VmSizeProfile.All)
         {
             VmSizeItem? item = null;

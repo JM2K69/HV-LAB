@@ -5,12 +5,8 @@ namespace HVLab.Services;
 /// <summary>
 /// Cache partagé rempli pendant le splash screen pour éviter un double appel Hyper-V au démarrage.
 /// </summary>
-public sealed class AppStartupCache
+public sealed class AppStartupCache(IHyperVService hvService, IVhdxService vhdxService)
 {
-    public static AppStartupCache Instance { get; } = new();
-
-    private AppStartupCache() { }
-
     public bool IsReady { get; private set; }
     private bool _consumed;
 
@@ -28,9 +24,6 @@ public sealed class AppStartupCache
         Error     = null;
         try
         {
-            var hvService   = new HyperVService();
-            var vhdxService = new VhdxService();
-
             try { Environment = await hvService.GetEnvironmentStatusAsync(); }
             catch (Exception ex) { CrashLogger.Log("GetEnvironmentStatusAsync", ex); }
             if (Environment == HyperVEnvironment.FeatureMissing)

@@ -6,10 +6,12 @@ using HVLab.Services;
 
 namespace HVLab.ViewModels;
 
-public partial class VirtualSwitchesViewModel : ObservableObject
+public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatService natService, IDialogService dialogs)
+    : ObservableObject
 {
-    private readonly HyperVService _hvService = new();
-    private readonly NatService _natService = new();
+    private readonly IHyperVService _hvService  = hvService;
+    private readonly INatService    _natService = natService;
+    private readonly IDialogService _dialogs    = dialogs;
 
     [ObservableProperty] private ObservableCollection<VirtualSwitch>    virtualSwitches    = [];
     [ObservableProperty] private ObservableCollection<NatNetwork>       natNetworks        = [];
@@ -107,8 +109,13 @@ public partial class VirtualSwitchesViewModel : ObservableObject
         catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
     }
 
+    [RelayCommand]
     public async Task RemoveSwitchAsync(VirtualSwitch sw)
     {
+        if (!await _dialogs.ConfirmAsync(LocalizationService.Instance["SW_DeleteTitle"],
+                $"{LocalizationService.Instance["SW_DeleteConfirm"]} « {sw.Name} » ?",
+                LocalizationService.Instance["Btn_Delete"]))
+            return;
         IsLoading = true;
         Status = string.Format(LocalizationService.Instance["SW_DeletingSwitch"], sw.Name);
         try
@@ -139,8 +146,13 @@ public partial class VirtualSwitchesViewModel : ObservableObject
         catch (Exception ex) { Status = string.Format(LocalizationService.Instance["SW_Error"], ex.Message); IsLoading = false; }
     }
 
+    [RelayCommand]
     public async Task RemoveNatAsync(NatNetwork nat)
     {
+        if (!await _dialogs.ConfirmAsync(LocalizationService.Instance["NAT_DeleteTitle"],
+                $"{LocalizationService.Instance["NAT_DeleteConfirm"]} « {nat.Name} » ?",
+                LocalizationService.Instance["Btn_Delete"]))
+            return;
         IsLoading = true;
         Status = string.Format(LocalizationService.Instance["SW_DeletingNat"], nat.Name);
         try
