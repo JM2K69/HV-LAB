@@ -13,18 +13,27 @@ public partial class VirtualMachinesViewModel : ObservableObject
     [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private string status = "Pret";
 
+    // Serializes refreshes: a poll tick never overlaps a manual refresh.
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+
     // ─── Refresh ────────────────────────────────────────────────────────────
-    public async Task RefreshAsync()
+    /// <param name="silent">Background poll: no loading indicator, skipped if a refresh is running.</param>
+    public async Task RefreshAsync(bool silent = false)
     {
-        IsLoading = true;
+        if (!await _refreshGate.WaitAsync(silent ? 0 : Timeout.Infinite)) return;
+        if (!silent) IsLoading = true;
         try
         {
             var vms = await _hvService.GetVirtualMachinesAsync();
             ApplyDiff(vms);
-            Status = $"{vms.Count} VM(s)";
+            if (!silent || Status.StartsWith("Erreur")) Status = $"{vms.Count} VM(s)";
         }
         catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
-        finally { IsLoading = false; }
+        finally
+        {
+            if (!silent) IsLoading = false;
+            _refreshGate.Release();
+        }
     }
 
     /// <summary>
@@ -46,6 +55,10 @@ public partial class VirtualMachinesViewModel : ObservableObject
             {
                 VirtualMachines.Add(f);
             }
+            else if (existing.IsBusy)
+            {
+                // Keep the optimistic state ("Starting"…) until the action completes
+            }
             else if (existing.State != f.State ||
                      existing.Uptime != f.Uptime ||
                      existing.MemoryMB != f.MemoryMB ||
@@ -62,24 +75,37 @@ public partial class VirtualMachinesViewModel : ObservableObject
     }
     // ─── Actions ─────────────────────────────────────────────────────────────
 
-    public async Task StartVmAsync(VirtualMachine vm)
-    {
-        Status = $"Demarrage de '{vm.Name}'...";
-        try   { await _hvService.StartVMAsync(vm.Name); }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
-    }
+    public Task StartVmAsync(VirtualMachine vm)
+        => RunVmActionAsync(vm, "Starting", $"Démarrage de '{vm.Name}'…", () => _hvService.StartVMAsync(vm.Name));
 
-    public async Task StopVmAsync(VirtualMachine vm)
-    {
-        Status = $"Arret de '{vm.Name}'...";
-        try   { await _hvService.StopVMAsync(vm.Name); }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
-    }
+    public Task StopVmAsync(VirtualMachine vm)
+        => RunVmActionAsync(vm, "Stopping", $"Arrêt de '{vm.Name}'…", () => _hvService.StopVMAsync(vm.Name));
 
-    public async Task RemoveVmAsync(VirtualMachine vm)
+    public Task RemoveVmAsync(VirtualMachine vm)
+        => RunVmActionAsync(vm, null, $"Suppression de '{vm.Name}'…", () => _hvService.RemoveVMAsync(vm.Name));
+
+    /// <summary>
+    /// Runs one action per VM at a time: shows the transitional state immediately,
+    /// then refreshes the list once the action completes.
+    /// </summary>
+    private async Task RunVmActionAsync(VirtualMachine vm, string? optimisticState, string status, Func<Task> action)
     {
-        Status = $"Suppression de '{vm.Name}'...";
-        try   { await _hvService.RemoveVMAsync(vm.Name); }
-        catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+        if (vm.IsBusy) return;
+        vm.IsBusy = true;
+        var previousState = vm.State;
+        if (optimisticState is not null) vm.State = optimisticState;
+        Status = status;
+        try
+        {
+            await action();
+            Status = $"{vm.Name} : OK";
+        }
+        catch (Exception ex)
+        {
+            vm.State = previousState;
+            Status = $"Erreur : {ex.Message}";
+        }
+        finally { vm.IsBusy = false; }
+        await RefreshAsync(silent: true);
     }
 }

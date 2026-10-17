@@ -10,6 +10,12 @@ public partial class QuickVmViewModel : ObservableObject
 {
     private readonly HyperVService _hvService   = new();
     private readonly VhdxService   _vhdxService = new();
+    private CancellationTokenSource? _cts;
+
+    [ObservableProperty] private bool isCreating;
+
+    [RelayCommand]
+    private void Cancel() => _cts?.Cancel();
 
     // ── Size tiles ──────────────────────────────────────────────────────────
 
@@ -142,12 +148,15 @@ public partial class QuickVmViewModel : ObservableObject
             var prevSwitch = SelectedSwitch;
             var prevVhdx   = SelectedBaseVhdx;
 
-            var switches = await _hvService.GetVirtualSwitchesAsync();
+            var swTask  = _hvService.GetVirtualSwitchesAsync();
+            var imgTask = _vhdxService.GetBaseVhdxListAsync(AppSettings.Current.BaseImagesFolder);
+            await Task.WhenAll(swTask, imgTask);
+
+            var switches = swTask.Result;
             VirtualSwitches.Clear();
             foreach (var sw in switches) VirtualSwitches.Add(sw.Name);
 
-            var images = await _vhdxService.GetBaseVhdxListAsync(
-                AppSettings.Current.BaseImagesFolder);
+            var images = imgTask.Result;
             BaseVhdxList.Clear();
             foreach (var img in images) BaseVhdxList.Add(img.FilePath);
 
@@ -182,61 +191,70 @@ public partial class QuickVmViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = "Saisissez un préfixe."; return; }
             if (BulkCount < 1)                         { Status = "La quantité doit être ≥ 1."; return; }
 
-            IsLoading = true;
+            var names = Enumerable.Range(1, BulkCount).Select(i => $"{BulkPrefix}-{i:D2}").ToList();
+            if (names.Select(InputValidator.CheckVmName).FirstOrDefault(k => k is not null) is { } bad)
+                { Status = LocalizationService.Instance[bad]; return; }
+
+            IsLoading = true; IsCreating = true;
+            _cts = new CancellationTokenSource();
             var created = new List<string>();
             var errors  = new List<string>();
-
-            for (int i = 1; i <= BulkCount; i++)
+            try
             {
-                string name = $"{BulkPrefix}-{i:D2}";
-                Status = $"Création {i}/{BulkCount} : '{name}'…";
-                try
+                for (int i = 0; i < names.Count; i++)
                 {
-                    if (UseDifferencingDisk)
-                        await _hvService.CreateVMWithDifferencingDiskAsync(
-                            name, SelectedBaseVhdx!, SelectedSwitch!,
-                            memMB, cpuCnt, Generation, vmFolder,
-                            null, SecureBoot, PxeBoot);
-                    else
-                        await _hvService.CreateBlankVmAsync(
-                            name, SelectedSwitch!,
-                            memMB, cpuCnt, Generation, vmFolder,
-                            (long)DiskSizeGB, SecureBoot, PxeBoot);
-
-                    created.Add(name);
+                    _cts.Token.ThrowIfCancellationRequested();
+                    string name = names[i];
+                    Status = $"Création {i + 1}/{names.Count} : '{name}'…";
+                    try
+                    {
+                        await CreateOneAsync(name, memMB, cpuCnt, vmFolder, null, _cts.Token);
+                        created.Add(name);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { errors.Add($"{name}: {ex.Message}"); }
                 }
-                catch (Exception ex) { errors.Add($"{name}: {ex.Message}"); }
-            }
 
-            IsLoading = false;
-            Status = errors.Count == 0
-                ? $"✓ {created.Count} VM(s) créées : {string.Join(", ", created)}"
-                : $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
+                Status = errors.Count == 0
+                    ? $"✓ {created.Count} VM(s) créées : {string.Join(", ", created)}"
+                    : $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
+            }
+            catch (OperationCanceledException)
+            {
+                Status = string.Format(LocalizationService.Instance["Op_CancelledBulk"], created.Count, names.Count);
+            }
+            finally { IsLoading = false; IsCreating = false; _cts.Dispose(); _cts = null; }
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(VmName)) { Status = "Saisissez un nom."; return; }
+            if (InputValidator.CheckVmName(VmName) is { } bad)
+                { Status = LocalizationService.Instance[bad]; return; }
 
-            IsLoading = true;
+            IsLoading = true; IsCreating = true;
+            _cts = new CancellationTokenSource();
             Status = $"Création de '{VmName}'…";
             try
             {
-                if (UseDifferencingDisk)
-                    await _hvService.CreateVMWithDifferencingDiskAsync(
-                        VmName, SelectedBaseVhdx!, SelectedSwitch!,
-                        memMB, cpuCnt, Generation, vmFolder,
-                        null, SecureBoot, PxeBoot);
-                else
-                    await _hvService.CreateBlankVmAsync(
-                        VmName, SelectedSwitch!,
-                        memMB, cpuCnt, Generation, vmFolder,
-                        (long)DiskSizeGB, SecureBoot, PxeBoot);
+                await CreateOneAsync(VmName, memMB, cpuCnt, vmFolder,
+                                     new Progress<string>(line => Status = line), _cts.Token);
 
                 Status = $"✓ VM '{VmName}' créée avec succès !";
                 VmName = "";
             }
+            catch (OperationCanceledException) { Status = LocalizationService.Instance["Op_Cancelled"]; }
             catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
-            finally { IsLoading = false; }
+            finally { IsLoading = false; IsCreating = false; _cts.Dispose(); _cts = null; }
         }
     }
+
+    private Task CreateOneAsync(string name, long memMB, int cpuCnt, string vmFolder,
+                                IProgress<string>? progress, CancellationToken ct)
+        => UseDifferencingDisk
+            ? _hvService.CreateVMWithDifferencingDiskAsync(
+                name, SelectedBaseVhdx!, SelectedSwitch!,
+                memMB, cpuCnt, Generation, vmFolder,
+                null, SecureBoot, PxeBoot, progress, ct)
+            : _hvService.CreateBlankVmAsync(
+                name, SelectedSwitch!,
+                memMB, cpuCnt, Generation, vmFolder,
+                (long)DiskSizeGB, SecureBoot, PxeBoot, progress, ct);
 }

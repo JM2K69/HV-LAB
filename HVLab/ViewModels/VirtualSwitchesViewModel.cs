@@ -53,7 +53,13 @@ public partial class VirtualSwitchesViewModel : ObservableObject
         Status = "Chargement…";
         try
         {
-            var switches = await _hvService.GetVirtualSwitchesAsync();
+            // One powershell.exe per query: run them concurrently
+            var swTask      = _hvService.GetVirtualSwitchesAsync();
+            var natTask     = _natService.GetNatNetworksAsync();
+            var adapterTask = _hvService.GetNetworkAdaptersAsync();
+            await Task.WhenAll(swTask, natTask, adapterTask);
+
+            var switches = swTask.Result;
             VirtualSwitches.Clear();
             InternalSwitchNames.Clear();
             foreach (var sw in switches)
@@ -62,11 +68,11 @@ public partial class VirtualSwitchesViewModel : ObservableObject
                 if (sw.SwitchType == "Internal") InternalSwitchNames.Add(sw.Name);
             }
 
-            var nats = await _natService.GetNatNetworksAsync();
+            var nats = natTask.Result;
             NatNetworks.Clear();
             foreach (var nat in nats) NatNetworks.Add(nat);
 
-            var adapters = await _hvService.GetNetworkAdaptersAsync();
+            var adapters = adapterTask.Result;
             NetworkAdapters.Clear();
             foreach (var a in adapters) NetworkAdapters.Add(a);
 

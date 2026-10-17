@@ -14,7 +14,10 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<string> baseVhdxList = [];
     [ObservableProperty] private ObservableCollection<string> virtualSwitches = [];
     [ObservableProperty] private bool isLoading;
+    [ObservableProperty] private bool isCreating;
     [ObservableProperty] private string status = "Prêt";
+
+    private CancellationTokenSource? _cts;
 
     // VM form
     [ObservableProperty] private string  vmName = "";
@@ -59,7 +62,8 @@ public partial class CreateVmViewModel : ObservableObject
 
     [ObservableProperty] private bool   useAnswerFile  = true;
     [ObservableProperty] private string computerName   = "LAB-VM";
-    [ObservableProperty] private string adminPassword  = "P@ssw0rd!";
+    [ObservableProperty] private string adminPassword  = "";
+    [ObservableProperty] private bool   autoLogon      = false;
     [ObservableProperty] private string productKey     = "";
     [ObservableProperty] private KmsKeyEntry? selectedKmsKey;
     [ObservableProperty] private string uiLanguage     = "fr-FR";
@@ -71,7 +75,11 @@ public partial class CreateVmViewModel : ObservableObject
 
     public string PasswordEyeGlyph => ShowPassword ? "\uED1A" : "\uE052";
 
-    partial void OnShowPasswordChanged(bool value) => OnPropertyChanged(nameof(PasswordEyeGlyph));
+    partial void OnShowPasswordChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PasswordEyeGlyph));
+        UpdateAnswerPreview();
+    }
 
     partial void OnSelectedKmsKeyChanged(KmsKeyEntry? value)
     {
@@ -126,15 +134,38 @@ public partial class CreateVmViewModel : ObservableObject
 
     partial void OnVmNameChanged(string value)
     {
-        if (string.IsNullOrWhiteSpace(ComputerName) || ComputerName == "LAB-VM")
-            ComputerName = value.Length > 15 ? value[..15] : value;
+        if (string.IsNullOrWhiteSpace(ComputerName) || ComputerName == "LAB-VM"
+            || ComputerName == InputValidator.ToComputerName(_previousVmName))
+            ComputerName = string.IsNullOrWhiteSpace(value) ? "LAB-VM" : InputValidator.ToComputerName(value);
+        _previousVmName = value;
     }
+
+    private string _previousVmName = "";
 
     [RelayCommand]
     public void UpdateAnswerPreview()
     {
         if (!UseAnswerFile) { AnswerFilePreview = "(fichier de réponse désactivé)"; return; }
-        AnswerFilePreview = AnswerFileGenerator.Generate(BuildConfig());
+        var config = BuildConfig();
+        // Never show the password in the preview unless the user asked to see it
+        if (!ShowPassword && !string.IsNullOrEmpty(config.AdminPassword)) config.AdminPassword = "********";
+        AnswerFilePreview = AnswerFileGenerator.Generate(config);
+    }
+
+    [RelayCommand]
+    private void Cancel() => _cts?.Cancel();
+
+    /// <summary>Returns the first validation error (localized), or null.</summary>
+    private string? Validate(IEnumerable<string> vmNames)
+    {
+        var loc = LocalizationService.Instance;
+        foreach (var name in vmNames)
+            if (InputValidator.CheckVmName(name) is { } k) return $"{loc[k]} ({name})";
+        if (!UseAnswerFile) return null;
+        if (string.IsNullOrEmpty(AdminPassword))        return loc["Val_PasswordEmpty"];
+        if (!BulkMode && InputValidator.CheckComputerName(ComputerName) is { } c) return loc[c];
+        if (InputValidator.CheckProductKey(ProductKey) is { } p) return loc[p];
+        return null;
     }
 
     [RelayCommand]
@@ -148,11 +179,15 @@ public partial class CreateVmViewModel : ObservableObject
             var prevSwitch = SelectedSwitch;
             var prevVhdx   = SelectedBaseVhdx;
 
-            var switches = await _hvService.GetVirtualSwitchesAsync();
+            var swTask   = _hvService.GetVirtualSwitchesAsync();
+            var imgTask  = _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
+            await Task.WhenAll(swTask, imgTask);
+
+            var switches = swTask.Result;
             VirtualSwitches.Clear();
             foreach (var sw in switches) VirtualSwitches.Add(sw.Name);
 
-            var images = await _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
+            var images = imgTask.Result;
             BaseVhdxList.Clear();
             foreach (var img in images) BaseVhdxList.Add(img.FilePath);
 
@@ -178,42 +213,53 @@ public partial class CreateVmViewModel : ObservableObject
             if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = "Saisissez un préfixe."; return; }
             if (BulkCount < 1)                         { Status = "La quantité doit être ≥ 1."; return; }
 
-            IsLoading = true;
+            var names = Enumerable.Range(1, BulkCount).Select(i => $"{BulkPrefix}-{i:D2}").ToList();
+            if (Validate(names) is { } err) { Status = err; return; }
+
+            IsLoading = true; IsCreating = true;
+            _cts = new CancellationTokenSource();
             var created = new List<string>();
             var errors  = new List<string>();
-
-            for (int i = 1; i <= BulkCount; i++)
+            try
             {
-                string name = $"{BulkPrefix}-{i:D2}";
-                Status = $"Création {i}/{BulkCount} : '{name}'…";
-                try
+                for (int i = 0; i < names.Count; i++)
                 {
-                    string compName = name.Length > 15 ? name[..15] : name;
-                    string? answerXml = UseAnswerFile
-                        ? AnswerFileGenerator.Generate(BuildConfig(compName))
-                        : null;
+                    _cts.Token.ThrowIfCancellationRequested();
+                    string name = names[i];
+                    Status = $"Création {i + 1}/{names.Count} : '{name}'…";
+                    try
+                    {
+                        string? answerXml = UseAnswerFile
+                            ? AnswerFileGenerator.Generate(BuildConfig(InputValidator.ToComputerName(name)))
+                            : null;
 
-                    await _hvService.CreateVMWithDifferencingDiskAsync(
-                        name, SelectedBaseVhdx, SelectedSwitch,
-                        MemoryMB, CpuCount, Generation, VmFolder,
-                        answerXml, secureBoot: true, pxeBoot: false);
+                        await _hvService.CreateVMWithDifferencingDiskAsync(
+                            name, SelectedBaseVhdx, SelectedSwitch,
+                            MemoryMB, CpuCount, Generation, VmFolder,
+                            answerXml, secureBoot: true, pxeBoot: false, ct: _cts.Token);
 
-                    created.Add(name);
+                        created.Add(name);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException) { errors.Add($"{name}: {ex.Message}"); }
                 }
-                catch (Exception ex) { errors.Add($"{name}: {ex.Message}"); }
-            }
 
-            IsLoading = false;
-            if (errors.Count == 0)
-                Status = $"✓ {created.Count} VM(s) créées avec succès : {string.Join(", ", created)}";
-            else
-                Status = $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
+                if (errors.Count == 0)
+                    Status = $"✓ {created.Count} VM(s) créées avec succès : {string.Join(", ", created)}";
+                else
+                    Status = $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
+            }
+            catch (OperationCanceledException)
+            {
+                Status = string.Format(LocalizationService.Instance["Op_CancelledBulk"], created.Count, names.Count);
+            }
+            finally { IsLoading = false; IsCreating = false; _cts.Dispose(); _cts = null; }
         }
         else
         {
-            if (string.IsNullOrWhiteSpace(VmName)) { Status = "Saisissez un nom."; return; }
+            if (Validate([VmName]) is { } err) { Status = err; return; }
 
-            IsLoading = true;
+            IsLoading = true; IsCreating = true;
+            _cts = new CancellationTokenSource();
             Status = $"Création de la VM '{VmName}'…";
             try
             {
@@ -224,14 +270,16 @@ public partial class CreateVmViewModel : ObservableObject
                 await _hvService.CreateVMWithDifferencingDiskAsync(
                     VmName, SelectedBaseVhdx, SelectedSwitch,
                     MemoryMB, CpuCount, Generation, VmFolder,
-                    answerXml, secureBoot: true, pxeBoot: false);
+                    answerXml, secureBoot: true, pxeBoot: false,
+                    progress: new Progress<string>(line => Status = line), ct: _cts.Token);
 
                 Status = $"✓ VM '{VmName}' créée avec succès !";
                 VmName       = "";
                 ComputerName = "LAB-VM";
             }
+            catch (OperationCanceledException) { Status = LocalizationService.Instance["Op_Cancelled"]; }
             catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
-            finally { IsLoading = false; }
+            finally { IsLoading = false; IsCreating = false; _cts.Dispose(); _cts = null; }
         }
     }
 
@@ -239,6 +287,7 @@ public partial class CreateVmViewModel : ObservableObject
     {
         ComputerName  = computerNameOverride ?? (string.IsNullOrWhiteSpace(ComputerName) ? VmName : ComputerName),
         AdminPassword = AdminPassword,
+        AutoLogon     = AutoLogon,
         ProductKey    = ProductKey,
         UILanguage    = UiLanguage,
         InputLocale   = AnswerFileGenerator.GetInputLocale(UiLanguage),

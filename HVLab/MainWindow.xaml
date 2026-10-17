@@ -82,7 +82,27 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <Frame x:Name="ContentFrame" IsNavigationStackEnabled="False"/>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- Hyper-V environment problem (feature missing / vmms stopped) -->
+                <InfoBar x:Name="EnvInfoBar"
+                         Severity="Error"
+                         IsClosable="True"
+                         Margin="16,44,16,0"
+                         Title="{Binding [Env_Title], Source={StaticResource Loc}}">
+                    <InfoBar.ActionButton>
+                        <Button x:Name="EnvStartServiceButton"
+                                Content="{Binding [Env_BtnStartService], Source={StaticResource Loc}}"
+                                Click="EnvStartService_Click"/>
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
+                <Frame x:Name="ContentFrame" Grid.Row="1" IsNavigationStackEnabled="False"/>
+            </Grid>
         </NavigationView>
     </Grid>
 </Window>

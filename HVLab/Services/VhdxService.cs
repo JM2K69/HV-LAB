@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HVLab.Models;
+using static HVLab.Services.PowerShellRunner;
 
 namespace HVLab.Services;
 
@@ -44,7 +45,7 @@ public class VhdxService
         {
             var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
             // PowerShell may return a single object (not array) for 1-index WIMs
-            json = json.Trim();
+            json = HyperVService.ExtractJson(json);
             if (json.StartsWith('{')) json = $"[{json}]";
             var raw = JsonSerializer.Deserialize<List<WimImageRaw>>(json, opts) ?? [];
 
@@ -56,7 +57,7 @@ public class VhdxService
                 ImageSize  = r.ImageSize,
             }).ToList();
 
-            // If DISM didn't return a version, fall back to querying index 1 via WMI/DISM
+            // Without -Index, Get-WindowsImage omits Version: query index 1 explicitly
             if (result.Count > 0 && string.IsNullOrWhiteSpace(result[0].Version))
             {
                 var ver = await GetWimVersionAsync(wimPath);
@@ -66,23 +67,21 @@ public class VhdxService
 
             return result;
         }
-        catch
+        catch (JsonException ex)
         {
-            return [];
+            throw HyperVService.ParseError("images WIM", json, ex);
         }
     }
 
     /// <summary>
-    /// Reads the Windows build version from WIM index 1 using DISM /Get-WimInfo.
-    /// Parses the "Version :" line from the text output.
+    /// Reads the Windows build version of WIM index 1 with Get-WindowsImage -Index
+    /// (structured property — independent of the OS display language, unlike dism.exe text).
     /// </summary>
     private static async Task<string> GetWimVersionAsync(string wimPath)
     {
         var script = $$"""
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            $out = & dism.exe /Get-WimInfo /WimFile:'{{Esc(wimPath)}}' /Index:1 2>&1
-            $vline = $out | Where-Object { $_ -match '^\s*Version\s*:' } | Select-Object -First 1
-            if ($vline) { ($vline -split ':',2)[1].Trim() } else { '' }
+            $img = Get-WindowsImage -ImagePath '{{Esc(wimPath)}}' -Index 1 -ErrorAction Stop
+            if ($img.Version) { $img.Version } else { '' }
             """;
         try
         {
@@ -143,15 +142,11 @@ public class VhdxService
 
     public async Task ApplyWindowsImageAsync(
         string vhdxPath, string wimPath, int imageIndex, int generation,
-        string? answerFileContent = null)
+        string? answerFileContent = null,
+        IProgress<string>? progress = null, CancellationToken ct = default)
     {
-        string? answerTemp = null;
-        if (!string.IsNullOrWhiteSpace(answerFileContent))
-        {
-            answerTemp = Path.Combine(Path.GetTempPath(), $"hvlab_unattend_{Guid.NewGuid():N}.xml");
-            await File.WriteAllTextAsync(answerTemp, answerFileContent, System.Text.Encoding.UTF8);
-        }
-        try
+        // Embedded in the script (streamed over stdin) — never written to %TEMP%.
+        var answerXml = string.IsNullOrWhiteSpace(answerFileContent) ? "''" : HyperVService.PsLiteral(answerFileContent);
         {
             var isGen2  = generation == 2 ? "$true" : "$false";
             var script  = $$"""
@@ -162,7 +157,7 @@ public class VhdxService
                 $wimPath    = '{{Esc(wimPath)}}'
                 $imageIndex = {{imageIndex}}
                 $isGen2     = {{isGen2}}
-                $answerFile = '{{Esc(answerTemp ?? "")}}'
+                $answerXml  = {{answerXml}}
 
                 # Helper : re-query the assigned drive letter (avoids the stale-object race condition)
                 function Get-AssignedLetter([int]$diskNo, [int]$partNo) {
@@ -227,12 +222,12 @@ public class VhdxService
                     }
                     if ($LASTEXITCODE -ne 0) { throw "bcdboot a échoué : $bcd" }
 
-                    if ($answerFile -and (Test-Path $answerFile)) {
+                    if ($answerXml) {
                         $panther = "$winPath\Windows\Panther"
                         if (-not (Test-Path $panther)) {
                             New-Item -Path $panther -ItemType Directory -Force | Out-Null
                         }
-                        Copy-Item -Path $answerFile -Destination "$panther\unattend.xml" -Force
+                        [System.IO.File]::WriteAllText("$panther\unattend.xml", $answerXml, [System.Text.Encoding]::UTF8)
                         Write-Output "Fichier de réponse appliqué."
                     }
                 }
@@ -243,14 +238,7 @@ public class VhdxService
 
                 Write-Output "Image prête : $vhdxPath"
                 """;
-            await HyperVService.RunScriptAsync(script);
-        }
-        finally
-        {
-            if (answerTemp is not null)
-                try { File.Delete(answerTemp); } catch { /* ignore */ }
+            await HyperVService.RunScriptAsync(script, progress, ct: ct);
         }
     }
-
-    private static string Esc(string s) => s.Replace("'", "''");
 }
