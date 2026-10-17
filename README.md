@@ -1,404 +1,148 @@
-# HyperV Lab Manager
+# HV-LAB Manager
 
-> 🇫🇷 [Version française disponible ici](README.fr.md)
+> 🇫🇷 [Version française](README.fr.md)
 
-A modern **WinUI 3 / .NET 8** desktop application for managing Microsoft Hyper-V lab environments on Windows.
+A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V lab environments on Windows: base images, differencing-disk VMs with unattended setup, virtual switches and NAT.
 
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![.NET](https://img.shields.io/badge/.NET-8.0-purple)
-![WinUI](https://img.shields.io/badge/UI-WinUI%203-blueviolet)
-![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-blue)
+![.NET](https://img.shields.io/badge/.NET-10.0-purple)
+![WinUI](https://img.shields.io/badge/UI-WinUI%203%20(App%20SDK%201.8)-blueviolet)
+[![Release](https://img.shields.io/github/v/release/JM2K69/HV-LAB)](https://github.com/JM2K69/HV-LAB/releases/latest)
 
 ---
 
 ## Features
 
-- ✅ **Virtual Machine Management** — Create, start, stop, delete and connect to VM consoles (Gen 1/2, Secure Boot, boot order)
-- ✅ **Differencing Disk Deployment** — Deploy VMs instantly from base VHDX images using differencing disks
-- ✅ **Automatic Unattend.xml** — Generate answer files compatible with Windows Server and Client
-- ✅ **KMS Key Injection** — Automatic GVLK key selection and injection based on the selected OS
-- ✅ **Virtual Switch Management** — Create External, Internal and Private switches with optional VLAN support
-- ✅ **NAT Networking** — Configure NAT networks with custom gateway and prefix
-- ✅ **VM Console** — Connect directly to VM console via `vmconnect` (like Hyper-V Manager)
-- ✅ **Base VHDX Image Management** — Register and manage base images for lab deployments
-- ✅ **Multilingual UI** — Full French 🇫🇷 and English 🇬🇧 interface
-- ✅ **Modern UI** — WinUI 3 with Mica backdrop, light/dark theme support
+- **Dashboard**: running and stopped VMs, switches and base images at a glance, with a check of the Hyper-V environment (module, `vmms` service) at startup.
+- **Virtual machines**:
+  - start, stop, open the console (`vmconnect`) and delete VMs;
+  - states are refreshed automatically every 5 s;
+  - each VM runs one action at a time, so a double click does nothing.
+- **Quick VM**: size presets, blank disk or differencing disk, Gen 1/2, Secure Boot, PXE, bulk creation (`PREFIX-01…nn`).
+- **Create VM**: differencing disk from a base image with an injected `unattend.xml`:
+  - computer name, administrator password (required) and optional auto-logon;
+  - language, time zone and a KMS key suggested for the OS;
+  - optional CBS cache warm-up and Windows Update disabling;
+  - live preview of the answer file, with the password masked;
+  - the answer file is removed from the VM at first logon.
+- **Base images**: build `BASE_*.vhdx` from a WIM/ESD file, with automatic edition matching:
+  - the image is built in a temporary file, so an existing image is never left half-built;
+  - overwriting an existing image asks for confirmation;
+  - progress is shown live and the build can be cancelled.
+- **Switches & NAT**: External, Internal and Private switches with VLAN, and NAT networks with an IPv4 gateway.
+- **Fluent UI**:
+  - Mica backdrop, light/dark theme and an adaptive navigation pane;
+  - the window position and size are remembered;
+  - empty states and error banners;
+  - accessible names on buttons, F5 to refresh, Del to delete the selection.
+- **French / English** interface, switchable live.
+
+All long operations can be cancelled, all inputs are validated before reaching PowerShell, and scripts are never written to `%TEMP%`.
 
 ---
 
-## Requirements
+## Install
 
-- **Windows 10 Pro/Enterprise** or **Windows 11 Pro/Enterprise** (Hyper-V enabled)
-- **PowerShell 5.1+** (included in Windows)
-- **Hyper-V** enabled and accessible
-- Administrator privileges (required for Hyper-V operations)
-- Nothing else to install: the published build is self-contained (.NET 10 and Windows App SDK included).
-  The **.NET 10 SDK** is only needed to build from source.
+**Requirements**: Windows 10/11 Pro, Enterprise or Education, or Windows Server, with Hyper-V. The application runs as administrator. Nothing else is needed: the build is self-contained (.NET 10 and Windows App SDK included).
+
+1. Download `HV-LAB-X.Y.Z-win-x64.zip` from the [latest release](https://github.com/JM2K69/HV-LAB/releases/latest) and extract it.
+2. In an **elevated** PowerShell, from the extracted folder:
+   ```powershell
+   Unblock-File .\Install.ps1
+   .\Install.ps1                 # options: -DesktopShortcut  -EnableHyperV
+   ```
+   The app is copied to `C:\Program Files\HV-LAB` and gets a Start menu shortcut.
+3. Uninstall:
+   ```powershell
+   & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
+   ```
+   Settings and logs in `%LocalAppData%\HV-LAB` are kept.
 
 ---
 
-## Quick Start
+## Build from source
 
-```bash
-# Clone the repository
+Requires the **.NET 10 SDK**. Visual Studio is not required.
+
+```powershell
 git clone https://github.com/JM2K69/HV-LAB.git
-cd HV-LAB/HVLab
+cd HV-LAB
 
-# Build
-dotnet build -c Release
-
-# Run
-dotnet run -c Release
+dotnet test HVLab.Core.Tests                                   # unit tests
+dotnet build HVLab\HVLab.csproj -c Debug -p:Platform=x64       # debug build
+dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release   # -> HVLab\publish
+.\Install.ps1                                                  # elevated: installs HVLab\publish
 ```
 
-> ⚠️ The application must be run as **Administrator** to interact with Hyper-V.
+> In `HVLab\`, a bare `dotnet build` picks up `HVLab.slnx`. Pass `HVLab.csproj` explicitly together with `-p:Platform=x64`.
 
-### Install (C:\Program Files\HV-LAB)
+### Release
 
-```powershell
-# 1. Publish the self-contained folder (HVLab\publish)
-dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release
+The version has a single source: `VersionPrefix` in `Directory.Build.props`. The assembly, file and manifest versions and the version shown in the app all derive from it.
 
-# 2. From an elevated PowerShell: copy to C:\Program Files\HV-LAB + Start menu shortcut
-.\Install.ps1                      # options: -DesktopShortcut  -EnableHyperV
-.\Install.ps1 -Uninstall           # removes the folder and shortcuts (settings are kept)
-```
+1. Update `VersionPrefix`, then commit and push.
+2. Push a matching tag:
+   ```powershell
+   git tag -a v1.27.0 -m "HV-LAB Manager 1.27.0"
+   git push origin v1.27.0
+   ```
+   A tag like `v1.27.0-beta.1` publishes a pre-release.
 
-### Release (GitHub Actions)
+The [Release workflow](.github/workflows/release.yml) then:
+- runs the tests;
+- publishes the self-contained folder;
+- creates the GitHub release with `HV-LAB-X.Y.Z-win-x64.zip` and its SHA256.
 
-The version has a single source, `VersionPrefix` in `Directory.Build.props` (assembly, file, manifest and in-app versions derive from it). Update it, commit, then push a matching tag `vX.Y.Z` (or `vX.Y.Z-beta.1` for a pre-release); the workflow refuses a tag that does not match. It runs `.github/workflows/release.yml`:
-tests, self-contained publish, `HV-LAB-X.Y.Z-win-x64.zip` + SHA256, and a GitHub release with the install steps.
-
-```powershell
-git tag v1.1.0
-git push origin v1.1.0
-```
-
-Running the workflow manually (Actions > Release > Run workflow) only builds the zip as an artifact.
+The workflow refuses a tag that does not match `VersionPrefix`. Running it manually (Actions > Release > Run workflow) only produces the zip as an artifact.
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
-HVLab/
-├── Models/                     # Data models
-│   ├── VirtualMachine.cs       # VM model (ObservableObject)
-│   ├── VirtualSwitch.cs        # Virtual switch model
-│   ├── BaseVhdx.cs             # Base VHDX image model
-│   └── NatNetwork.cs           # NAT network model
-├── Services/                   # Business logic
-│   ├── HyperVService.cs        # Hyper-V PowerShell integration
-│   ├── NatService.cs           # NAT network management
-│   ├── LocalizationService.cs  # FR/EN localization
-│   └── AppSettings.cs          # Persistent settings
-├── ViewModels/                 # MVVM ViewModels
-│   ├── VirtualMachinesViewModel.cs
-│   ├── VirtualSwitchesViewModel.cs
-│   ├── BaseVhdxViewModel.cs
-│   └── SettingsViewModel.cs
-├── Views/                      # XAML UI pages
-│   ├── VirtualMachinesPage.xaml
-│   ├── VirtualSwitchesPage.xaml
-│   ├── BaseVhdxPage.xaml
-│   ├── CreateVmPage.xaml
-│   └── SettingsPage.xaml
-├── Images/                     # App icons and assets
-├── MainWindow.xaml             # Main window with navigation
-└── App.xaml                    # Application bootstrap
+HV-LAB/
+├── HVLab/                      WinUI 3 application (views, shell, UI services)
+│   ├── Views/                  Dashboard, VMs, Quick VM, Create VM, base images, switches & NAT, settings
+│   ├── Services/               DialogService, ThemeService, LocalizationHelper (UI side)
+│   ├── Helpers/                WindowPlacement (DPI, min size, restore), AppInfo, A11y, folder picker
+│   ├── Converters/
+│   ├── App.xaml(.cs)           DI container, startup, global exception logging
+│   └── MainWindow.xaml(.cs)    Title bar, navigation, Hyper-V environment banner
+├── HVLab.Core/                 UI-independent code (unit-tested)
+│   ├── Models/                 VirtualMachine, VirtualSwitch, BaseVhdx, NatNetwork, LabCatalog…
+│   ├── Services/               PowerShellRunner, HyperVService, VhdxService, NatService,
+│   │                           AnswerFileGenerator, InputValidator, LocalizationService (FR/EN)…
+│   └── ViewModels/             One per page + shared bases (PageViewModelBase, VmCreationViewModelBase)
+├── HVLab.Core.Tests/           xUnit tests
+├── Install.ps1                 Install / uninstall (Program Files + shortcuts)
+├── Directory.Build.props       Application version
+└── .github/workflows/          Release workflow
 ```
 
----
-
-## Usage
-
-### 1. Manage Virtual Machines
-
-1. Navigate to **Virtual Machines**
-2. Click **Refresh** to load the current VM list
-3. Use the action buttons to **Start**, **Stop**, **Connect** or **Delete** a VM
-4. The list shows: name, state, generation, RAM, CPU, switch and VLAN info
-
-### 2. Create a Virtual Machine
-
-1. Navigate to **Create a VM**
-2. Fill in the parameters:
-   - VM name and administrator password
-   - Generation (Gen 1 or Gen 2) — Gen 2 enables Secure Boot automatically
-   - RAM, CPU count
-   - Select a base VHDX image
-   - Select a virtual switch
-   - KMS key is auto-selected based on the chosen OS
-3. Click **Create** — a differencing disk is created and `unattend.xml` is injected automatically
-
-### 3. Manage Virtual Switches
-
-1. Navigate to **Switch & NAT → Switches** tab
-2. Click **Create** and fill in:
-   - Switch name
-   - Type: External (requires a network adapter), Internal or Private
-   - Optional VLAN ID
-3. To delete a switch, use the **Delete** button on the switch row
-
-### 4. Configure NAT
-
-1. Navigate to **Switch & NAT → NAT** tab
-2. Fill in:
-   - NAT name
-   - Select an Internal switch
-   - Gateway IP and prefix length
-3. Click **Create NAT**
-
-### 5. Manage Base VHDX Images
-
-1. Navigate to **Base VHDX Images**
-2. Register base images (WIM/VHDX) that will be used as parents for differencing disks
-3. Images are tagged with OS identifier for automatic KMS key selection
-
-### 6. Settings
-
-- Choose the **interface language** (FR / EN)
-- Set **default folders** for VMs and base images
-- View app info and author in the **About** section
-
----
-
-## PowerShell Integration
-
-The application wraps the following Hyper-V PowerShell cmdlets:
-
-| Operation | PowerShell Cmdlet |
-|-----------|-------------------|
-| List VMs | `Get-VM` |
-| Create VM | `New-VM` |
-| Start VM | `Start-VM` |
-| Stop VM | `Stop-VM -Force` |
-| Delete VM | `Remove-VM -Force` |
-| List switches | `Get-VMSwitch` |
-| Create switch | `New-VMSwitch` |
-| Set VLAN | `Set-VMNetworkAdapterVlan` |
-| Create differencing disk | `New-VHD -Differencing` |
-| Apply WIM image | `DISM` via `Convert-WindowsImage` |
-| VM console | `vmconnect.exe` |
-
----
-
-## NuGet Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `Microsoft.WindowsAppSDK` | 1.6+ | WinUI 3 framework |
-| `Microsoft.Windows.SDK.BuildTools` | latest | Build tools |
-| `CommunityToolkit.Mvvm` | 8.2.2 | MVVM with source generators |
-| `CommunityToolkit.WinUI.Controls.SettingsControls` | latest | Settings UI controls |
+**Architecture**:
+- **MVVM** with CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
+- **Dependency injection** with Microsoft.Extensions.DependencyInjection: `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` and `IThemeService`.
+- **Hyper-V access** goes through Windows PowerShell 5.1:
+  - scripts are streamed over stdin, with cancellation and timeouts;
+  - errors are translated into the UI language;
+  - every value is escaped by a single helper (`PowerShellRunner.Esc`).
 
 ---
 
 ## Troubleshooting
 
-### Application won't start
-
-```
-❌ "Windows App SDK not found"
-✅ Run: dotnet restore && dotnet build -c Release
-
-❌ "Hyper-V not available"
-✅ Enable Hyper-V in Windows Features (optionalfeatures.exe)
-```
-
-### No VMs or switches displayed
-
-```
-❌ Empty list after Refresh
-✅ Check that:
-   - Hyper-V is enabled and running
-   - The app is running as Administrator
-   - PowerShell can execute: Get-VM / Get-VMSwitch
-```
-
-### Cannot create a VM
-
-```
-❌ "Access Denied"
-✅ Run the application as Administrator
-```
+| Symptom | What to check |
+|---|---|
+| Red banner "Hyper-V unavailable" | Enable Hyper-V (`Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All`, or `.\Install.ps1 -EnableHyperV`), then restart. If the `vmms` service is stopped, use the banner's **Start service** button. |
+| Error banner on a page | The message is the error returned by PowerShell or Hyper-V (e.g. switch name already used, file locked by a running VM). |
+| The app does not start | Look in `%LocalAppData%\HV-LAB\logs` and in the Windows *Application* event log. Reinstall with `Install.ps1`. |
+| "Access denied" | The app must run as administrator (it requests elevation at startup). |
 
 ---
 
-## License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
----
-
-## Author & Support
+## Author & support
 
 - **Author**: [JM2K69](https://github.com/JM2K69)
 - **Issues**: [GitHub Issues](https://github.com/JM2K69/HV-LAB/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/JM2K69/HV-LAB/discussions)
 
----
-
-© 2026 JM2K69 — All rights reserved
-
-## Prérequis
-
-- **Windows 10 Pro/Enterprise** ou **Windows 11 Pro/Enterprise** (avec Hyper-V activé)
-- **PowerShell 5.1+** (inclus dans Windows)
-- **Hyper-V** activé et configurable
-- Rien d'autre à installer : la version publiée est autonome (.NET 10 et Windows App SDK inclus).
-  Le **SDK .NET 10** n'est nécessaire que pour compiler les sources.
-
-## Installation rapide
-
-```bash
-# Cloner le repo
-git clone https://github.com/JM2K69/HV-LAB.git
-cd HV-LAB/HVLab
-
-# Compiler l'application
-dotnet build -c Release
-
-# Lancer l'application
-dotnet run -c Release
-```
-
-## Architecture
-
-### Structure du Projet
-
-```
-HVLab/
-├── Models/                 # Modèles de données
-│   ├── VirtualSwitch.cs   # Commutateurs virtuels
-│   ├── VirtualMachine.cs  # Machines virtuelles
-│   └── BaseVhdx.cs        # Images VHDX
-├── Services/              # Couche métier
-│   └── HyperVService.cs   # Service Hyper-V avec intégration PowerShell
-├── ViewModels/            # ViewModels MVVM
-│   └── MainViewModel.cs   # ViewModel principal avec RelayCommands
-├── Views/                 # Interfaces utilisateur
-├── MainWindow.xaml        # Fenêtre principale avec 4 onglets
-└── App.xaml               # Bootstrap de l'application
-```
-
-### Pattern MVVM
-
-L'application utilise le **Community Toolkit MVVM** pour une séparation claire des responsabilités :
-
-- **Models** : Représentent l'état (VirtualSwitch, VirtualMachine, BaseVhdx)
-- **Services** : Intègrent PowerShell et logique métier (HyperVService)
-- **ViewModels** : Exposent les commandes et propriétés pour la UI (MainViewModel)
-- **Views** : Interfaces XAML qui bindent sur le ViewModel
-
-## Utilisation
-
-### 1. Créer un Commutateur Virtuel (vSwitch) NAT
-
-```
-1. Ouvrir l'onglet "Commutateurs Virtuels"
-2. Cliquer "Créer nouveau commutateur"
-3. Entrer les détails :
-   - Nom du commutateur
-   - Adresse IP (ex: 192.168.100.1)
-   - Masque sous-réseau (ex: 255.255.255.0)
-4. Cliquer "Créer"
-```
-
-### 2. Créer une Image VHDX de Base
-
-```
-1. Ouvrir l'onglet "Images VHDX"
-2. Cliquer "Créer Image de Base"
-3. Sélectionner le fichier ISO de Windows
-4. Définir le chemin de destination
-5. Laisser le processus créer la VHDX
-```
-
-### 3. Créer une Machines Virtuelle avec Disque Différentiel
-
-```
-1. Ouvrir l'onglet "Machines Virtuelles"
-2. Cliquer "Créer nouvelle machine"
-3. Entrer les paramètres :
-   - Nom de la machine
-   - Mémoire (MB)
-   - Nombre de processeurs
-   - Commutateur virtuel
-   - Image VHDX de base
-4. L'application crée un disque différentiel automatiquement
-```
-
-### 4. Gérer les Machines Virtuelles
-
-```
-- Cliquer "Rafraîchir" pour recharger l'état
-- Sélectionner une VM et cliquer "Démarrer"
-- Cliquer "Arrêter" pour éteindre une VM
-- Cliquer "Supprimer" pour la supprimer
-```
-
-## Commandes PowerShell Intégrées
-
-L'application wraps les cmdlets Hyper-V suivants :
-
-| Opération | Cmdlet PowerShell |
-|-----------|-------------------|
-| Lister les vSwitch | `Get-VMSwitch` |
-| Créer un vSwitch NAT | `New-VMSwitch -SwitchType NAT` |
-| Lister les VMs | `Get-VM` |
-| Créer une VM | `New-VM` |
-| Démarrer une VM | `Start-VM` |
-| Arrêter une VM | `Stop-VM -Force` |
-| Supprimer une VM | `Remove-VM -Force` |
-| Créer disque différentiel | `New-VHD -Differencing` |
-
-## Dépendances NuGet
-
-- **Microsoft.WindowsAppSDK** (1.6+) - Framework WinUI3
-- **Microsoft.Windows.SDK.BuildTools** - Outils de build
-- **CommunityToolkit.Mvvm** (8.2.2) - Support MVVM avec source generators
-- **System.Text.Json** - Parsing JSON PowerShell
-
-## Troubleshooting
-
-### L'application ne démarre pas
-
-```
-❌ Erreur: "Windows App SDK not found"
-✅ Solution: dotnet restore && dotnet build -c Release
-
-❌ Erreur: "Hyper-V not available"
-✅ Solution: Activer Hyper-V dans les Fonctionnalités Windows
-```
-
-### Aucun vSwitch ne s'affiche
-
-```
-❌ Le tableau est vide après "Rafraîchir"
-✅ Causes possibles:
-   - Aucun vSwitch créé
-   - PowerShell ne trouve pas les cmdlets Hyper-V
-   - Permissions insuffisantes (lancer en tant qu'admin)
-```
-
-### Impossible de créer une VM
-
-```
-❌ Erreur "Access Denied"
-✅ Solution: Relancer l'application en tant qu'Administrateur
-```
-
-## Licence
-
-Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour les détails.
-
-## Contact & Support
-
-- **Issues** : [GitHub Issues](https://github.com/JM2K69/HV-LAB/issues)
-- **Discussions** : [GitHub Discussions](https://github.com/JM2K69/HV-LAB/discussions)
-
----
-
-**Créé par** : JM2K69  
-**Dernière mise à jour** : Juillet 2026
+© 2026 JM2K69
