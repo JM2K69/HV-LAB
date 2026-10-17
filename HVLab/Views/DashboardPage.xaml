@@ -7,6 +7,31 @@
 
     <ScrollViewer Padding="36,20,36,32">
         <StackPanel Spacing="16">
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup>
+                    <VisualState x:Name="Wide">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="1200"/>
+                        </VisualState.StateTriggers>
+                    </VisualState>
+                    <VisualState x:Name="Narrow">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="0"/>
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="CardRunning.(Grid.ColumnSpan)"  Value="2"/>
+                            <Setter Target="CardStopped.(Grid.Column)"      Value="2"/>
+                            <Setter Target="CardStopped.(Grid.ColumnSpan)"  Value="2"/>
+                            <Setter Target="CardSwitches.(Grid.Row)"        Value="1"/>
+                            <Setter Target="CardSwitches.(Grid.Column)"     Value="0"/>
+                            <Setter Target="CardSwitches.(Grid.ColumnSpan)" Value="2"/>
+                            <Setter Target="CardImages.(Grid.Row)"          Value="1"/>
+                            <Setter Target="CardImages.(Grid.Column)"       Value="2"/>
+                            <Setter Target="CardImages.(Grid.ColumnSpan)"   Value="2"/>
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
 
             <!-- Header -->
             <StackPanel Spacing="4" Margin="0,0,0,4">
@@ -48,6 +73,7 @@
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                        Margin="0,8,0,0"/>
 
+            <!-- Wide: 4 cards in a row. Narrow (< 1200 px window): 2 × 2 (each card spans 2 of the 4 columns). -->
             <Grid ColumnSpacing="12" RowSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -55,9 +81,13 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
                 <!-- VMs en cours -->
-                <Border Grid.Column="0"
+                <Border x:Name="CardRunning" Grid.Column="0"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="20,16">
@@ -74,7 +104,7 @@
                 </Border>
 
                 <!-- VMs arrêtées -->
-                <Border Grid.Column="1"
+                <Border x:Name="CardStopped" Grid.Column="1"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="20,16">
@@ -91,7 +121,7 @@
                 </Border>
 
                 <!-- Commutateurs -->
-                <Border Grid.Column="2"
+                <Border x:Name="CardSwitches" Grid.Column="2"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="20,16">
@@ -109,7 +139,7 @@
                 </Border>
 
                 <!-- Images de base -->
-                <Border Grid.Column="3"
+                <Border x:Name="CardImages" Grid.Column="3"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="20,16">

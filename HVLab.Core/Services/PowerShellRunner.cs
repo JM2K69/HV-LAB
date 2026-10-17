@@ -79,7 +79,7 @@ public sealed class PowerShellRunner : IPowerShellRunner
             : CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
         using var proc = Process.Start(psi)
-            ?? throw new InvalidOperationException("Impossible de démarrer powershell.exe");
+            ?? throw new InvalidOperationException(LocalizationService.Instance["Err_PsStart"]);
 
         using var killOnCancel = linked.Token.Register(() =>
         {
@@ -106,16 +106,19 @@ public sealed class PowerShellRunner : IPowerShellRunner
         var stderr = (await stderrTask).Trim();
 
         if (timeoutCts?.IsCancellationRequested == true && !ct.IsCancellationRequested)
-            throw new TimeoutException($"Le script PowerShell a dépassé le délai de {timeout!.Value.TotalSeconds:0} s.");
+            throw new TimeoutException(LocalizationService.T("Err_Timeout", timeout!.Value.TotalSeconds.ToString("0")));
         ct.ThrowIfCancellationRequested();
 
         var output = stdout.ToString();
         if (proc.ExitCode != 0)
         {
             var details = string.IsNullOrEmpty(stderr) ? output.Trim() : stderr;
-            var message = details.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                                 .LastOrDefault()
-                          ?? $"PowerShell a retourné le code {proc.ExitCode}.";
+            // Scripts throw "##Key|args" for known errors: shown in the UI language
+            var lastLine = details.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                  .LastOrDefault();
+            var message  = lastLine is null
+                ? LocalizationService.T("Err_ExitCode", proc.ExitCode)
+                : LocalizationService.TranslateProgress(lastLine);
             throw new PowerShellException(message, details, proc.ExitCode);
         }
         return output;
