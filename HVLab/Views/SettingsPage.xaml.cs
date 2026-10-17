@@ -26,11 +26,4 @@ public sealed partial class SettingsPage : Page
         var folder = Win32FolderPicker.Pick(hwnd, "Sélectionner le dossier des machines virtuelles");
         if (folder is not null) ViewModel.VmsFolder = folder;
     }
-
-    private void BrowsePowerShell_Click(object sender, RoutedEventArgs e)
-    {
-        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
-        var file = Win32FolderPicker.PickFile(hwnd, "Sélectionner powershell.exe");
-        if (file is not null) ViewModel.PowerShellPath = file;
-    }
 }

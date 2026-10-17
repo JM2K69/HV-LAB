@@ -12,6 +12,7 @@ public sealed class AppStartupCache
     private AppStartupCache() { }
 
     public bool IsReady { get; private set; }
+    private bool _consumed;
 
     public List<VirtualMachine> VirtualMachines { get; private set; } = [];
     public List<VirtualSwitch>  VirtualSwitches  { get; private set; } = [];
@@ -21,8 +22,9 @@ public sealed class AppStartupCache
     /// <summary>Pré-charge les données Hyper-V au démarrage.</summary>
     public async Task LoadAsync(string baseVhdxFolder)
     {
-        IsReady = false;
-        Error   = null;
+        IsReady   = false;
+        _consumed = false;
+        Error     = null;
         try
         {
             var hvService   = new HyperVService();
@@ -49,5 +51,18 @@ public sealed class AppStartupCache
         {
             IsReady = true;
         }
+    }
+
+    /// <summary>
+    /// Renvoie l'instantané du démarrage une seule fois ; les appels suivants
+    /// renvoient false afin que l'appelant recharge des données fraîches.
+    /// </summary>
+    public bool TryConsume(out List<VirtualMachine> vms, out List<VirtualSwitch> switches,
+                           out List<BaseVhdx> images, out Exception? error)
+    {
+        vms = VirtualMachines; switches = VirtualSwitches; images = BaseVhdxImages; error = Error;
+        if (!IsReady || _consumed) return false;
+        _consumed = true;
+        return true;
     }
 }

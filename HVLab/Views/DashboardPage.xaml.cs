@@ -13,7 +13,6 @@ public sealed partial class DashboardPage : Page
     public DashboardPage()
     {
         InitializeComponent();
-        LocalizationService.Instance.PropertyChanged += (_, _) => Bindings.Update();
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

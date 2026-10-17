@@ -144,6 +144,10 @@ public partial class CreateVmViewModel : ObservableObject
         Status = "Chargement…";
         try
         {
+            // Keep the user's selections: the page is cached and reloads on every visit
+            var prevSwitch = SelectedSwitch;
+            var prevVhdx   = SelectedBaseVhdx;
+
             var switches = await _hvService.GetVirtualSwitchesAsync();
             VirtualSwitches.Clear();
             foreach (var sw in switches) VirtualSwitches.Add(sw.Name);
@@ -151,6 +155,9 @@ public partial class CreateVmViewModel : ObservableObject
             var images = await _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
             BaseVhdxList.Clear();
             foreach (var img in images) BaseVhdxList.Add(img.FilePath);
+
+            if (prevSwitch is not null && VirtualSwitches.Contains(prevSwitch)) SelectedSwitch   = prevSwitch;
+            if (prevVhdx   is not null && BaseVhdxList.Contains(prevVhdx))     SelectedBaseVhdx = prevVhdx;
 
             Status = "Prêt";
         }

@@ -1,4 +1,5 @@
 #!/usr/bin/env pwsh
+#Requires -RunAsAdministrator
 
 # HV-LAB Quick Start
 # Démarrage rapide de l'application
@@ -10,12 +11,12 @@ Write-Host ""
 
 # Vérifier Hyper-V
 Write-Host "🔍 Vérification de Hyper-V..." -ForegroundColor Yellow
-$hvFeature = Get-WindowsOptionalFeature -FeatureName Hyper-V -Online -ErrorAction SilentlyContinue
+$hvFeature = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
 
 if ($null -eq $hvFeature -or $hvFeature.State -ne "Enabled") {
     Write-Host "❌ Hyper-V n'est pas activé" -ForegroundColor Red
     Write-Host "   Pour activer Hyper-V, exécutez:" -ForegroundColor Gray
-    Write-Host "   Enable-WindowsOptionalFeature -FeatureName Hyper-V -Online -All" -ForegroundColor Gray
+    Write-Host "   Enable-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -All" -ForegroundColor Gray
     exit 1
 }
 Write-Host "✅ Hyper-V activé" -ForegroundColor Green

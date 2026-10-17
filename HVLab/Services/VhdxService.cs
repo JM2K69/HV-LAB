@@ -123,9 +123,20 @@ public class VhdxService
             $vhdxPath = '{{Esc(vhdxPath)}}'
             $dir = Split-Path $vhdxPath -Parent
             if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
-            if (Test-Path $vhdxPath)   { Remove-Item $vhdxPath -Force }
+            if (Test-Path $vhdxPath)   { throw "Le fichier existe déjà : $vhdxPath" }
             New-VHD -Path $vhdxPath -SizeBytes {{sizeGB}}GB -Dynamic -ErrorAction Stop | Out-Null
             Write-Output "VHDX créé : $vhdxPath"
+            """;
+        await HyperVService.RunScriptAsync(script);
+    }
+
+    /// <summary>Dismounts (if needed) and deletes a partially built VHDX.</summary>
+    public async Task DiscardPartialVhdxAsync(string vhdxPath)
+    {
+        var script = $$"""
+            $vhdxPath = '{{Esc(vhdxPath)}}'
+            Dismount-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue | Out-Null
+            if (Test-Path $vhdxPath) { Remove-Item $vhdxPath -Force }
             """;
         await HyperVService.RunScriptAsync(script);
     }

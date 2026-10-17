@@ -15,6 +15,8 @@
     <ApplicationIcon>Images\AppIcon.ico</ApplicationIcon>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     <!-- Self-contained: embed WinUI runtime, no system-wide install required -->
+    <!-- Required for PRI generation when building with the dotnet CLI (no Visual Studio) -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
     <Version>1.0.0</Version>
@@ -22,8 +24,8 @@
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <Company>HV-LAB</Company>
     <Product>HV-LAB Manager</Product>
-    <Description>Gestionnaire Hyper-V � VM, vSwitch, NAT, VHDX</Description>
-    <Copyright>Copyright � 2026</Copyright>
+    <Description>Gestionnaire Hyper-V — VM, vSwitch, NAT, VHDX</Description>
+    <Copyright>Copyright © 2026</Copyright>
   </PropertyGroup>
   <!-- Release: single-file, optimized, no debug symbols -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -31,7 +33,6 @@
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
     <PublishSingleFile>true</PublishSingleFile>
-    <EnableMsixTooling>true</EnableMsixTooling>
     <WindowsPackageType>None</WindowsPackageType>
     <PublishDir>publish\</PublishDir>
   </PropertyGroup>

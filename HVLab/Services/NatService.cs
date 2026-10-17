@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using HVLab.Models;
 
@@ -69,8 +71,19 @@ public class NatService
         return result;
     }
 
+    /// <summary>Validates an IPv4 gateway and prefix; returns the normalized address or null.</summary>
+    public static string? NormalizeGateway(string? gatewayIP, int prefixLength)
+    {
+        if (prefixLength is < 8 or > 30) return null;
+        return IPAddress.TryParse(gatewayIP?.Trim(), out var ip) && ip.AddressFamily == AddressFamily.InterNetwork
+            ? ip.ToString()
+            : null;
+    }
+
     public async Task CreateNatNetworkAsync(string switchName, string natName, string gatewayIP, int prefixLength)
     {
+        gatewayIP = NormalizeGateway(gatewayIP, prefixLength)
+            ?? throw new ArgumentException($"Invalid IPv4 gateway or prefix: {gatewayIP}/{prefixLength}");
         var script = $$"""
             $switchName   = '{{Esc(switchName)}}'
             $natName      = '{{Esc(natName)}}'

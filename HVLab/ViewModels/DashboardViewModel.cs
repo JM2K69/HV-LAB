@@ -16,7 +16,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private bool isLoading;
     [ObservableProperty] private string status = "Cliquez sur Actualiser pour charger les données.";
     [ObservableProperty] private bool showHyperVWarning;
-    [ObservableProperty] private string baseVhdxFolder = @"C:\HV-LAB\BaseImages";
+    [ObservableProperty] private string baseVhdxFolder = AppSettings.Current.BaseImagesFolder;
 
     [RelayCommand]
     public async Task RefreshAsync()
@@ -30,20 +30,21 @@ public partial class DashboardViewModel : ObservableObject
             List<HVLab.Models.VirtualSwitch>  switches;
             List<HVLab.Models.BaseVhdx>       images;
 
-            var cache = HVLab.Services.AppStartupCache.Instance;
-            if (cache.IsReady)
+            // Les données pré-chargées par le splash ne servent qu'au premier affichage
+            if (AppStartupCache.Instance.TryConsume(out vms, out switches, out images, out var startupError))
             {
-                // Utiliser les données pré-chargées au démarrage (évite un double appel Hyper-V)
-                vms      = cache.VirtualMachines;
-                switches = cache.VirtualSwitches;
-                images   = cache.BaseVhdxImages;
-                if (cache.Error is not null) throw cache.Error;
+                if (startupError is not null) throw startupError;
             }
             else
             {
-                vms      = await _hvService.GetVirtualMachinesAsync();
-                switches = await _hvService.GetVirtualSwitchesAsync();
-                images   = await _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
+                BaseVhdxFolder = AppSettings.Current.BaseImagesFolder;
+                var vmTask   = _hvService.GetVirtualMachinesAsync();
+                var swTask   = _hvService.GetVirtualSwitchesAsync();
+                var vhdxTask = _vhdxService.GetBaseVhdxListAsync(BaseVhdxFolder);
+                await Task.WhenAll(vmTask, swTask, vhdxTask);
+                vms      = vmTask.Result;
+                switches = swTask.Result;
+                images   = vhdxTask.Result;
             }
 
             RunningVmCount = vms.Count(v => v.IsRunning);
