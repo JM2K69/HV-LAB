@@ -214,6 +214,7 @@
                                             Margin="0,0,4,0"
                                             Padding="4"
                                             Click="TogglePassword_Click"
+                                            AutomationProperties.Name="{Binding [CVM_ShowPwd], Source={StaticResource Loc}}"
                                             ToolTipService.ToolTip="{Binding [CVM_ShowPwd], Source={StaticResource Loc}}">
                                         <FontIcon Glyph="{x:Bind ViewModel.PasswordEyeGlyph, Mode=OneWay}"
                                                   FontSize="14"

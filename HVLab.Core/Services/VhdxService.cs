@@ -122,7 +122,7 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
             $vhdxPath = '{{Esc(vhdxPath)}}'
             $dir = Split-Path $vhdxPath -Parent
             if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
-            if (Test-Path $vhdxPath)   { throw "Le fichier existe déjà : $vhdxPath" }
+            if (Test-Path $vhdxPath)   { throw "##Err_FileExists|$vhdxPath" }
             New-VHD -Path $vhdxPath -SizeBytes {{sizeGB}}GB -Dynamic -ErrorAction Stop | Out-Null
             Write-Output "##BV_Created|$vhdxPath"
             """;
@@ -167,7 +167,7 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                         if ($letter -and $letter -ne "`0") { return $letter }
                         Start-Sleep -Milliseconds 500
                     } while ((Get-Date) -lt $deadline)
-                    throw "Impossible d'obtenir une lettre pour le disque $diskNo partition $partNo"
+                    throw "##Err_NoDriveLetter|$diskNo|$partNo"
                 }
 
                 Write-Output "##Prg_Mount"
@@ -219,7 +219,7 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                     } else {
                         $bcd = & bcdboot.exe "$winPath\Windows" /s "$winPath" /f BIOS 2>&1
                     }
-                    if ($LASTEXITCODE -ne 0) { throw "bcdboot a échoué : $bcd" }
+                    if ($LASTEXITCODE -ne 0) { throw "##Err_Bcdboot|$bcd" }
 
                     if ($answerXml) {
                         $panther = "$winPath\Windows\Panther"

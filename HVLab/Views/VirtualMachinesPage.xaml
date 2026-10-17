@@ -6,7 +6,19 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:HVLab.Models"
     xmlns:helpers="using:HVLab.Helpers"
-    Background="Transparent">
+    Background="Transparent"
+    SizeChanged="Page_SizeChanged">
+
+    <!-- Column widths shared by the header and the rows -->
+    <Page.Resources>
+        <GridLength x:Key="ColName">180</GridLength>
+        <GridLength x:Key="ColState">100</GridLength>
+        <GridLength x:Key="ColRam">80</GridLength>
+        <GridLength x:Key="ColActions">180</GridLength>
+        <x:Double x:Key="ColGen">55</x:Double>
+        <x:Double x:Key="ColCpu">50</x:Double>
+        <x:Double x:Key="ColVlan">80</x:Double>
+    </Page.Resources>
 
     <!-- No outer ScrollViewer: the ListView scrolls itself (keeps virtualization and a fixed header) -->
     <Grid Padding="36,24,36,20" RowSpacing="12">
@@ -51,29 +63,32 @@
               Background="{ThemeResource SubtleFillColorSecondaryBrush}"
               Padding="16,8" CornerRadius="8">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="180"/>
-                <ColumnDefinition Width="100"/>
-                <ColumnDefinition Width="55"/>
-                <ColumnDefinition Width="80"/>
-                <ColumnDefinition Width="50"/>
+                <ColumnDefinition Width="{StaticResource ColName}"/>
+                <ColumnDefinition Width="{StaticResource ColState}"/>
+                <ColumnDefinition Width="Auto"/>  <!-- Gen  (hidden when narrow) -->
+                <ColumnDefinition Width="{StaticResource ColRam}"/>
+                <ColumnDefinition Width="Auto"/>  <!-- CPU  (hidden when narrow) -->
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="80"/>
-                <ColumnDefinition Width="180"/>
+                <ColumnDefinition Width="Auto"/>  <!-- VLAN (hidden when narrow) -->
+                <ColumnDefinition Width="{StaticResource ColActions}"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding [VM_ColName], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
             <TextBlock Grid.Column="1" Text="{Binding [VM_ColState], Source={StaticResource Loc}}"   FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="2" Text="{Binding [VM_ColGen], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="2" Text="{Binding [VM_ColGen], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12" Width="{StaticResource ColGen}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
             <TextBlock Grid.Column="3" Text="{Binding [VM_ColRAM], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="4" Text="{Binding [VM_ColCPU], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="4" Text="{Binding [VM_ColCPU], Source={StaticResource Loc}}"     FontWeight="SemiBold" FontSize="12" Width="{StaticResource ColCpu}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
             <TextBlock Grid.Column="5" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
-            <TextBlock Grid.Column="6" Text="{Binding [VM_ColVlan], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12"/>
+            <TextBlock Grid.Column="6" Text="{Binding [VM_ColVlan], Source={StaticResource Loc}}"    FontWeight="SemiBold" FontSize="12" Width="{StaticResource ColVlan}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
             <TextBlock Grid.Column="7" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="12"/>
         </Grid>
 
         <!-- VM list -->
-        <ListView Grid.Row="3"
+        <ListView x:Name="VmList" Grid.Row="3"
                   ItemsSource="{x:Bind ViewModel.VirtualMachines, Mode=OneWay}"
                   SelectionMode="Single">
+            <ListView.KeyboardAccelerators>
+                <KeyboardAccelerator Key="Delete" Invoked="DeleteSelected_Invoked"/>
+            </ListView.KeyboardAccelerators>
             <ListView.ItemContainerStyle>
                 <Style TargetType="ListViewItem">
                     <Setter Property="Padding"                    Value="16,0"/>
@@ -86,14 +101,14 @@
                 <DataTemplate x:DataType="models:VirtualMachine">
                     <Grid ColumnSpacing="8" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="180"/>
-                            <ColumnDefinition Width="100"/>
-                            <ColumnDefinition Width="55"/>
-                            <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="{StaticResource ColName}"/>
+                            <ColumnDefinition Width="{StaticResource ColState}"/>
+                            <ColumnDefinition Width="Auto"/>  <!-- Gen  (hidden when narrow) -->
+                            <ColumnDefinition Width="{StaticResource ColRam}"/>
+                            <ColumnDefinition Width="Auto"/>  <!-- CPU  (hidden when narrow) -->
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="80"/>
-                            <ColumnDefinition Width="180"/>
+                            <ColumnDefinition Width="Auto"/>  <!-- VLAN (hidden when narrow) -->
+                            <ColumnDefinition Width="{StaticResource ColActions}"/>
                         </Grid.ColumnDefinitions>
 
                         <!-- Nom -->
@@ -115,17 +130,20 @@
                         </Border>
 
                         <TextBlock Grid.Column="2" Text="{x:Bind GenDisplay}"
-                                   VerticalAlignment="Center" FontSize="13"/>
+                                   VerticalAlignment="Center" FontSize="13"
+                                   Width="{StaticResource ColGen}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
                         <TextBlock Grid.Column="3" Text="{x:Bind MemoryDisplay, Mode=OneWay}"
                                    VerticalAlignment="Center" FontSize="13"/>
                         <TextBlock Grid.Column="4" Text="{x:Bind ProcessorCount, Mode=OneWay}"
-                                   VerticalAlignment="Center" FontSize="13"/>
+                                   VerticalAlignment="Center" FontSize="13"
+                                   Width="{StaticResource ColCpu}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
                         <TextBlock Grid.Column="5" Text="{x:Bind SwitchName, Mode=OneWay}"
                                    VerticalAlignment="Center" FontSize="13"
                                    TextTrimming="CharacterEllipsis"/>
                         <TextBlock Grid.Column="6" Text="{x:Bind VlanInfo, Mode=OneWay}"
                                    VerticalAlignment="Center" FontSize="13"
                                    TextTrimming="CharacterEllipsis"
+                                   Width="{StaticResource ColVlan}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"
                                    ToolTipService.ToolTip="{x:Bind VlanInfo, Mode=OneWay}"/>
 
                         <!-- Actions -->

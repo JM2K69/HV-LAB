@@ -5,6 +5,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:models="using:HVLab.Models"
+    xmlns:helpers="using:HVLab.Helpers"
     Background="Transparent">
 
     <ScrollViewer>
@@ -35,9 +36,17 @@
             </Button>
         </Grid>
 
-        <ProgressBar Grid.Row="1" IsIndeterminate="True"
-                     Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
-                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
+        <!-- Progress + errors -->
+        <StackPanel Grid.Row="1" Spacing="8">
+            <ProgressBar IsIndeterminate="True"
+                         Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
+                                       Converter={StaticResource BoolToVisibilityConverter}}"/>
+            <InfoBar Severity="Error"
+                     IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     IsClosable="False"
+                     Title="{Binding [Err_Title], Source={StaticResource Loc}}"
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+        </StackPanel>
 
         <!-- Pivot tabs -->
         <Pivot Grid.Row="2">
@@ -103,6 +112,7 @@
                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     <Button Grid.Column="4" Command="{Binding ViewModel.RemoveSwitchCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
                                             Width="32" Height="32" Padding="0"
+                                            AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', Name)}"
                                             ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
                                     </Button>
@@ -110,6 +120,20 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+
+                    <!-- Empty state -->
+                    <StackPanel Grid.Row="1" Spacing="8" Margin="0,24" MaxWidth="380"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{x:Bind ViewModel.IsSwitchListEmpty, Mode=OneWay,
+                                             Converter={StaticResource BoolToVisibilityConverter}}">
+                        <FontIcon Glyph="&#xEDA3;" FontSize="40"
+                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                        <TextBlock Text="{Binding [SW_EmptyTitle], Source={StaticResource Loc}}"
+                                   FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding [SW_EmptyText], Source={StaticResource Loc}}"
+                                   TextAlignment="Center" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
 
                     <!-- Create switch form -->
                     <Expander Grid.Row="2" Header="{Binding [SW_CreateTitle], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
@@ -253,6 +277,7 @@
                                                VerticalAlignment="Center"/>
                                     <Button Grid.Column="4" Command="{Binding ViewModel.RemoveNatCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
                                             Width="32" Height="32" Padding="0"
+                                            AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', Name)}"
                                             ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
                                         <FontIcon Glyph="&#xE74D;" FontSize="12"/>
                                     </Button>
@@ -260,6 +285,20 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+
+                    <!-- Empty state -->
+                    <StackPanel Grid.Row="1" Spacing="8" Margin="0,24" MaxWidth="380"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Visibility="{x:Bind ViewModel.IsNatListEmpty, Mode=OneWay,
+                                             Converter={StaticResource BoolToVisibilityConverter}}">
+                        <FontIcon Glyph="&#xE968;" FontSize="40"
+                                  Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+                        <TextBlock Text="{Binding [NAT_EmptyTitle], Source={StaticResource Loc}}"
+                                   FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                        <TextBlock Text="{Binding [NAT_EmptyText], Source={StaticResource Loc}}"
+                                   TextAlignment="Center" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
 
                     <!-- Create NAT form -->
                     <Expander Grid.Row="2" Header="{Binding [NAT_CreateTitle], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
