@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Models;
 using HVLab.Services;
+using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
@@ -15,7 +17,7 @@ public partial class CreateVmViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<string> virtualSwitches = [];
     [ObservableProperty] private bool isLoading;
     [ObservableProperty] private bool isCreating;
-    [ObservableProperty] private string status = "Prêt";
+    [ObservableProperty] private string status = T("St_Ready");
 
     private CancellationTokenSource? _cts;
 
@@ -142,10 +144,36 @@ public partial class CreateVmViewModel : ObservableObject
 
     private string _previousVmName = "";
 
+    // Fields that feed the answer file: any change regenerates the preview (debounced)
+    private static readonly HashSet<string> AnswerFields =
+    [
+        nameof(UseAnswerFile), nameof(VmName), nameof(ComputerName), nameof(AdminPassword),
+        nameof(AutoLogon), nameof(ProductKey), nameof(UiLanguage), nameof(TimeZone),
+        nameof(BuildCbsCache), nameof(DisableWindowsUpdate),
+    ];
+
+    private CancellationTokenSource? _previewCts;
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is { } name && AnswerFields.Contains(name))
+            _ = SchedulePreviewAsync();
+    }
+
+    private async Task SchedulePreviewAsync()
+    {
+        _previewCts?.Cancel();
+        var cts = _previewCts = new CancellationTokenSource();
+        try { await Task.Delay(300, cts.Token); }
+        catch (OperationCanceledException) { return; }
+        UpdateAnswerPreview();
+    }
+
     [RelayCommand]
     public void UpdateAnswerPreview()
     {
-        if (!UseAnswerFile) { AnswerFilePreview = "(fichier de réponse désactivé)"; return; }
+        if (!UseAnswerFile) { AnswerFilePreview = T("St_AnswerDisabled"); return; }
         var config = BuildConfig();
         // Never show the password in the preview unless the user asked to see it
         if (!ShowPassword && !string.IsNullOrEmpty(config.AdminPassword)) config.AdminPassword = "********";
@@ -172,7 +200,7 @@ public partial class CreateVmViewModel : ObservableObject
     public async Task LoadDataAsync()
     {
         IsLoading = true;
-        Status = "Chargement…";
+        Status = T("St_Loading");
         try
         {
             // Keep the user's selections: the page is cached and reloads on every visit
@@ -194,9 +222,9 @@ public partial class CreateVmViewModel : ObservableObject
             if (prevSwitch is not null && VirtualSwitches.Contains(prevSwitch)) SelectedSwitch   = prevSwitch;
             if (prevVhdx   is not null && BaseVhdxList.Contains(prevVhdx))     SelectedBaseVhdx = prevVhdx;
 
-            Status = "Prêt";
+            Status = T("St_Ready");
         }
-        catch (Exception ex) { Status = $"Erreur lors du chargement : {ex.Message}"; }
+        catch (Exception ex) { Status = T("St_LoadError", ex.Message); }
         finally { IsLoading = false; }
     }
 
@@ -204,14 +232,14 @@ public partial class CreateVmViewModel : ObservableObject
     public async Task CreateVmAsync()
     {
         if (string.IsNullOrWhiteSpace(SelectedBaseVhdx) || !File.Exists(SelectedBaseVhdx))
-            { Status = "Sélectionnez une image VHDX de base valide."; return; }
+            { Status = T("St_SelectBaseVhdx"); return; }
         if (string.IsNullOrWhiteSpace(SelectedSwitch))
-            { Status = "Sélectionnez un commutateur."; return; }
+            { Status = T("St_SelectSwitch"); return; }
 
         if (BulkMode)
         {
-            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = "Saisissez un préfixe."; return; }
-            if (BulkCount < 1)                         { Status = "La quantité doit être ≥ 1."; return; }
+            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = T("St_EnterPrefix"); return; }
+            if (BulkCount < 1)                         { Status = T("St_CountMin"); return; }
 
             var names = Enumerable.Range(1, BulkCount).Select(i => $"{BulkPrefix}-{i:D2}").ToList();
             if (Validate(names) is { } err) { Status = err; return; }
@@ -226,7 +254,7 @@ public partial class CreateVmViewModel : ObservableObject
                 {
                     _cts.Token.ThrowIfCancellationRequested();
                     string name = names[i];
-                    Status = $"Création {i + 1}/{names.Count} : '{name}'…";
+                    Status = T("St_CreatingN", i + 1, names.Count, name);
                     try
                     {
                         string? answerXml = UseAnswerFile
@@ -244,9 +272,9 @@ public partial class CreateVmViewModel : ObservableObject
                 }
 
                 if (errors.Count == 0)
-                    Status = $"✓ {created.Count} VM(s) créées avec succès : {string.Join(", ", created)}";
+                    Status = T("St_BulkOk", created.Count, string.Join(", ", created));
                 else
-                    Status = $"⚠ {created.Count} créées, {errors.Count} erreur(s) : {string.Join(" | ", errors)}";
+                    Status = T("St_BulkPartial", created.Count, errors.Count, string.Join(" | ", errors));
             }
             catch (OperationCanceledException)
             {
@@ -260,7 +288,7 @@ public partial class CreateVmViewModel : ObservableObject
 
             IsLoading = true; IsCreating = true;
             _cts = new CancellationTokenSource();
-            Status = $"Création de la VM '{VmName}'…";
+            Status = T("St_CreatingVm", VmName);
             try
             {
                 string? answerXml = UseAnswerFile
@@ -271,14 +299,14 @@ public partial class CreateVmViewModel : ObservableObject
                     VmName, SelectedBaseVhdx, SelectedSwitch,
                     MemoryMB, CpuCount, Generation, VmFolder,
                     answerXml, secureBoot: true, pxeBoot: false,
-                    progress: new Progress<string>(line => Status = line), ct: _cts.Token);
+                    progress: new Progress<string>(line => Status = TranslateProgress(line)), ct: _cts.Token);
 
-                Status = $"✓ VM '{VmName}' créée avec succès !";
+                Status = T("St_VmCreated", VmName);
                 VmName       = "";
                 ComputerName = "LAB-VM";
             }
             catch (OperationCanceledException) { Status = LocalizationService.Instance["Op_Cancelled"]; }
-            catch (Exception ex) { Status = $"Erreur : {ex.Message}"; }
+            catch (Exception ex) { Status = T("St_Error", ex.Message); }
             finally { IsLoading = false; IsCreating = false; _cts.Dispose(); _cts = null; }
         }
     }

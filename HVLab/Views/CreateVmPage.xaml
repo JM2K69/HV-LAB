@@ -50,7 +50,7 @@
                             <ComboBox ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
                                       SelectedItem="{x:Bind ViewModel.SelectedBaseVhdx, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
-                                      PlaceholderText="Sélectionnez une image…"
+                                      PlaceholderText="{Binding [CVM_PhSelectImage], Source={StaticResource Loc}}"
                                       FontFamily="Consolas" FontSize="12"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
@@ -103,7 +103,7 @@
                         <ComboBox ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedSwitch, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch"
-                                  PlaceholderText="Sélectionnez un commutateur…"/>
+                                  PlaceholderText="{Binding [CVM_PhSelectSwitch], Source={StaticResource Loc}}"/>
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -273,8 +273,6 @@
                                                FontFamily="Consolas" FontSize="11"
                                                IsTextSelectionEnabled="True" TextWrapping="NoWrap"/>
                                 </ScrollViewer>
-                                <Button Content="{Binding [CVM_UpdatePreview], Source={StaticResource Loc}}"
-                                        Command="{x:Bind ViewModel.UpdateAnswerPreviewCommand}"/>
                             </StackPanel>
                         </Expander>
                     </StackPanel>
