@@ -124,7 +124,7 @@ public class VhdxService
             if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
             if (Test-Path $vhdxPath)   { throw "Le fichier existe déjà : $vhdxPath" }
             New-VHD -Path $vhdxPath -SizeBytes {{sizeGB}}GB -Dynamic -ErrorAction Stop | Out-Null
-            Write-Output "VHDX créé : $vhdxPath"
+            Write-Output "##BV_Created|$vhdxPath"
             """;
         await HyperVService.RunScriptAsync(script);
     }
@@ -170,12 +170,12 @@ public class VhdxService
                     throw "Impossible d'obtenir une lettre pour le disque $diskNo partition $partNo"
                 }
 
-                Write-Output "Montage du VHDX..."
+                Write-Output "##Prg_Mount"
                 $mount  = Mount-DiskImage -ImagePath $vhdxPath -PassThru
                 $diskNo = ($mount | Get-Disk).Number
 
                 try {
-                    Write-Output "Partitionnement (disque $diskNo)..."
+                    Write-Output "##Prg_Partition|$diskNo"
                     if ($isGen2) {
                         Initialize-Disk -Number $diskNo -PartitionStyle GPT
                         # Partition EFI (100 MB FAT32)
@@ -207,14 +207,13 @@ public class VhdxService
                     }
 
                     $winPath = "${winLetter}:"
-                    Write-Output "Lettre Windows : $winPath"
 
                     # Apply image via PowerShell cmdlet (more reliable than dism.exe /Apply-Image)
-                    Write-Output "Application de l'image Windows (index $imageIndex) - opération longue..."
+                    Write-Output "##Prg_Apply|$imageIndex"
                     Expand-WindowsImage -ImagePath $wimPath -Index $imageIndex `
                                         -ApplyPath "$winPath\" -ErrorAction Stop | Out-Null
 
-                    Write-Output "Configuration du démarrage (bcdboot)..."
+                    Write-Output "##Prg_Bcd"
                     if ($isGen2) {
                         $bcd = & bcdboot.exe "$winPath\Windows" /s "${efiLetter}:" /f UEFI 2>&1
                     } else {
@@ -228,15 +227,15 @@ public class VhdxService
                             New-Item -Path $panther -ItemType Directory -Force | Out-Null
                         }
                         [System.IO.File]::WriteAllText("$panther\unattend.xml", $answerXml, [System.Text.Encoding]::UTF8)
-                        Write-Output "Fichier de réponse appliqué."
+                        Write-Output "##Prg_Answer"
                     }
                 }
                 finally {
-                    Write-Output "Démontage du VHDX..."
+                    Write-Output "##Prg_Dismount"
                     Dismount-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue | Out-Null
                 }
 
-                Write-Output "Image prête : $vhdxPath"
+                Write-Output "##Prg_Ready"
                 """;
             await HyperVService.RunScriptAsync(script, progress, ct: ct);
         }

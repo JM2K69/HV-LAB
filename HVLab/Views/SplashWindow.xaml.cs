@@ -98,7 +98,7 @@ public sealed class SplashWindow : Window
         // Version
         var version = new TextBlock
         {
-            Text                = "v1.0.0",
+            Text                = HVLab.Helpers.AppInfo.Version,
             FontSize            = 13,
             Foreground          = new SolidColorBrush(Color.FromArgb(180, 255, 255, 255)),
             HorizontalAlignment = HorizontalAlignment.Center

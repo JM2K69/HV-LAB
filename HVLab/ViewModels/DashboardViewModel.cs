@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using HVLab.Services;
+using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
@@ -14,7 +15,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private int switchCount;
     [ObservableProperty] private int baseVhdxCount;
     [ObservableProperty] private bool isLoading;
-    [ObservableProperty] private string status = "Cliquez sur Actualiser pour charger les données.";
+    [ObservableProperty] private string status = T("Dash_ClickRefresh");
     [ObservableProperty] private bool showHyperVWarning;
     [ObservableProperty] private string baseVhdxFolder = AppSettings.Current.BaseImagesFolder;
 
@@ -22,7 +23,7 @@ public partial class DashboardViewModel : ObservableObject
     public async Task RefreshAsync()
     {
         IsLoading = true;
-        Status = "Chargement...";
+        Status = T("St_Loading");
         ShowHyperVWarning = false;
         try
         {
@@ -52,12 +53,12 @@ public partial class DashboardViewModel : ObservableObject
             SwitchCount    = switches.Count;
             BaseVhdxCount  = images.Count;
 
-            Status = $"Actualisé à {DateTime.Now:HH:mm:ss}";
+            Status = T("Dash_Updated", DateTime.Now);
         }
         catch (Exception ex)
         {
             ShowHyperVWarning = true;
-            Status = $"Erreur Hyper-V : {ex.Message}";
+            Status = T("Dash_HvError", ex.Message);
         }
         finally
         {
