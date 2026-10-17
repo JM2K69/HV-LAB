@@ -68,6 +68,14 @@ function Stop-RunningApp {
     }
 }
 
+# True when the shortcut targets an exe inside $Destination (so -Uninstall of one copy
+# never removes the shortcut of another installation)
+function Test-ShortcutOwned ([string]$Path) {
+    if (-not (Test-Path $Path)) { return $false }
+    $target = (New-Object -ComObject WScript.Shell).CreateShortcut($Path).TargetPath
+    return $target -and $target.StartsWith($Destination.TrimEnd('') + '', [StringComparison]::OrdinalIgnoreCase)
+}
+
 function New-Shortcut ([string]$Path, [string]$Target) {
     $shell = New-Object -ComObject WScript.Shell
     $lnk = $shell.CreateShortcut($Path)
@@ -86,7 +94,8 @@ Write-Host ''
 if ($Uninstall) {
     Stop-RunningApp
     foreach ($link in $StartMenuLink, $DesktopLink) {
-        if (Test-Path $link) { Remove-Item $link -Force; Write-OK "Raccourci supprimé : $link" }
+        if (Test-ShortcutOwned $link) { Remove-Item $link -Force; Write-OK "Raccourci supprimé : $link" }
+        elseif (Test-Path $link)       { Write-Warn "Raccourci conservé (il pointe vers une autre installation) : $link" }
     }
     if (Test-Path $Destination) {
         Remove-Item $Destination -Recurse -Force

@@ -32,8 +32,8 @@ Une application **WinUI 3 / .NET 8** moderne pour gérer les environnements de l
 - **PowerShell 5.1+** (inclus dans Windows)
 - **Hyper-V** activé et accessible
 - Privilèges Administrateur (requis pour les opérations Hyper-V)
-- Rien d'autre à installer : la version publiée est autonome (.NET 8 et Windows App SDK inclus).
-  Le **SDK .NET 8** n'est nécessaire que pour compiler les sources.
+- Rien d'autre à installer : la version publiée est autonome (.NET 10 et Windows App SDK inclus).
+  Le **SDK .NET 10** n'est nécessaire que pour compiler les sources.
 
 ---
 
