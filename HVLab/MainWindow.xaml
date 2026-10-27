@@ -42,7 +42,7 @@
                             Margin="14,12,0,4">
                     <Border Width="32" Height="32" CornerRadius="6"
                             Background="{ThemeResource AccentFillColorDefaultBrush}">
-                        <FontIcon Glyph="&#xE7F8;" FontSize="16" Foreground="White"/>
+                        <FontIcon Glyph="&#xE7F8;" FontSize="16" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
                     </Border>
                     <StackPanel VerticalAlignment="Center" Spacing="0">
                         <TextBlock Text="HV-LAB" FontWeight="SemiBold" FontSize="14"/>

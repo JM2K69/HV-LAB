@@ -118,7 +118,7 @@
                         <Border Grid.Column="0" Width="56" Height="56" CornerRadius="28"
                                 Background="{ThemeResource AccentFillColorDefaultBrush}">
                             <TextBlock Text="{x:Bind ViewModel.SelectedSize.Label, Mode=OneWay}"
-                                       FontSize="18" FontWeight="Bold" Foreground="White"
+                                       FontSize="18" FontWeight="Bold" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
 

@@ -29,8 +29,12 @@ Read `reference.md` (next to this file) for the copy-paste XAML patterns before 
   - Accent: `AccentFillColorDefaultBrush`, `AccentTextFillColorPrimaryBrush`. Text on an accent fill: `TextOnAccentFillColorPrimaryBrush`.
   - Status: `SystemFillColorSuccessBrush`, `SystemFillColorCautionBrush`, `SystemFillColorCriticalBrush`, `SystemFillColorNeutralBrush`, plus their `…BackgroundBrush` variants for tinted areas.
 - Pages keep `Background="Transparent"` so the Mica backdrop of `MainWindow` shows through.
-- Exception: `StateToColorConverter` (VM state badge) uses dark status colours with white text on purpose, so it stays readable in both themes. Do not copy that pattern elsewhere.
-- Known debt to fix when touching these files: the hex KPI icon circles and `Foreground="White"` in `DashboardPage.xaml`, and `Foreground="White"` badges in `QuickVmPage.xaml` and `BaseVhdxPage.xaml`.
+- Tinted status icon (dashboard KPI circles): `Background="{ThemeResource SystemFillColor<Status>BackgroundBrush}"` with an icon in `SystemFillColor<Status>Brush` (Success / Neutral / Attention / Caution / Critical).
+- Text or icons on `AccentFillColorDefaultBrush` use `TextOnAccentFillColorPrimaryBrush`, never `White`.
+- Documented exceptions (fixed dark colours with white text, readable in both themes; do not copy them elsewhere):
+  - the VM state badge (`StateToColorConverter`);
+  - the Quick VM size badges (`VmSizeProfile.AccentColor`). Each colour must keep a contrast of at least 4.5:1 with white, which `VmSizeProfileTests` checks;
+  - the branded dark splash window (`SplashWindow.xaml.cs`), shown before the theme is applied.
 
 ### Typography: the Fluent type ramp
 - Use the built-in styles rather than ad-hoc `FontSize`:

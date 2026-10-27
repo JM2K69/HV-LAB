@@ -89,3 +89,22 @@ public class CatalogTests
         Assert.Equal(60, parsed.SizeGB);
     }
 }
+
+public class VmSizeProfileTests
+{
+    private static double Luminance(string hex)
+    {
+        double Channel(int i)
+        {
+            var c = Convert.ToInt32(hex.Substring(i, 2), 16) / 255.0;
+            return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Channel(1) + 0.7152 * Channel(3) + 0.0722 * Channel(5);
+    }
+
+    [Fact]
+    public void White_text_on_every_size_badge_meets_wcag_aa()
+        => Assert.All(VmSizeProfile.All, p =>
+            Assert.True(1.05 / (Luminance(p.AccentColor) + 0.05) >= 4.5,
+                $"{p.Label} {p.AccentColor}: contrast with white below 4.5:1"));
+}
