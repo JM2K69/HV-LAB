@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 
@@ -30,7 +29,10 @@ public sealed class PowerShellRunner : IPowerShellRunner, IDisposable
     public static readonly TimeSpan DefaultIdleTrimDelay = TimeSpan.FromMinutes(2);
 
     private readonly SemaphoreSlim                    _slots = new(MaxWorkers, MaxWorkers);
-    private readonly ConcurrentBag<PowerShellWorker>  _idle  = [];
+    // Idle workers, guarded by _idleLock. A list (not a bag) so the most recently used worker is
+    // always reused: regular polling then keeps a single worker busy and the others can expire.
+    private readonly List<PowerShellWorker> _idle     = [];
+    private readonly Lock                   _idleLock = new();
     private readonly TimeSpan _idleTrimDelay;
     private readonly Timer    _trimTimer;
     private volatile bool _disposed;
@@ -46,25 +48,34 @@ public sealed class PowerShellRunner : IPowerShellRunner, IDisposable
     }
 
     /// <summary>Number of warm workers currently waiting for a script (for tests and diagnostics).</summary>
-    internal int IdleWorkerCount => _idle.Count;
+    internal int IdleWorkerCount { get { lock (_idleLock) return _idle.Count; } }
+
+    /// <summary>Returns a worker to the pool; false when it must be disposed instead.</summary>
+    private bool TryReturnIdle(PowerShellWorker w)
+    {
+        lock (_idleLock)
+        {
+            if (_disposed || !w.IsAlive || _idle.Count >= MaxWorkers) return false;
+            _idle.Add(w);
+            return true;
+        }
+    }
 
     // Closes idle workers unused for _idleTrimDelay, always keeping the most recently used one warm
     // (per worker, so the 5 s VM polling, which only needs one worker, does not keep all three alive)
     private void TrimIdleWorkers()
     {
-        if (_disposed || _idle.Count <= 1) return;
-        var taken = new List<PowerShellWorker>();
-        while (_idle.TryTake(out var w)) taken.Add(w);
-
-        var now = Environment.TickCount64;
-        var keepFirst = true;
-        foreach (var w in taken.OrderByDescending(w => w.LastUsedTicks))
+        var toDispose = new List<PowerShellWorker>();
+        lock (_idleLock)
         {
-            var stale = TimeSpan.FromMilliseconds(now - w.LastUsedTicks) >= _idleTrimDelay;
-            if (w.IsAlive && (keepFirst || !stale) && !_disposed) _idle.Add(w);
-            else w.Dispose();
-            keepFirst = false;
+            if (_disposed || _idle.Count <= 1) return;
+            var keep = _idle.MaxBy(w => w.LastUsedTicks)!;
+            foreach (var w in _idle)
+                if (w != keep && (!w.IsAlive || Stopwatch.GetElapsedTime(w.LastUsedTicks) >= _idleTrimDelay))
+                    toDispose.Add(w);
+            _idle.RemoveAll(toDispose.Contains);
         }
+        foreach (var w in toDispose) w.Dispose();   // outside the lock: Dispose waits for the process
     }
 
     /// <summary>
@@ -79,7 +90,7 @@ public sealed class PowerShellRunner : IPowerShellRunner, IDisposable
                 try
                 {
                     var w = PowerShellWorker.Start();
-                    if (_idle.Count < MaxWorkers && !_disposed) _idle.Add(w); else w.Dispose();
+                    if (!TryReturnIdle(w)) w.Dispose();
                 }
                 catch (Exception ex) { CrashLogger.Log("PowerShellRunner.Warmup", ex); }
             });
@@ -131,30 +142,35 @@ public sealed class PowerShellRunner : IPowerShellRunner, IDisposable
         finally
         {
             // A worker that was killed (cancel/timeout) or that exited (script called "exit") is dropped
-            if (worker is not null)
-            {
-                if (worker.IsAlive && !_disposed && _idle.Count < MaxWorkers) _idle.Add(worker);
-                else worker.Dispose();
-            }
+            if (worker is not null && !TryReturnIdle(worker))
+                worker.Dispose();
             _slots.Release();
         }
     }
 
+    /// <summary>Takes the most recently used live worker, or null when none is idle.</summary>
     private PowerShellWorker? TakeIdleWorker()
     {
-        while (_idle.TryTake(out var w))
+        var dead = new List<PowerShellWorker>();
+        PowerShellWorker? best = null;
+        lock (_idleLock)
         {
-            if (w.IsAlive) return w;
-            w.Dispose();
+            dead.AddRange(_idle.Where(w => !w.IsAlive));
+            _idle.RemoveAll(dead.Contains);
+            best = _idle.MaxBy(w => w.LastUsedTicks);
+            if (best is not null) _idle.Remove(best);
         }
-        return null;
+        foreach (var w in dead) w.Dispose();
+        return best;
     }
 
     public void Dispose()
     {
         _disposed = true;
         _trimTimer.Dispose();
-        while (_idle.TryTake(out var w)) w.Dispose();
+        List<PowerShellWorker> all;
+        lock (_idleLock) { all = [.. _idle]; _idle.Clear(); }
+        foreach (var w in all) w.Dispose();
     }
 
     /// <summary>
@@ -234,8 +250,11 @@ internal sealed class PowerShellWorker : IDisposable
 
     private PowerShellWorker(Process proc) => _proc = proc;
 
-    /// <summary>Environment.TickCount64 of the end of the last script (or of the start).</summary>
-    public long LastUsedTicks { get; private set; } = Environment.TickCount64;
+    /// <summary>
+    /// <see cref="Stopwatch.GetTimestamp"/> at the end of the last script (or at start-up). High resolution on
+    /// purpose: Environment.TickCount64 (~15 ms steps) made workers used in a burst look equally recent.
+    /// </summary>
+    public long LastUsedTicks { get; private set; } = Stopwatch.GetTimestamp();
 
     public bool IsAlive
     {
@@ -287,7 +306,7 @@ internal sealed class PowerShellWorker : IDisposable
         {
             if (line.StartsWith(EndPrefix, StringComparison.Ordinal))
             {
-                LastUsedTicks = Environment.TickCount64;
+                LastUsedTicks = Stopwatch.GetTimestamp();
                 return new ScriptResult(output.ToString(), errors.ToString().Trim(),
                                         int.TryParse(line.AsSpan(EndPrefix.Length), out var c) ? c : 1);
             }
@@ -300,7 +319,7 @@ internal sealed class PowerShellWorker : IDisposable
             if (progress is not null && !string.IsNullOrWhiteSpace(line)) progress.Report(line.Trim());
         }
 
-        LastUsedTicks = Environment.TickCount64;
+        LastUsedTicks = Stopwatch.GetTimestamp();
         // Stream closed: the worker was killed (cancel/timeout) or the script called "exit"
         ct.ThrowIfCancellationRequested();
         await _proc.WaitForExitAsync(CancellationToken.None);

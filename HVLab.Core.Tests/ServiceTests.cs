@@ -182,14 +182,23 @@ public class PowerShellRunnerTests
         Assert.Equal("ok", (await runner.RunAsync("'ok'")).Trim());
     }
 
+
+    // Three parallel scripts that all finish at the same instant, however long each worker takes to start
+    private static Task FillPoolAsync(PowerShellRunner runner)
+    {
+        var until = DateTime.UtcNow.AddSeconds(8).ToString("o");
+        var script = $"while ([DateTime]::UtcNow -lt [DateTime]::Parse('{until}').ToUniversalTime()) {{ Start-Sleep -Milliseconds 20 }}; 'x'";
+        return Task.WhenAll(Enumerable.Range(0, 3).Select(_ => runner.RunAsync(script)));
+    }
+
     [Fact]
     public async Task Only_one_warm_worker_is_kept_after_inactivity()
     {
-        using var runner = new PowerShellRunner(idleTrimDelay: TimeSpan.FromMilliseconds(300));
-        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => runner.RunAsync("Start-Sleep -Milliseconds 300; 'x'")));
+        using var runner = new PowerShellRunner(idleTrimDelay: TimeSpan.FromSeconds(2));
+        await FillPoolAsync(runner);
         Assert.Equal(3, runner.IdleWorkerCount);
 
-        for (int i = 0; i < 40 && runner.IdleWorkerCount > 1; i++) await Task.Delay(100);
+        for (int i = 0; i < 100 && runner.IdleWorkerCount > 1; i++) await Task.Delay(100);
         Assert.Equal(1, runner.IdleWorkerCount);
         Assert.Equal("ok", (await runner.RunAsync("'ok'")).Trim());   // the kept worker still answers
     }
@@ -197,13 +206,16 @@ public class PowerShellRunnerTests
     [Fact]
     public async Task Regular_polling_on_one_worker_does_not_keep_the_others()
     {
-        using var runner = new PowerShellRunner(idleTrimDelay: TimeSpan.FromMilliseconds(400));
-        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => runner.RunAsync("Start-Sleep -Milliseconds 300; 'x'")));
-        for (int i = 0; i < 20; i++)               // poll every 100 ms for 2 s, like the VM page (every 5 s)
+        using var runner = new PowerShellRunner(idleTrimDelay: TimeSpan.FromSeconds(1));
+        await FillPoolAsync(runner);
+        var pids = new HashSet<string>();
+        for (int i = 0; i < 30; i++)               // poll every 100 ms for 3 s, like the VM page (every 5 s)
         {
-            await runner.RunAsync("'poll'");
+            pids.Add((await runner.RunAsync("$PID")).Trim());
             await Task.Delay(100);
         }
+        Assert.Single(pids);                       // always the most recently used worker
+        for (int i = 0; i < 50 && runner.IdleWorkerCount > 1; i++) await Task.Delay(100);
         Assert.Equal(1, runner.IdleWorkerCount);
     }
 
