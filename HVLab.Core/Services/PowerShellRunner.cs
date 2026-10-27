@@ -26,9 +26,46 @@ public sealed class PowerShellRunner : IPowerShellRunner, IDisposable
     /// <summary>Maximum number of scripts running at the same time (= number of workers).</summary>
     public const int MaxWorkers = 3;
 
+    /// <summary>After this much inactivity, idle workers beyond the first one are closed (saves ~110 MB each).</summary>
+    public static readonly TimeSpan DefaultIdleTrimDelay = TimeSpan.FromMinutes(2);
+
     private readonly SemaphoreSlim                    _slots = new(MaxWorkers, MaxWorkers);
     private readonly ConcurrentBag<PowerShellWorker>  _idle  = [];
+    private readonly TimeSpan _idleTrimDelay;
+    private readonly Timer    _trimTimer;
     private volatile bool _disposed;
+
+    public PowerShellRunner() : this(DefaultIdleTrimDelay) { }
+
+    /// <param name="idleTrimDelay">Inactivity after which only one warm worker is kept.</param>
+    internal PowerShellRunner(TimeSpan idleTrimDelay)
+    {
+        _idleTrimDelay = idleTrimDelay;
+        var period = TimeSpan.FromMilliseconds(Math.Clamp(idleTrimDelay.TotalMilliseconds / 4, 50, 30_000));
+        _trimTimer = new Timer(_ => TrimIdleWorkers(), null, period, period);
+    }
+
+    /// <summary>Number of warm workers currently waiting for a script (for tests and diagnostics).</summary>
+    internal int IdleWorkerCount => _idle.Count;
+
+    // Closes idle workers unused for _idleTrimDelay, always keeping the most recently used one warm
+    // (per worker, so the 5 s VM polling, which only needs one worker, does not keep all three alive)
+    private void TrimIdleWorkers()
+    {
+        if (_disposed || _idle.Count <= 1) return;
+        var taken = new List<PowerShellWorker>();
+        while (_idle.TryTake(out var w)) taken.Add(w);
+
+        var now = Environment.TickCount64;
+        var keepFirst = true;
+        foreach (var w in taken.OrderByDescending(w => w.LastUsedTicks))
+        {
+            var stale = TimeSpan.FromMilliseconds(now - w.LastUsedTicks) >= _idleTrimDelay;
+            if (w.IsAlive && (keepFirst || !stale) && !_disposed) _idle.Add(w);
+            else w.Dispose();
+            keepFirst = false;
+        }
+    }
 
     /// <summary>
     /// Starts <paramref name="count"/> workers in the background so the first calls (splash screen)
@@ -116,6 +153,7 @@ public sealed class PowerShellRunner : IPowerShellRunner, IDisposable
     public void Dispose()
     {
         _disposed = true;
+        _trimTimer.Dispose();
         while (_idle.TryTake(out var w)) w.Dispose();
     }
 
@@ -196,6 +234,9 @@ internal sealed class PowerShellWorker : IDisposable
 
     private PowerShellWorker(Process proc) => _proc = proc;
 
+    /// <summary>Environment.TickCount64 of the end of the last script (or of the start).</summary>
+    public long LastUsedTicks { get; private set; } = Environment.TickCount64;
+
     public bool IsAlive
     {
         get { try { return !_proc.HasExited; } catch { return false; } }
@@ -245,8 +286,11 @@ internal sealed class PowerShellWorker : IDisposable
         while (await _proc.StandardOutput.ReadLineAsync(CancellationToken.None) is { } line)
         {
             if (line.StartsWith(EndPrefix, StringComparison.Ordinal))
+            {
+                LastUsedTicks = Environment.TickCount64;
                 return new ScriptResult(output.ToString(), errors.ToString().Trim(),
                                         int.TryParse(line.AsSpan(EndPrefix.Length), out var c) ? c : 1);
+            }
             if (line.StartsWith(ErrPrefix, StringComparison.Ordinal))
             {
                 errors.AppendLine(line[ErrPrefix.Length..]);
@@ -256,6 +300,7 @@ internal sealed class PowerShellWorker : IDisposable
             if (progress is not null && !string.IsNullOrWhiteSpace(line)) progress.Report(line.Trim());
         }
 
+        LastUsedTicks = Environment.TickCount64;
         // Stream closed: the worker was killed (cancel/timeout) or the script called "exit"
         ct.ThrowIfCancellationRequested();
         await _proc.WaitForExitAsync(CancellationToken.None);

@@ -183,6 +183,31 @@ public class PowerShellRunnerTests
     }
 
     [Fact]
+    public async Task Only_one_warm_worker_is_kept_after_inactivity()
+    {
+        using var runner = new PowerShellRunner(idleTrimDelay: TimeSpan.FromMilliseconds(300));
+        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => runner.RunAsync("Start-Sleep -Milliseconds 300; 'x'")));
+        Assert.Equal(3, runner.IdleWorkerCount);
+
+        for (int i = 0; i < 40 && runner.IdleWorkerCount > 1; i++) await Task.Delay(100);
+        Assert.Equal(1, runner.IdleWorkerCount);
+        Assert.Equal("ok", (await runner.RunAsync("'ok'")).Trim());   // the kept worker still answers
+    }
+
+    [Fact]
+    public async Task Regular_polling_on_one_worker_does_not_keep_the_others()
+    {
+        using var runner = new PowerShellRunner(idleTrimDelay: TimeSpan.FromMilliseconds(400));
+        await Task.WhenAll(Enumerable.Range(0, 3).Select(_ => runner.RunAsync("Start-Sleep -Milliseconds 300; 'x'")));
+        for (int i = 0; i < 20; i++)               // poll every 100 ms for 2 s, like the VM page (every 5 s)
+        {
+            await runner.RunAsync("'poll'");
+            await Task.Delay(100);
+        }
+        Assert.Equal(1, runner.IdleWorkerCount);
+    }
+
+    [Fact]
     public async Task Parallel_calls_run_on_separate_workers()
     {
         using var runner = new PowerShellRunner();
