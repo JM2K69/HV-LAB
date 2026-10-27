@@ -123,7 +123,7 @@ HV-LAB/
 - **MVVM** with CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
 - **Dependency injection** with Microsoft.Extensions.DependencyInjection: `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` and `IThemeService`.
 - **Hyper-V access** goes through Windows PowerShell 5.1:
-  - scripts are streamed over stdin, with cancellation and timeouts;
+  - scripts run in a pool of up to 3 warm `powershell.exe` workers (Hyper-V module imported once), streamed over stdin, with cancellation and timeouts;
   - errors are translated into the UI language;
   - every value is escaped by a single helper (`PowerShellRunner.Esc`).
 

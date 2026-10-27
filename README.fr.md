@@ -123,7 +123,7 @@ HV-LAB/
 - **MVVM** avec CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
 - **Injection de dépendances** avec Microsoft.Extensions.DependencyInjection : `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` et `IThemeService`.
 - **Accès à Hyper-V** via Windows PowerShell 5.1 :
-  - les scripts passent par l'entrée standard, avec annulation et délais ;
+  - les scripts tournent dans un pool de 3 `powershell.exe` maximum gardés ouverts (module Hyper-V importé une seule fois), via l'entrée standard, avec annulation et délais ;
   - les erreurs sont traduites dans la langue de l'interface ;
   - toutes les valeurs sont échappées par un seul helper (`PowerShellRunner.Esc`).
 

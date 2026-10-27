@@ -140,6 +140,58 @@ public class VirtualMachinesViewModelTests
 public class PowerShellRunnerTests
 {
     [Fact]
+    public async Task Sequential_calls_reuse_the_same_warm_process()
+    {
+        using var runner = new PowerShellRunner();
+        var pid1 = (await runner.RunAsync("$PID")).Trim();
+        var pid2 = (await runner.RunAsync("$PID")).Trim();
+        Assert.Equal(pid1, pid2);
+    }
+
+    [Fact]
+    public async Task Variables_do_not_leak_between_scripts()
+    {
+        using var runner = new PowerShellRunner();
+        await runner.RunAsync("$leak = 'x'");
+        Assert.Equal("", (await runner.RunAsync("\"$leak\"")).Trim());
+    }
+
+    [Fact]
+    public async Task Exit_in_a_script_is_reported_and_the_worker_is_replaced()
+    {
+        using var runner = new PowerShellRunner();
+        var pid = (await runner.RunAsync("$PID")).Trim();
+        var ex  = await Assert.ThrowsAsync<PowerShellException>(() => runner.RunAsync("Write-Output 'a'; exit 3"));
+        Assert.Equal(3, ex.ExitCode);
+        Assert.NotEqual(pid, (await runner.RunAsync("$PID")).Trim());
+    }
+
+    [Fact]
+    public async Task Non_terminating_errors_do_not_fail_the_script()
+    {
+        using var runner = new PowerShellRunner();
+        Assert.Equal("after", (await runner.RunAsync("Write-Error 'soft'; 'after'")).Trim());
+    }
+
+    [Fact]
+    public async Task Cancellation_kills_the_worker_and_the_pool_recovers()
+    {
+        using var runner = new PowerShellRunner();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.RunAsync("Start-Sleep 30", ct: cts.Token));
+        Assert.Equal("ok", (await runner.RunAsync("'ok'")).Trim());
+    }
+
+    [Fact]
+    public async Task Parallel_calls_run_on_separate_workers()
+    {
+        using var runner = new PowerShellRunner();
+        var pids = await Task.WhenAll(Enumerable.Range(0, 3).Select(_ =>
+            runner.RunAsync("Start-Sleep -Milliseconds 300; $PID")));
+        Assert.Equal(3, pids.Select(p => p.Trim()).Distinct().Count());
+    }
+
+    [Fact]
     public async Task Script_error_tokens_are_translated_in_the_exception()
     {
         var ex = await Assert.ThrowsAsync<PowerShellException>(() =>

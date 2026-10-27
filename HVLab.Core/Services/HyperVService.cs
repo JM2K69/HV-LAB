@@ -73,8 +73,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 })
                 if ($vms.Count -gt 0) { ConvertTo-Json -InputObject $vms -Depth 2 -Compress } else { '[]' }
             } catch {
-                Write-Error $_.Exception.Message
-                exit 1
+                throw   # rethrow: the runner reports the message
             }
             """;
         var output = await RunScriptAsync(script);
@@ -175,8 +174,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 })
                 if ($switches.Count -gt 0) { ConvertTo-Json -InputObject $switches -Depth 2 } else { '[]' }
             } catch {
-                Write-Error $_.Exception.Message
-                exit 1
+                throw   # rethrow: the runner reports the message
             }
             """;
         var output = await RunScriptAsync(script);
@@ -256,8 +254,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 })
                 if ($adapters.Count -gt 0) { ConvertTo-Json -InputObject $adapters -Depth 2 } else { '[]' }
             } catch {
-                Write-Error $_.Exception.Message
-                exit 1
+                throw   # rethrow: the runner reports the message
             }
             """;
         var output = await RunScriptAsync(script);

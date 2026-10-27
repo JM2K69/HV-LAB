@@ -33,8 +33,7 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                 })
                 if ($imgs.Count -gt 0) { ConvertTo-Json -InputObject $imgs -Depth 2 } else { '[]' }
             } catch {
-                Write-Error $_.Exception.Message
-                exit 1
+                throw   # rethrow: the runner reports the message
             }
             """;
 

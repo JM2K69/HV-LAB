@@ -34,6 +34,9 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // Démarrer les processus PowerShell (Hyper-V importé) pendant que le splash s'affiche
+        (GetService<IPowerShellRunner>() as PowerShellRunner)?.Warmup();
+
         // Afficher le splash immédiatement
         var splash = new SplashWindow();
         splash.Activate();
