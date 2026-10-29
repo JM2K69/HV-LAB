@@ -6,6 +6,6 @@
     release workflow, which also adds the pre-release suffix of tags like vX.Y.Z-beta.1).
   -->
   <PropertyGroup>
-    <VersionPrefix>1.27.1</VersionPrefix>
+    <VersionPrefix>1.27.2</VersionPrefix>
   </PropertyGroup>
 </Project>
