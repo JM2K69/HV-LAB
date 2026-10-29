@@ -36,6 +36,21 @@ public class AnswerFileTests
         Assert.Equal("a<b&\"c>", value);
     }
 
+    [Theory]
+    [InlineData(OsFamily.Server)]
+    [InlineData(OsFamily.Client)]
+    public void Built_in_administrator_password_is_set_so_oobe_does_not_ask_for_it(OsFamily family)
+    {
+        var accounts = Generate(c => { c.OsFamily = family; c.AdminPassword = "P<w&d"; })
+            .Descendants(U + "UserAccounts").Single();
+        var admin = accounts.Element(U + "AdministratorPassword");
+        Assert.NotNull(admin);
+        Assert.Equal("P<w&d", admin.Element(U + "Value")!.Value);
+        Assert.Equal("true", admin.Element(U + "PlainText")!.Value);
+        // Schema order: AdministratorPassword comes before LocalAccounts
+        Assert.Equal("AdministratorPassword", accounts.Elements().First().Name.LocalName);
+    }
+
     [Fact]
     public void First_logon_deletes_the_cached_answer_file()
     {

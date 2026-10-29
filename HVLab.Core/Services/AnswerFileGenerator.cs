@@ -69,9 +69,12 @@ public static class AnswerFileGenerator
                         </OOBE>
               """;
 
-        // Use one explicit local admin account for both client/server to avoid localized built-in Administrator issues
+        // Use one explicit local admin account for both client/server to avoid localized built-in Administrator issues.
+        // AdministratorPassword also sets the built-in Administrator (located by its SID, so the localized name
+        // does not matter): it is enabled on Windows Server, whose OOBE otherwise stops to ask for its password.
         var userAccounts = $"""
                         <UserAccounts>
+                            <AdministratorPassword><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></AdministratorPassword>
                             <LocalAccounts>
                                 <LocalAccount wcm:action="add">
                                     <Password><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></Password>
