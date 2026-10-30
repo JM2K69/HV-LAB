@@ -228,27 +228,40 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                                         -ApplyPath "$winPath\" -ErrorAction Stop | Out-Null
 
                     Write-Output "##Prg_Bcd"
-                    # Boot files of an OFFLINE image: a recent host bcdboot (Windows 11 24H2 / Server 2025) needs
-                    # /offline, otherwise it fails on older images ("Failure when attempting to copy boot files").
-                    # /nofirmwaresync: never touch the host's own UEFI boot entries.
-                    # Fallbacks: host bcdboot without the new switches (older hosts), then the image's own bcdboot
-                    # (can fail with "Failed to create a new system store [c0000035]" on a recent host).
+                    # Boot files of an OFFLINE image. A recent host bcdboot (Windows 11 24H2+) wants the new
+                    # Windows\Boot\EFI_EX files that older images (e.g. Server 2019) lack -> "Failure when attempting
+                    # to copy boot files". The image's bcdboot run in place loads the HOST bcd.dll / bcdsrv.dll ->
+                    # "Failed to create a new system store [c0000035]". Fix: run the image's bcdboot together with
+                    # its own bcd.dll + bcdsrv.dll from a separate, admin-only folder (removed afterwards).
+                    # Fallbacks: host bcdboot with /offline (never touching the host's UEFI entries), then plain.
                     $bcdTarget = if ($isGen2) { "${efiLetter}:" } else { "$winPath" }
                     $bcdFw     = if ($isGen2) { 'UEFI' } else { 'BIOS' }
                     $hostBcd   = "$env:SystemRoot\System32\bcdboot.exe"
-                    $imageBcd  = "$winPath\Windows\System32\bcdboot.exe"
-                    $bcdTries  = @(
-                        @{ Tool = $hostBcd;  Extra = @('/offline', '/nofirmwaresync') },
-                        @{ Tool = $hostBcd;  Extra = @() },
-                        @{ Tool = $imageBcd; Extra = @() }
-                    ) | Where-Object { Test-Path $_.Tool }
+                    $imgSys    = "$winPath\Windows\System32"
+                    $bcdDir    = "$winPath\HVLab-bcdboot"
+                    $bcdTries  = @()
+                    if (Test-Path "$imgSys\bcdboot.exe") {
+                        New-Item $bcdDir -ItemType Directory -Force | Out-Null
+                        # Administrators + SYSTEM only: these binaries run elevated
+                        & icacls.exe $bcdDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+                        foreach ($f in 'bcdboot.exe', 'bcd.dll', 'bcdsrv.dll') {
+                            if (Test-Path "$imgSys\$f") { Copy-Item "$imgSys\$f" $bcdDir -Force }
+                        }
+                        $bcdTries += @{ Tool = "$bcdDir\bcdboot.exe"; Extra = @(); Label = 'image bcdboot' }
+                    }
+                    $bcdTries += @{ Tool = $hostBcd; Extra = @('/offline', '/nofirmwaresync'); Label = 'host bcdboot /offline' }
+                    $bcdTries += @{ Tool = $hostBcd; Extra = @();                               Label = 'host bcdboot' }
                     $bcdOk = $false; $bcdErrors = @()
                     $ErrorActionPreference = 'Continue'   # native stderr must not abort before the fallback
-                    foreach ($bcdTry in $bcdTries) {
-                        $bcdArgs = @("$winPath\Windows", '/s', $bcdTarget, '/f', $bcdFw) + $bcdTry.Extra
-                        $bcd = & $bcdTry.Tool @bcdArgs 2>&1
-                        if ($LASTEXITCODE -eq 0) { $bcdOk = $true; break }
-                        $bcdErrors += "$($bcdTry.Tool) $($bcdTry.Extra -join ' '): $bcd"
+                    try {
+                        foreach ($bcdTry in $bcdTries) {
+                            $bcdArgs = @("$winPath\Windows", '/s', $bcdTarget, '/f', $bcdFw) + $bcdTry.Extra
+                            $bcd = & $bcdTry.Tool @bcdArgs 2>&1
+                            if ($LASTEXITCODE -eq 0) { $bcdOk = $true; break }
+                            $bcdErrors += "$($bcdTry.Label): $bcd"
+                        }
+                    } finally {
+                        if (Test-Path $bcdDir) { Remove-Item $bcdDir -Recurse -Force -ErrorAction SilentlyContinue }
                     }
                     $ErrorActionPreference = 'Stop'
                     if (-not $bcdOk) { throw "##Err_Bcdboot|$($bcdErrors -join ' / ')" }
