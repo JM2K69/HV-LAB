@@ -72,15 +72,22 @@ public partial class BaseVhdxViewModel : PageViewModelBase
         family.StartsWith("WindowsServer", StringComparison.OrdinalIgnoreCase);
 
     private bool ComputeShowDesktopExperience() =>
-        IsServerFamily(SelectedOsFamily) && !SelectedEdition.EndsWith("Core");
+        IsServerFamily(SelectedOsFamily) && SelectedEdition?.EndsWith("Core") == false;
 
     private void RefreshEditions()
     {
         var editions = IsServerFamily(SelectedOsFamily) ? ServerEditions : ClientEditions;
-        AvailableEditions.Clear();
-        foreach (var e in editions) AvailableEditions.Add(e);
+        // Rebuilt only when the list really changes (server <-> client). Clearing it makes the
+        // Edition ComboBox push a null SelectedItem back into SelectedEdition.
+        if (!AvailableEditions.SequenceEqual(editions))
+        {
+            var kept = SelectedEdition;
+            AvailableEditions.Clear();
+            foreach (var e in editions) AvailableEditions.Add(e);
+            SelectedEdition = kept;
+        }
 
-        if (!AvailableEditions.Contains(SelectedEdition))
+        if (SelectedEdition is null || !AvailableEditions.Contains(SelectedEdition))
             SelectedEdition = AvailableEditions.FirstOrDefault() ?? "";
 
         ShowDesktopExperience = ComputeShowDesktopExperience();
@@ -126,7 +133,7 @@ public partial class BaseVhdxViewModel : PageViewModelBase
     /// </summary>
     private void AutoMatchWimIndex()
     {
-        if (WimImages.Count == 0) { MatchedWimImage = null; return; }
+        if (WimImages.Count == 0 || SelectedEdition is null) { MatchedWimImage = null; return; }
 
         var match = WimImages.FirstOrDefault(img =>
             img.MatchesEdition(SelectedEdition, DesktopExperience && ShowDesktopExperience));
@@ -248,6 +255,12 @@ public partial class BaseVhdxViewModel : PageViewModelBase
 
             if (!string.IsNullOrWhiteSpace(detectedVersion))
                 OsVersion = detectedVersion;
+
+            // Same for the OS family: it names the base file, so it must follow the WIM
+            var detectedFamily = images.Select(i => i.OsFamily)
+                                       .FirstOrDefault(f => f is not null && OsFamilies.Contains(f));
+            if (detectedFamily is not null)
+                SelectedOsFamily = detectedFamily;
 
             WimAnalyzed = true;
             AutoMatchWimIndex();

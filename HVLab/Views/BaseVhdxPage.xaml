@@ -65,9 +65,11 @@
 
         <!-- Main content -->
         <Grid Grid.Row="3" RowSpacing="12">
+            <!-- The list row is Auto, not *: inside the page ScrollViewer a * row takes all the free
+                 height, which left an empty band between the column headers and the images -->
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
@@ -94,6 +96,7 @@
             <ListView x:Name="ImageList" Grid.Row="1"
                       ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
                       SelectionMode="Single"
+                      VerticalAlignment="Top"
                       MaxHeight="420">
                 <ListView.KeyboardAccelerators>
                     <KeyboardAccelerator Key="Delete" Invoked="DeleteSelected_Invoked"/>

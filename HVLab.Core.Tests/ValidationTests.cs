@@ -94,3 +94,59 @@ public class NatAndBulkTests
         Assert.EndsWith("(+2)", preview);
     }
 }
+
+public class WimImageInfoTests
+{
+    [Theory]
+    [InlineData("Windows Server 2019 Standard (Desktop Experience)", "WindowsServer2019")]
+    [InlineData("Windows Server 2025 Datacenter", "WindowsServer2025")]
+    [InlineData("Windows 11 Enterprise", "Windows11")]
+    [InlineData("Windows 10 Pro", "Windows10")]
+    [InlineData("Custom image", null)]
+    public void OsFamily_IsReadFromTheImageName(string imageName, string? expected) =>
+        Assert.Equal(expected, new HVLab.Models.WimImageInfo { ImageName = imageName }.OsFamily);
+}
+
+public class BaseVhdxFormTests
+{
+    private static string Wim(string os, string version) =>
+        "[" + string.Join(",", new[] { $"{os} Standard", $"{os} Standard (Desktop Experience)", $"{os} Pro" }
+            .Select((n, i) => $"{{\"ImageIndex\":{i + 1},\"ImageName\":\"{n}\",\"Version\":\"{version}\",\"ImageSize\":1}}")) + "]";
+
+    private static async Task<BaseVhdxViewModel> AnalyzeAsync(string json)
+    {
+        var vm = new BaseVhdxViewModel(new VhdxService(new FakePowerShellRunner(_ => json)), new FakeDialogService());
+        // Same as the Edition ComboBox: clearing its items pushes a null selection back
+        vm.AvailableEditions.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Reset) vm.SelectedEdition = null!;
+        };
+        var wim = Path.GetTempFileName();
+        try
+        {
+            vm.WimPath = wim;   // starts the analysis
+            await vm.AnalyzeWimCommand.ExecutionTask!;
+        }
+        finally { File.Delete(wim); }
+        return vm;
+    }
+
+    [Fact]
+    public async Task AnalyzingAServerWim_SelectsItsFamilyAndIndex()
+    {
+        var vm = await AnalyzeAsync(Wim("Windows Server 2022", "10.0.20348.5761"));
+        Assert.Equal("WindowsServer2022", vm.SelectedOsFamily);
+        Assert.Equal(2, vm.ImageIndex);
+        Assert.StartsWith("BASE_WindowsServer2022Standard(DesktopExperience)_10.0.20348.5761", vm.PreviewFileName);
+    }
+
+    [Fact]
+    public async Task AnalyzingAClientWim_SwitchesToClientEditionsWithoutError()
+    {
+        var vm = await AnalyzeAsync(Wim("Windows 11", "10.0.26100.1"));
+        Assert.Equal("Windows11", vm.SelectedOsFamily);
+        Assert.Equal("Pro", vm.SelectedEdition);
+        Assert.Equal(3, vm.ImageIndex);
+        Assert.True(vm.WimAnalyzed);
+    }
+}

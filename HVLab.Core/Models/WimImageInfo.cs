@@ -20,6 +20,21 @@ public class WimImageInfo
     /// <summary>Friendly display string shown in the UI list.</summary>
     public string Display      => $"[{ImageIndex}] {ImageName}  ({Version})";
 
+    /// <summary>
+    /// HV-LAB OS family read from the image name ("Windows Server 2019 Standard" → "WindowsServer2019",
+    /// "Windows 11 Pro" → "Windows11"), or null when the name is not recognised.
+    /// </summary>
+    public string? OsFamily
+    {
+        get
+        {
+            var server = System.Text.RegularExpressions.Regex.Match(ImageName, @"Windows\s+Server\s+(\d{4})", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            if (server.Success) return "WindowsServer" + server.Groups[1].Value;
+            var client = System.Text.RegularExpressions.Regex.Match(ImageName, @"Windows\s+(1[01])\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return client.Success ? "Windows" + client.Groups[1].Value : null;
+        }
+    }
+
     // ── Edition matching helpers ─────────────────────────────────────────────
 
     /// <summary>
