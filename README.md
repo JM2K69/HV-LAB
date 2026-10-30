@@ -4,6 +4,8 @@
 
 A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V lab environments on Windows: base images, differencing-disk VMs with unattended setup, virtual switches and NAT.
 
+📖 **Documentation**: <https://jm2k69.github.io/HV-LAB/en/>, with a step-by-step user guide.
+
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20Server-blue)
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![WinUI](https://img.shields.io/badge/UI-WinUI%203%20(App%20SDK%201.8)-blueviolet)

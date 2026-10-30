@@ -63,6 +63,10 @@ Thumbs.db
 
 HVLab/publish/
 
+# Zensical documentation output
+docs/site/
+docs/.cache/
+
 AppPackages/
 
 # Signing keys / stray files

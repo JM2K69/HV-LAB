@@ -4,6 +4,8 @@
 
 Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des laboratoires Microsoft Hyper-V sous Windows : images de base, VM en disque différentiel avec installation automatisée, commutateurs virtuels et NAT.
 
+📖 **Documentation** : <https://jm2k69.github.io/HV-LAB/fr/>, avec un guide d'utilisation pas à pas.
+
 ![Plateforme](https://img.shields.io/badge/plateforme-Windows%2010%2F11%20%7C%20Server-blue)
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![WinUI](https://img.shields.io/badge/UI-WinUI%203%20(App%20SDK%201.8)-blueviolet)

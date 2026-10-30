@@ -1,0 +1,101 @@
+# HV-LAB documentation, English site (https://jm2k69.github.io/HV-LAB/en/).
+# Zensical supports one language per project: the French site is built from zensical.fr.toml,
+# which must stay in sync with this file apart from the [project] texts, nav and language.
+# Built only by .github/workflows/docs.yml, into docs/site/en.
+
+[project]
+site_name = "HV-LAB Manager"
+site_url = "https://jm2k69.github.io/HV-LAB/en/"
+site_description = "Build and run Microsoft Hyper-V labs on Windows: base images, unattended VMs, switches and NAT."
+site_author = "JM2K69"
+copyright = "&copy; 2026 JM2K69"
+repo_url = "https://github.com/JM2K69/HV-LAB"
+repo_name = "JM2K69/HV-LAB"
+edit_uri = "edit/master/docs/en/"
+docs_dir = "en"
+site_dir = "site/en"
+nav = [
+  { "Home" = "index.md" },
+  { "Installation" = "install.md" },
+  { "User guide" = [
+    { "Switches & NAT" = "guide/networking.md" },
+    { "Base images" = "guide/base-images.md" },
+    { "Create a VM" = "guide/create-vm.md" },
+    { "Quick VM" = "guide/quick-vm.md" },
+    { "Dashboard & VMs" = "guide/virtual-machines.md" },
+    { "Settings" = "guide/settings.md" },
+  ] },
+  { "Troubleshooting" = "troubleshooting.md" },
+  { "Development" = "development.md" },
+]
+
+[project.theme]
+language = "en"
+logo = "assets/logo.png"
+favicon = "assets/logo.png"
+features = [
+  "content.action.edit",
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+# Language selector: absolute links to the two sites published side by side on GitHub Pages
+[project.extra]
+alternate = [
+  { name = "English", link = "/HV-LAB/en/", lang = "en" },
+  { name = "Français", link = "/HV-LAB/fr/", lang = "fr" },
+]
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/JM2K69/HV-LAB"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.emoji.emoji_generator = "zensical.extensions.emoji.to_svg"
+pymdownx.emoji.emoji_index = "zensical.extensions.emoji.twemoji"
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.superfences.custom_fences = [
+  { name = "mermaid", class = "mermaid", format = "pymdownx.superfences.fence_code_format" },
+]
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true

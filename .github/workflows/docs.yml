@@ -1,0 +1,62 @@
+# Builds the documentation (English and French Zensical sites) and publishes it to GitHub Pages.
+#  - Pull request touching docs/    -> strict build only
+#  - Push to master touching docs/  -> build + deploy to https://jm2k69.github.io/HV-LAB/
+#  - Run manually (Actions > Docs > Run workflow) -> build + deploy
+# One-time setup: Settings > Pages > Build and deployment > Source = "GitHub Actions".
+name: Docs
+
+on:
+  push:
+    branches: [ master ]
+    paths: [ 'docs/**', '.github/workflows/docs.yml' ]
+  pull_request:
+    paths: [ 'docs/**', '.github/workflows/docs.yml' ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+
+      # Pinned: Zensical is pre-1.0 and its configuration still changes between versions
+      - run: pip install zensical==0.0.73
+
+      - name: Build (English + French)
+        working-directory: docs
+        run: |
+          # Zensical builds one language per project: docs/site/en and docs/site/fr,
+          # plus a root page that redirects to the browser's language
+          zensical build --clean --strict -f zensical.en.toml
+          zensical build --clean --strict -f zensical.fr.toml
+          cp index.html site/index.html
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      - uses: actions/deploy-pages@v5
+        id: deployment
