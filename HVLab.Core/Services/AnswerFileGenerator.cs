@@ -49,7 +49,8 @@ public static class AnswerFileGenerator
               """
             : string.Empty;
 
-        var autoLogonUser = "HVLabAdmin";
+        // Built-in account name of the English images HV-LAB builds its bases from
+        var autoLogonUser = "Administrator";
 
         var autoLogon = c.AutoLogon ? $"""
                     <AutoLogon>
@@ -61,28 +62,28 @@ public static class AnswerFileGenerator
                     </AutoLogon>
             """ : string.Empty;
 
-        // OOBE block: keep only cross-version safe nodes to reduce client/server OOBE parsing issues
-        const string oobeBlock = """
+        // OOBE block: keep only cross-version safe nodes to reduce client/server OOBE parsing issues.
+        // Windows 10/11 (client only): no account-creation screens, since no extra account is created; with
+        // HideLocalAccountScreen and an AdministratorPassword, Setup enables the built-in Administrator.
+        var clientOobe = c.OsFamily == OsFamily.Client
+            ? """
+
+                            <HideLocalAccountScreen>true</HideLocalAccountScreen>
+                            <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+              """
+            : string.Empty;
+        var oobeBlock = $"""
                         <OOBE>
-                            <HideEULAPage>true</HideEULAPage>
+                            <HideEULAPage>true</HideEULAPage>{clientOobe}
                             <ProtectYourPC>3</ProtectYourPC>
                         </OOBE>
               """;
 
-        // Use one explicit local admin account for both client/server to avoid localized built-in Administrator issues.
-        // AdministratorPassword also sets the built-in Administrator (located by its SID, so the localized name
-        // does not matter): it is enabled on Windows Server, whose OOBE otherwise stops to ask for its password.
+        // Only the built-in Administrator (no extra local account). AdministratorPassword locates it by its SID,
+        // so its localized name does not matter; Windows Server OOBE otherwise stops to ask for its password.
         var userAccounts = $"""
                         <UserAccounts>
                             <AdministratorPassword><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></AdministratorPassword>
-                            <LocalAccounts>
-                                <LocalAccount wcm:action="add">
-                                    <Password><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></Password>
-                                    <DisplayName>HVLab Admin</DisplayName>
-                                    <Group>Administrators</Group>
-                                    <Name>HVLabAdmin</Name>
-                                </LocalAccount>
-                            </LocalAccounts>
                         </UserAccounts>
               """;
 

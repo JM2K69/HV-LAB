@@ -32,8 +32,28 @@ public class AnswerFileTests
     public void Special_characters_in_password_are_escaped()
     {
         var doc = Generate(c => c.AdminPassword = "a<b&\"c>");
-        var value = doc.Descendants(U + "LocalAccount").Descendants(U + "Value").Single().Value;
+        var value = doc.Descendants(U + "AdministratorPassword").Descendants(U + "Value").Single().Value;
         Assert.Equal("a<b&\"c>", value);
+    }
+
+    [Theory]
+    [InlineData(OsFamily.Server)]
+    [InlineData(OsFamily.Client)]
+    public void Only_the_built_in_administrator_is_used(OsFamily family)
+    {
+        var doc = Generate(c => { c.OsFamily = family; c.AutoLogon = true; });
+        Assert.Empty(doc.Descendants(U + "LocalAccounts"));
+        Assert.Equal("Administrator", doc.Descendants(U + "AutoLogon").Single().Element(U + "Username")!.Value);
+    }
+
+    [Theory]
+    [InlineData(OsFamily.Server, 0)]
+    [InlineData(OsFamily.Client, 1)]
+    public void Client_oobe_skips_the_account_creation_screens(OsFamily family, int expected)
+    {
+        var oobe = Generate(c => c.OsFamily = family).Descendants(U + "OOBE").Single();
+        Assert.Equal(expected, oobe.Elements(U + "HideLocalAccountScreen").Count());
+        Assert.Equal(expected, oobe.Elements(U + "HideOnlineAccountScreens").Count());
     }
 
     [Theory]
