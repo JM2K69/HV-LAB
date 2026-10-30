@@ -392,11 +392,14 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 # Inject unattend.xml into the differencing disk before first boot
                 if ($answerXml) {
                     Write-Output "##Prg_Inject"
-                    $mount  = Mount-DiskImage -ImagePath $diffVhd -PassThru -ErrorAction Stop
+                    # -NoDriveLetter: the disk already has volumes; automatic letters would make Explorer pop up
+                    $mount  = Mount-DiskImage -ImagePath $diffVhd -NoDriveLetter -PassThru -ErrorAction Stop
                     $diskNo = ($mount | Get-Disk).Number
                     # Use a temp folder path instead of a drive letter to avoid triggering Windows AutoPlay / Explorer
-                    $mountPath = Join-Path $env:TEMP ("hvlab_inject_" + [System.IO.Path]::GetRandomFileName())
+                    # Admin-only folder (not the user's %TEMP%): the answer file holds the admin password
+                    $mountPath = Join-Path $env:ProgramData ('HV-LAB\mnt\' + [guid]::NewGuid().ToString('N'))
                     New-Item -Path $mountPath -ItemType Directory -Force | Out-Null
+                    & icacls.exe $mountPath /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
                     try {
                         $deadline = (Get-Date).AddSeconds(20)
                         $winPart  = $null

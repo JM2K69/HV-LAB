@@ -184,8 +184,26 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                     throw "##Err_NoDriveLetter|$diskNo|$partNo"
                 }
 
+                # Temporary drive letter WITHOUT an Explorer window: mountvol does not trigger the shell
+                # (Add-PartitionAccessPath -AssignDriveLetter and diskpart "assign" both open one)
+                function Mount-SilentLetter($part) {
+                    $vol = (Get-Partition -DiskNumber $part.DiskNumber -PartitionNumber $part.PartitionNumber).AccessPaths |
+                           Where-Object { $_ -like '\\?\Volume*' } | Select-Object -First 1
+                    $used = @((Get-PSDrive -PSProvider FileSystem).Name) + @(Get-CimInstance Win32_LogicalDisk | ForEach-Object { $_.DeviceID.TrimEnd(':') })
+                    foreach ($c in [char[]](90..68)) {
+                        $l = [string]$c
+                        if ($used -contains $l -or (Test-Path "${l}:\")) { continue }
+                        & mountvol.exe "${l}:" $vol | Out-Null
+                        for ($i = 0; $i -lt 20; $i++) { if (Test-Path "${l}:\") { return "${l}:" }; Start-Sleep -Milliseconds 250 }
+                        & mountvol.exe "${l}:" /D | Out-Null
+                    }
+                    throw "##Err_NoDriveLetter|$($part.DiskNumber)|$($part.PartitionNumber)"
+                }
+
                 Write-Output "##Prg_Mount"
-                $mount  = Mount-DiskImage -ImagePath $vhdxPath -PassThru
+                # -NoDriveLetter: no automatic letters, so Explorer does not pop up (letters are only
+                # assigned explicitly, after formatting, where a tool needs one)
+                $mount  = Mount-DiskImage -ImagePath $vhdxPath -NoDriveLetter -PassThru
                 $diskNo = ($mount | Get-Disk).Number
 
                 try {
@@ -197,30 +215,32 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                                        -GptType '{c12a7328-f81f-11d2-ba4b-00a0c93ec93b}'
                         Format-Volume -Partition $efiPart -FileSystem FAT32 `
                                       -NewFileSystemLabel 'System' -Confirm:$false | Out-Null
-                        $efiPart | Add-PartitionAccessPath -AssignDriveLetter
-                        $efiLetter = Get-AssignedLetter $diskNo $efiPart.PartitionNumber
+                        # No drive letter on the ESP yet: it only gets one while the boot files are written
 
-                        # MSR (16 MB, no letter)
-                        New-Partition -DiskNumber $diskNo -Size 16MB `
-                                      -GptType '{e3c9e316-0b5c-4db8-817d-f92df00215ae}' | Out-Null
+                        # MSR (16 MB, no letter) — Initialize-Disk GPT usually creates one already
+                        $msrType = '{e3c9e316-0b5c-4db8-817d-f92df00215ae}'
+                        if (-not (Get-Partition -DiskNumber $diskNo | Where-Object GptType -eq $msrType)) {
+                            New-Partition -DiskNumber $diskNo -Size 16MB -GptType $msrType | Out-Null
+                        }
 
                         # Partition Windows
                         $winPart = New-Partition -DiskNumber $diskNo -UseMaximumSize
                         Format-Volume -Partition $winPart -FileSystem NTFS `
                                       -NewFileSystemLabel 'Windows' -Confirm:$false | Out-Null
-                        $winPart | Add-PartitionAccessPath -AssignDriveLetter
-                        $winLetter = Get-AssignedLetter $diskNo $winPart.PartitionNumber
                     } else {
                         Initialize-Disk -Number $diskNo -PartitionStyle MBR
                         $winPart = New-Partition -DiskNumber $diskNo -UseMaximumSize -IsActive
                         Format-Volume -Partition $winPart -FileSystem NTFS `
                                       -NewFileSystemLabel 'Windows' -Confirm:$false | Out-Null
-                        $winPart | Add-PartitionAccessPath -AssignDriveLetter
-                        $winLetter = Get-AssignedLetter $diskNo $winPart.PartitionNumber
-                        $efiLetter = $null
+                        $efiPart = $null
                     }
 
-                    $winPath = "${winLetter}:"
+                    # The Windows partition is mounted on an admin-only folder, never on a drive letter:
+                    # a letter makes Explorer open a "Windows (X:)" window during the build
+                    $winPath = Join-Path $env:ProgramData ('HV-LAB\mnt\' + [guid]::NewGuid().ToString('N'))
+                    New-Item $winPath -ItemType Directory -Force | Out-Null
+                    & icacls.exe $winPath /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+                    $winPart | Add-PartitionAccessPath -AccessPath $winPath
 
                     # Apply image via PowerShell cmdlet (more reliable than dism.exe /Apply-Image)
                     Write-Output "##Prg_Apply|$imageIndex"
@@ -228,40 +248,167 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                                         -ApplyPath "$winPath\" -ErrorAction Stop | Out-Null
 
                     Write-Output "##Prg_Bcd"
-                    # Boot files of an OFFLINE image. A recent host bcdboot (Windows 11 24H2+) wants the new
-                    # Windows\Boot\EFI_EX files that older images (e.g. Server 2019) lack -> "Failure when attempting
-                    # to copy boot files". The image's bcdboot run in place loads the HOST bcd.dll / bcdsrv.dll ->
-                    # "Failed to create a new system store [c0000035]". Fix: run the image's bcdboot together with
-                    # its own bcd.dll + bcdsrv.dll from a separate, admin-only folder (removed afterwards).
-                    # Fallbacks: host bcdboot with /offline (never touching the host's UEFI entries), then plain.
-                    $bcdTarget = if ($isGen2) { "${efiLetter}:" } else { "$winPath" }
-                    $bcdFw     = if ($isGen2) { 'UEFI' } else { 'BIOS' }
-                    $hostBcd   = "$env:SystemRoot\System32\bcdboot.exe"
-                    $imgSys    = "$winPath\Windows\System32"
-                    $bcdDir    = "$winPath\HVLab-bcdboot"
-                    $bcdTries  = @()
-                    if (Test-Path "$imgSys\bcdboot.exe") {
-                        New-Item $bcdDir -ItemType Directory -Force | Out-Null
-                        # Administrators + SYSTEM only: these binaries run elevated
-                        & icacls.exe $bcdDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
-                        foreach ($f in 'bcdboot.exe', 'bcd.dll', 'bcdsrv.dll') {
-                            if (Test-Path "$imgSys\$f") { Copy-Item "$imgSys\$f" $bcdDir -Force }
-                        }
-                        $bcdTries += @{ Tool = "$bcdDir\bcdboot.exe"; Extra = @(); Label = 'image bcdboot' }
+                    # ── Boot files of the OFFLINE image ───────────────────────────────────────────────────────
+                    # 1. Manual (first): the image's own Windows\Boot files + a BCD built with bcdedit /store.
+                    #    Deterministic, works on every host, and needs NO drive letter (folder mounts only),
+                    #    so Explorer never pops up.
+                    # 2. Fallback, bcdboot (needs a drive letter on the system partition, given with mountvol):
+                    #    the image's bcdboot with its own bcd.dll + bcdsrv.dll, then host bcdboot /offline
+                    #    /nofirmwaresync, then host bcdboot. On some hosts (Windows 11 Insider 26300) every bcdboot
+                    #    fails with "Failed to create a new system store [c0000035]"; running bcdboot against a
+                    #    lettered volume also makes Explorer open it.
+                    # The host boot configuration is never touched: every call targets this VHDX (/store, /s).
+                    if ($isGen2) {
+                        $espPath = Join-Path $env:ProgramData ('HV-LAB\mnt\' + [guid]::NewGuid().ToString('N'))
+                        New-Item $espPath -ItemType Directory -Force | Out-Null
+                        & icacls.exe $espPath /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+                        $efiPart | Add-PartitionAccessPath -AccessPath $espPath
+                        $sysPart  = $efiPart
+                        $sysFiles = $espPath
+                    } else {
+                        $sysPart  = $winPart
+                        $sysFiles = $winPath
                     }
-                    $bcdTries += @{ Tool = $hostBcd; Extra = @('/offline', '/nofirmwaresync'); Label = 'host bcdboot /offline' }
-                    $bcdTries += @{ Tool = $hostBcd; Extra = @();                               Label = 'host bcdboot' }
+                    $sysRoot = $null
+                    $bcdFw   = if ($isGen2) { 'UEFI' } else { 'BIOS' }
+                    $hostBcd = "$env:SystemRoot\System32\bcdboot.exe"
+                    $bcdEdit = "$env:SystemRoot\System32\bcdedit.exe"
+                    $imgSys  = "$winPath\Windows\System32"
+                    $bcdDir  = "$winPath\HVLab-bcdboot"
+
+                    # Best effort: a failed attempt can leave files behind (Gen1: TrustedInstaller-only ACLs)
+                    function Clear-BootTarget {
+                        if ($isGen2) { $paths = @("$sysFiles\EFI") }
+                        else         { $paths = @("$sysFiles\Boot", "$sysFiles\bootmgr", "$sysFiles\BOOTNXT") }
+                        foreach ($p in $paths) {
+                            if (-not (Test-Path $p)) { continue }
+                            if (-not $isGen2) {
+                                & icacls.exe $p /setowner '*S-1-5-32-544' /T /C /Q 2>&1 | Out-Null
+                                & icacls.exe $p /grant '*S-1-5-32-544:F' /T /C /Q 2>&1 | Out-Null
+                                & attrib.exe -R -S -H $p /S /D 2>&1 | Out-Null
+                            }
+                            Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue
+                        }
+                    }
+
+                    function Invoke-BcdEdit([string[]]$bcdArgs) {
+                        $out = & $bcdEdit @bcdArgs 2>&1
+                        if ($LASTEXITCODE -ne 0) { throw "bcdedit $($bcdArgs -join ' '): $out" }
+                        return "$out"
+                    }
+
+                    # bcdedit /createstore makes an ordinary store, which Windows Setup refuses at first boot
+                    # (specialize: "File is not system store", then "Windows could not configure Windows to run on
+                    # this computer's hardware"). bcdboot marks its store with Description\System = 1; done here
+                    # with the offline registry API, which edits the file without loading it as a hive.
+                    function Set-SystemStoreFlag([string]$store) {
+                        if (-not ('HvLab.OffReg' -as [type])) {
+                            $sig = '[DllImport("offreg.dll", CharSet = CharSet.Unicode)] public static extern int OROpenHive(string path, out System.IntPtr hive);' +
+                                   '[DllImport("offreg.dll", CharSet = CharSet.Unicode)] public static extern int OROpenKey(System.IntPtr key, string sub, out System.IntPtr result);' +
+                                   '[DllImport("offreg.dll", CharSet = CharSet.Unicode)] public static extern int ORSetValue(System.IntPtr key, string name, int type, byte[] data, int size);' +
+                                   '[DllImport("offreg.dll", CharSet = CharSet.Unicode)] public static extern int ORSaveHive(System.IntPtr hive, string path, int major, int minor);' +
+                                   '[DllImport("offreg.dll")] public static extern int ORCloseKey(System.IntPtr key);' +
+                                   '[DllImport("offreg.dll")] public static extern int ORCloseHive(System.IntPtr hive);'
+                            Add-Type -Namespace HvLab -Name OffReg -MemberDefinition $sig
+                        }
+                        $hive = [IntPtr]::Zero; $key = [IntPtr]::Zero
+                        $rc = [HvLab.OffReg]::OROpenHive($store, [ref]$hive)
+                        if ($rc -ne 0) { throw "offreg: cannot open $store ($rc)" }
+                        try {
+                            $rc = [HvLab.OffReg]::OROpenKey($hive, 'Description', [ref]$key)
+                            if ($rc -ne 0) { throw "offreg: no Description key in $store ($rc)" }
+                            $rc = [HvLab.OffReg]::ORSetValue($key, 'System', 4, [BitConverter]::GetBytes([int]1), 4)
+                            [void][HvLab.OffReg]::ORCloseKey($key)
+                            if ($rc -ne 0) { throw "offreg: cannot set System in $store ($rc)" }
+                            # ORSaveHive cannot overwrite the open file: save next to it, then swap
+                            $rc = [HvLab.OffReg]::ORSaveHive($hive, "$store.new", 6, 1)
+                            if ($rc -ne 0) { throw "offreg: cannot save $store ($rc)" }
+                        } finally { [void][HvLab.OffReg]::ORCloseHive($hive) }
+                        Remove-Item $store -Force
+                        Get-ChildItem "$store.LOG*" -Force -ErrorAction SilentlyContinue | Remove-Item -Force
+                        Move-Item "$store.new" $store
+                    }
+
+                    # Same result as bcdboot: boot manager + boot files on the system partition, BCD with one
+                    # Windows loader. Devices are 'boot' / 'locate' (as Microsoft's Convert-WindowsImage does),
+                    # never "partition=": for a volume of a mounted VHDX, bcdedit records it as a partition
+                    # INSIDE that .vhdx file on the host, which the VM cannot open (winload 0xc000000e).
+                    function New-ManualBootFiles {
+                        $bootSrc = "$winPath\Windows\Boot"
+                        if ($isGen2) {
+                            if (-not (Test-Path "$bootSrc\EFI\bootmgfw.efi")) { throw "missing $bootSrc\EFI\bootmgfw.efi" }
+                            $mgrDir = "$sysFiles\EFI\Microsoft\Boot"
+                            New-Item $mgrDir -ItemType Directory -Force | Out-Null
+                            Copy-Item "$bootSrc\EFI\*" $mgrDir -Recurse -Force
+                            New-Item "$sysFiles\EFI\Boot" -ItemType Directory -Force | Out-Null
+                            Copy-Item "$mgrDir\bootmgfw.efi" "$sysFiles\EFI\Boot\bootx64.efi" -Force
+                            $loader = '\Windows\system32\winload.efi'
+                        } else {
+                            if (-not (Test-Path "$bootSrc\PCAT\bootmgr")) { throw "missing $bootSrc\PCAT\bootmgr" }
+                            $mgrDir = "$sysFiles\Boot"
+                            New-Item $mgrDir -ItemType Directory -Force | Out-Null
+                            Copy-Item "$bootSrc\PCAT\*" $mgrDir -Recurse -Force
+                            Copy-Item "$bootSrc\PCAT\bootmgr" "$sysFiles\bootmgr" -Force
+                            $loader = '\Windows\system32\winload.exe'
+                        }
+                        foreach ($d in 'Fonts', 'Resources') {
+                            if (Test-Path "$bootSrc\$d") { Copy-Item "$bootSrc\$d" $mgrDir -Recurse -Force }
+                        }
+                        $store = "$mgrDir\BCD"
+                        Invoke-BcdEdit @('/createstore', $store) | Out-Null
+                        Invoke-BcdEdit @('/store', $store, '/create', '{bootmgr}', '/d', 'Windows Boot Manager') | Out-Null
+                        Invoke-BcdEdit @('/store', $store, '/set', '{bootmgr}', 'device', 'boot') | Out-Null
+                        if ($isGen2) { Invoke-BcdEdit @('/store', $store, '/set', '{bootmgr}', 'path', '\EFI\Microsoft\Boot\bootmgfw.efi') | Out-Null }
+                        Invoke-BcdEdit @('/store', $store, '/set', '{bootmgr}', 'locale', 'en-US') | Out-Null
+                        Invoke-BcdEdit @('/store', $store, '/set', '{bootmgr}', 'timeout', '30') | Out-Null
+                        $created = Invoke-BcdEdit @('/store', $store, '/create', '/d', 'Windows', '/application', 'osloader')
+                        $os = ([regex]'\{[0-9a-fA-F-]{36}\}').Match($created).Value
+                        if (-not $os) { throw "bcdedit: no loader id in '$created'" }
+                        foreach ($kv in @(@('device', 'locate'), @('osdevice', 'locate'),
+                                          @('path', $loader), @('systemroot', '\Windows'), @('locale', 'en-US'),
+                                          @('bootmenupolicy', 'Standard'))) {
+                            Invoke-BcdEdit @('/store', $store, '/set', $os, $kv[0], $kv[1]) | Out-Null
+                        }
+                        Invoke-BcdEdit @('/store', $store, '/set', '{bootmgr}', 'default', $os) | Out-Null
+                        Invoke-BcdEdit @('/store', $store, '/set', '{bootmgr}', 'displayorder', $os) | Out-Null
+                        Set-SystemStoreFlag $store
+                    }
+
                     $bcdOk = $false; $bcdErrors = @()
                     $ErrorActionPreference = 'Continue'   # native stderr must not abort before the fallback
                     try {
-                        foreach ($bcdTry in $bcdTries) {
-                            $bcdArgs = @("$winPath\Windows", '/s', $bcdTarget, '/f', $bcdFw) + $bcdTry.Extra
-                            $bcd = & $bcdTry.Tool @bcdArgs 2>&1
-                            if ($LASTEXITCODE -eq 0) { $bcdOk = $true; break }
-                            $bcdErrors += "$($bcdTry.Label): $bcd"
+                        try   { New-ManualBootFiles; $bcdOk = $true }
+                        catch { $bcdErrors += "manual bcdedit: $($_.Exception.Message)" }
+
+                        if (-not $bcdOk) {
+                            $bcdTries = @()
+                            if (Test-Path "$imgSys\bcdboot.exe") {
+                                New-Item $bcdDir -ItemType Directory -Force | Out-Null
+                                # Administrators + SYSTEM only: these binaries run elevated
+                                & icacls.exe $bcdDir /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+                                foreach ($f in 'bcdboot.exe', 'bcd.dll', 'bcdsrv.dll') {
+                                    if (Test-Path "$imgSys\$f") { Copy-Item "$imgSys\$f" $bcdDir -Force }
+                                }
+                                $bcdTries += @{ Tool = "$bcdDir\bcdboot.exe"; Extra = @(); Label = 'image bcdboot' }
+                            }
+                            $bcdTries += @{ Tool = $hostBcd; Extra = @('/offline', '/nofirmwaresync'); Label = 'host bcdboot /offline' }
+                            $bcdTries += @{ Tool = $hostBcd; Extra = @();                               Label = 'host bcdboot' }
+                            $sysRoot = Mount-SilentLetter $sysPart
+                            foreach ($bcdTry in $bcdTries) {
+                                Clear-BootTarget
+                                $bcdArgs = @("$winPath\Windows", '/s', $sysRoot, '/f', $bcdFw) + $bcdTry.Extra
+                                $bcd = & $bcdTry.Tool @bcdArgs 2>&1
+                                if ($LASTEXITCODE -eq 0) { $bcdOk = $true; break }
+                                $bcdErrors += "$($bcdTry.Label): $bcd"
+                            }
                         }
                     } finally {
                         if (Test-Path $bcdDir) { Remove-Item $bcdDir -Recurse -Force -ErrorAction SilentlyContinue }
+                        if ($sysRoot) { & mountvol.exe $sysRoot /D | Out-Null }
+                        if ($isGen2 -and $espPath) {
+                            try { $efiPart | Remove-PartitionAccessPath -AccessPath $espPath -ErrorAction SilentlyContinue } catch {}
+                            Remove-Item $espPath -Force -ErrorAction SilentlyContinue
+                        }
                     }
                     $ErrorActionPreference = 'Stop'
                     if (-not $bcdOk) { throw "##Err_Bcdboot|$($bcdErrors -join ' / ')" }
@@ -277,6 +424,10 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                 }
                 finally {
                     Write-Output "##Prg_Dismount"
+                    if ($winPath -and (Test-Path $winPath)) {
+                        try { $winPart | Remove-PartitionAccessPath -AccessPath $winPath -ErrorAction SilentlyContinue } catch {}
+                        Remove-Item $winPath -Force -ErrorAction SilentlyContinue
+                    }
                     Dismount-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue | Out-Null
                 }
 
