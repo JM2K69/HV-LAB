@@ -228,18 +228,27 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                                         -ApplyPath "$winPath\" -ErrorAction Stop | Out-Null
 
                     Write-Output "##Prg_Bcd"
-                    # Use the image's own bcdboot first: a newer host bcdboot (e.g. Windows 11 24H2) fails on older
-                    # images such as Server 2019 ("Failure when attempting to copy boot files"). Host bcdboot is the fallback.
+                    # Boot files of an OFFLINE image: a recent host bcdboot (Windows 11 24H2 / Server 2025) needs
+                    # /offline, otherwise it fails on older images ("Failure when attempting to copy boot files").
+                    # /nofirmwaresync: never touch the host's own UEFI boot entries.
+                    # Fallbacks: host bcdboot without the new switches (older hosts), then the image's own bcdboot
+                    # (can fail with "Failed to create a new system store [c0000035]" on a recent host).
                     $bcdTarget = if ($isGen2) { "${efiLetter}:" } else { "$winPath" }
                     $bcdFw     = if ($isGen2) { 'UEFI' } else { 'BIOS' }
-                    $bcdTools  = @("$winPath\Windows\System32\bcdboot.exe", "$env:SystemRoot\System32\bcdboot.exe") |
-                                 Where-Object { Test-Path $_ }
+                    $hostBcd   = "$env:SystemRoot\System32\bcdboot.exe"
+                    $imageBcd  = "$winPath\Windows\System32\bcdboot.exe"
+                    $bcdTries  = @(
+                        @{ Tool = $hostBcd;  Extra = @('/offline', '/nofirmwaresync') },
+                        @{ Tool = $hostBcd;  Extra = @() },
+                        @{ Tool = $imageBcd; Extra = @() }
+                    ) | Where-Object { Test-Path $_.Tool }
                     $bcdOk = $false; $bcdErrors = @()
                     $ErrorActionPreference = 'Continue'   # native stderr must not abort before the fallback
-                    foreach ($bcdTool in $bcdTools) {
-                        $bcd = & $bcdTool "$winPath\Windows" /s $bcdTarget /f $bcdFw 2>&1
+                    foreach ($bcdTry in $bcdTries) {
+                        $bcdArgs = @("$winPath\Windows", '/s', $bcdTarget, '/f', $bcdFw) + $bcdTry.Extra
+                        $bcd = & $bcdTry.Tool @bcdArgs 2>&1
                         if ($LASTEXITCODE -eq 0) { $bcdOk = $true; break }
-                        $bcdErrors += "$bcdTool : $bcd"
+                        $bcdErrors += "$($bcdTry.Tool) $($bcdTry.Extra -join ' '): $bcd"
                     }
                     $ErrorActionPreference = 'Stop'
                     if (-not $bcdOk) { throw "##Err_Bcdboot|$($bcdErrors -join ' / ')" }
