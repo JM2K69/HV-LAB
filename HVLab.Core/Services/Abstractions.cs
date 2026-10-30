@@ -48,6 +48,8 @@ public interface IVhdxService
     Task<List<BaseVhdx>> GetBaseVhdxListAsync(string folder);
     Task CreateBaseVhdxAsync(string vhdxPath, long sizeGB);
     Task DiscardPartialVhdxAsync(string vhdxPath);
+    /// <summary>Dismounts the VHDX and waits until Windows has really released it (detach is asynchronous).</summary>
+    Task EnsureDetachedAsync(string vhdxPath);
     Task ApplyWindowsImageAsync(
         string vhdxPath, string wimPath, int imageIndex, int generation,
         string? answerFileContent = null,

@@ -139,6 +139,21 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
         await ps.RunAsync(script);
     }
 
+    public async Task EnsureDetachedAsync(string vhdxPath)
+    {
+        var script = $$"""
+            $vhdxPath = '{{Esc(vhdxPath)}}'
+            Dismount-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue | Out-Null
+            $deadline = (Get-Date).AddSeconds(30)
+            while ((Get-Date) -lt $deadline) {
+                $img = Get-DiskImage -ImagePath $vhdxPath -ErrorAction SilentlyContinue
+                if (-not $img -or -not $img.Attached) { break }
+                Start-Sleep -Milliseconds 500
+            }
+            """;
+        await ps.RunAsync(script);
+    }
+
     public async Task ApplyWindowsImageAsync(
         string vhdxPath, string wimPath, int imageIndex, int generation,
         string? answerFileContent = null,

@@ -287,7 +287,9 @@ public partial class BaseVhdxViewModel : PageViewModelBase
         // so a failed build never leaves a partial image listed as valid.
         var buildPath = System.IO.Path.Combine(BaseFolder, $"~building_{PreviewFileName}.vhdx");
         IsCreating = true; IsLoading = true;
+        ErrorMessage = string.Empty;
         _cts = new CancellationTokenSource();
+        var imageApplied = false;
         try
         {
             if (File.Exists(buildPath))
@@ -301,7 +303,11 @@ public partial class BaseVhdxViewModel : PageViewModelBase
             // unattend.xml will be injected at VM creation time (into the differencing disk).
             await _vhdxService.ApplyWindowsImageAsync(buildPath, WimPath, ImageIndex, Generation, answerFileContent: null,
                 progress: new Progress<string>(line => BuildStatus = TranslateProgress(line)), ct: _cts.Token);
-            await Task.Run(() => File.Move(buildPath, vhdxPath, overwrite: true));
+            imageApplied = true;
+
+            // The VHDX is detached asynchronously after Dismount-DiskImage: wait for it, then rename with retries
+            await _vhdxService.EnsureDetachedAsync(buildPath);
+            await MoveWithRetryAsync(buildPath, vhdxPath);
 
             BuildStatus = T("BV_BuildOk");
             Status = T("BV_Created", vhdxPath);
@@ -311,11 +317,31 @@ public partial class BaseVhdxViewModel : PageViewModelBase
         {
             var cancelled = ex is OperationCanceledException;
             BuildStatus = cancelled ? T("Op_Cancelled") : T("BV_BuildError", ex.Message);
-            Status      = cancelled ? T("Op_Cancelled") : T("BV_BuildFailed", ex.Message);
-            // Process tree was killed on cancel: dismount and delete the partial disk
-            try { await _vhdxService.DiscardPartialVhdxAsync(buildPath); } catch { /* best effort */ }
+            Status      = cancelled ? T("Op_Cancelled") : string.Empty;
+            if (!cancelled)
+            {
+                // Persistent red banner + full PowerShell output in %LocalAppData%\HV-LAB\logs for diagnosis
+                CrashLogger.Log($"Base image build failed ({vhdxPath})",
+                                ex is PowerShellException pse ? new Exception($"{pse.Message}\n{pse.Details}", ex) : ex);
+                ErrorMessage = imageApplied
+                    ? T("BV_RenameFailed", System.IO.Path.GetFileName(buildPath), System.IO.Path.GetFileName(vhdxPath), ex.Message)
+                    : T("BV_BuildFailedLog", ex.Message, CrashLogger.LogFolder);
+            }
+            // A fully applied image is never deleted (only the final rename failed); otherwise discard the partial disk
+            if (!imageApplied)
+                try { await _vhdxService.DiscardPartialVhdxAsync(buildPath); } catch { /* best effort */ }
         }
         finally { IsCreating = false; IsLoading = false; _cts.Dispose(); _cts = null; }
+    }
+
+    private static async Task MoveWithRetryAsync(string from, string to)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try { File.Move(from, to, overwrite: true); return; }
+            catch (IOException) when (attempt < 20) { await Task.Delay(500); }
+            catch (UnauthorizedAccessException) when (attempt < 20) { await Task.Delay(500); }
+        }
     }
 
     [RelayCommand]
