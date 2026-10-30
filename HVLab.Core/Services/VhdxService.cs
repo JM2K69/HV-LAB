@@ -228,12 +228,21 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
                                         -ApplyPath "$winPath\" -ErrorAction Stop | Out-Null
 
                     Write-Output "##Prg_Bcd"
-                    if ($isGen2) {
-                        $bcd = & bcdboot.exe "$winPath\Windows" /s "${efiLetter}:" /f UEFI 2>&1
-                    } else {
-                        $bcd = & bcdboot.exe "$winPath\Windows" /s "$winPath" /f BIOS 2>&1
+                    # Use the image's own bcdboot first: a newer host bcdboot (e.g. Windows 11 24H2) fails on older
+                    # images such as Server 2019 ("Failure when attempting to copy boot files"). Host bcdboot is the fallback.
+                    $bcdTarget = if ($isGen2) { "${efiLetter}:" } else { "$winPath" }
+                    $bcdFw     = if ($isGen2) { 'UEFI' } else { 'BIOS' }
+                    $bcdTools  = @("$winPath\Windows\System32\bcdboot.exe", "$env:SystemRoot\System32\bcdboot.exe") |
+                                 Where-Object { Test-Path $_ }
+                    $bcdOk = $false; $bcdErrors = @()
+                    $ErrorActionPreference = 'Continue'   # native stderr must not abort before the fallback
+                    foreach ($bcdTool in $bcdTools) {
+                        $bcd = & $bcdTool "$winPath\Windows" /s $bcdTarget /f $bcdFw 2>&1
+                        if ($LASTEXITCODE -eq 0) { $bcdOk = $true; break }
+                        $bcdErrors += "$bcdTool : $bcd"
                     }
-                    if ($LASTEXITCODE -ne 0) { throw "##Err_Bcdboot|$bcd" }
+                    $ErrorActionPreference = 'Stop'
+                    if (-not $bcdOk) { throw "##Err_Bcdboot|$($bcdErrors -join ' / ')" }
 
                     if ($answerXml) {
                         $panther = "$winPath\Windows\Panther"
