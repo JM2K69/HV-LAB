@@ -74,6 +74,82 @@ public class HyperVParsingTests
         Assert.DoesNotContain("<unattend/>", script);
         Assert.DoesNotContain("hvlab_unattend_", script);
     }
+
+    [Fact]
+    public async Task Notes_are_set_on_the_vm_and_embedded_like_the_answer_file()
+    {
+        var runner = new FakePowerShellRunner(_ => "");
+        var notes  = "Account: Administrator\r\nPassword: P@ss'w0rd";
+        await new HyperVService(runner).CreateBlankVmAsync("SRV-01", "LAN", 2048, 2, 2, @"C:\VMs", 40, notes: notes);
+        var script = runner.Scripts.Single();
+        Assert.Contains("-Notes $notes", script);
+        Assert.Contains(HyperVService.PsLiteral(notes), script);
+        Assert.DoesNotContain("P@ss'w0rd", script);
+    }
+}
+
+public class VmNotesTests
+{
+    [Fact]
+    public void Unattended_vm_notes_hold_the_date_the_account_and_its_password()
+    {
+        var lines = VmNotes.Build(new DateTime(2026, 11, 2, 14, 35, 0), "Administrator", "P@ssw0rd").Split(Environment.NewLine);
+        Assert.Equal(3, lines.Length);
+        Assert.Contains("2026", lines[0]);
+        Assert.EndsWith("Administrator", lines[1]);
+        Assert.EndsWith("P@ssw0rd", lines[2]);
+    }
+
+    [Fact]
+    public void Vm_without_answer_file_has_no_password_in_its_notes()
+    {
+        var lines = VmNotes.Build(new DateTime(2026, 11, 2, 14, 35, 0)).Split(Environment.NewLine);
+        Assert.Equal(2, lines.Length);
+        Assert.Contains("2026", lines[0]);
+    }
+
+    private static string TempBaseImage()
+    {
+        var dir = Directory.CreateTempSubdirectory("hvlab-notes-").FullName;
+        var path = Path.Combine(dir, "BASE_WindowsServer2022Standard_10.0.20348.587_50.vhdx");
+        File.WriteAllBytes(path, []);
+        return path;
+    }
+
+    [Fact]
+    public async Task Every_vm_of_a_series_gets_the_administrator_password_in_its_notes()
+    {
+        var hv = new FakeHyperVService();
+        var vm = new CreateVmViewModel(hv, new VhdxService(new FakePowerShellRunner(_ => "[]")))
+        {
+            SelectedBaseVhdx = TempBaseImage(), SelectedSwitch = "LAN",
+            AdminPassword = "Lab#2026", BulkMode = true, BulkPrefix = "SRV", BulkCount = 2,
+        };
+        await vm.CreateVmAsync();
+
+        Assert.Equal(["SRV-01", "SRV-02"], hv.CreatedNotes.Keys.Order());
+        Assert.All(hv.CreatedNotes.Values, n =>
+        {
+            Assert.Contains(AnswerFileGenerator.AdministratorAccount, n);
+            Assert.Contains("Lab#2026", n);
+        });
+    }
+
+    [Fact]
+    public async Task Quick_vm_notes_hold_no_account()
+    {
+        var hv = new FakeHyperVService();
+        var vm = new QuickVmViewModel(hv, new VhdxService(new FakePowerShellRunner(_ => "[]")))
+        {
+            SelectedSwitch = "LAN", VmName = "PXE-01",
+        };
+        vm.SizeItems[0].SelectCommand.Execute(null);
+        await vm.CreateVmAsync();
+
+        var notes = Assert.Single(hv.CreatedNotes).Value;
+        Assert.False(string.IsNullOrEmpty(notes));
+        Assert.DoesNotContain(AnswerFileGenerator.AdministratorAccount, notes);
+    }
 }
 
 public class VirtualMachinesViewModelTests

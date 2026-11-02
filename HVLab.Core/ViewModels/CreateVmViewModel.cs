@@ -168,9 +168,12 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
                 string? answerXml = UseAnswerFile
                     ? AnswerFileGenerator.Generate(BuildConfig(BulkMode ? InputValidator.ToComputerName(name) : null))
                     : null;
+                var notes = UseAnswerFile
+                    ? VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, AdminPassword)
+                    : VmNotes.Build(DateTime.Now);
                 return HvService.CreateVMWithDifferencingDiskAsync(
                     name, parent, sw, MemoryMB, CpuCount, Generation, VmFolder,
-                    answerXml, secureBoot: true, pxeBoot: false, progress, ct);
+                    answerXml, secureBoot: true, pxeBoot: false, notes, progress, ct);
             },
             onSingleSuccess: () => { VmName = ""; ComputerName = "LAB-VM"; });
     }

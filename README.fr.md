@@ -26,7 +26,8 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - langue, fuseau horaire et clé KMS suggérée selon l'OS ;
   - préchargement du cache CBS et désactivation de Windows Update en option ;
   - aperçu en direct du fichier de réponse, avec le mot de passe masqué ;
-  - le fichier de réponse est supprimé de la VM à la première ouverture de session.
+  - le fichier de réponse est supprimé de la VM à la première ouverture de session ;
+  - la date de création, le compte et son mot de passe sont écrits dans les notes Hyper-V de la VM.
 - **Images de base** : construction de `BASE_*.vhdx` à partir d'un WIM ou ESD, avec choix automatique de l'édition :
   - la construction se fait dans un fichier temporaire, donc une image existante n'est jamais laissée à moitié construite ;
   - remplacer une image existante demande une confirmation ;

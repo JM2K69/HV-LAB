@@ -55,11 +55,23 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task CreatePrivateSwitchAsync(string name) => Task.CompletedTask;
     public Task RemoveVSwitchAsync(string name) => Task.CompletedTask;
     public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(new List<NetworkAdapterInfo>());
+    /// <summary>Notes passed to each created VM, by VM name.</summary>
+    public Dictionary<string, string?> CreatedNotes { get; } = [];
+
     public Task CreateBlankVmAsync(string vmName, string switchName, long memoryMB, int cpuCount, int generation,
-        string vmFolder, long diskSizeGB, bool secureBoot = true, bool pxeBoot = false,
-        IProgress<string>? progress = null, CancellationToken ct = default) => Task.CompletedTask;
+        string vmFolder, long diskSizeGB, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
+        IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        CreatedNotes[vmName] = notes;
+        return Task.CompletedTask;
+    }
+
     public Task CreateVMWithDifferencingDiskAsync(string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder, string? answerFileContent = null,
-        bool secureBoot = true, bool pxeBoot = false,
-        IProgress<string>? progress = null, CancellationToken ct = default) => Task.CompletedTask;
+        bool secureBoot = true, bool pxeBoot = false, string? notes = null,
+        IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        CreatedNotes[vmName] = notes;
+        return Task.CompletedTask;
+    }
 }

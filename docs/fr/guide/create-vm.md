@@ -64,11 +64,35 @@ HV-LAB **ne crée aucun compte supplémentaire**. Le fichier de réponse défini
 
 Connectez-vous en `Administrator` avec le mot de passe saisi.
 
+## Notes de la VM
+
+HV-LAB écrit la date de création et les identifiants dans les **Notes** Hyper-V de la VM, pour les retrouver plus tard. En mode lot, chaque VM reçoit ses propres notes.
+
+```text
+Créée par HV-LAB le 02/11/2026 14:35
+Compte : Administrator
+Mot de passe : Lab#2026
+```
+
+Pour les lire :
+
+- dans le Gestionnaire Hyper-V : l'onglet **Résumé** de la VM, ou **Paramètres > Nom** ;
+- en PowerShell :
+
+    ```powershell
+    (Get-VM SRV-01).Notes
+    ```
+
+Sans fichier de réponse, les notes contiennent seulement la date de création.
+
+!!! warning "Usage en labo"
+    Le mot de passe est stocké en clair dans les notes, et tout administrateur de l'hôte peut le lire. Ne réutilisez jamais un mot de passe de production dans un labo.
+
 ## Déroulement de la création
 
 1. Le disque différentiel est créé sur l'image de base.
 2. Son volume Windows est monté sur un dossier privé, sans lettre de lecteur, et `unattend.xml` est copié dans `Windows\Panther`.
-3. La VM est créée et reliée au commutateur.
+3. La VM est créée et reliée au commutateur, puis ses [notes](#notes-de-la-vm) sont écrites.
 4. Au premier démarrage, le programme d'installation de Windows exécute les passes *specialize* et *oobeSystem*, puis affiche l'écran de connexion.
 
 !!! note "Le fichier de réponse est supprimé"

@@ -34,5 +34,7 @@ Démarrage réseau (PXE)
 Création en lot
 :   Comme pour [Créer une VM](create-vm.md#identite), un préfixe et un nombre créent `PREFIXE-01…nn`.
 
+Les [notes](create-vm.md#notes-de-la-vm) Hyper-V de la VM indiquent sa date de création. Elles ne contiennent aucun compte, puisque les comptes sont créés pendant l'installation de Windows.
+
 !!! tip "Installation automatisée"
     Pour une VM qui se configure seule (nom d'ordinateur, mot de passe, langue), utilisez plutôt [Créer une VM](create-vm.md).

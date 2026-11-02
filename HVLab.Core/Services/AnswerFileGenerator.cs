@@ -28,6 +28,9 @@ public class AnswerFileConfig
 
 public static class AnswerFileGenerator
 {
+    /// <summary>Built-in account name of the English images HV-LAB builds its bases from (the only account set).</summary>
+    public const string AdministratorAccount = "Administrator";
+
     public static string Generate(AnswerFileConfig c)
     {
         // ProductKey in specialize pass (windowsPE pass is ignored on pre-deployed VHDx)
@@ -49,8 +52,7 @@ public static class AnswerFileGenerator
               """
             : string.Empty;
 
-        // Built-in account name of the English images HV-LAB builds its bases from
-        var autoLogonUser = "Administrator";
+        var autoLogonUser = AdministratorAccount;
 
         var autoLogon = c.AutoLogon ? $"""
                     <AutoLogon>

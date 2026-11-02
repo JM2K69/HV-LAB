@@ -28,16 +28,18 @@ public interface IHyperVService
     Task RemoveVSwitchAsync(string name);
     Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync();
 
+    /// <param name="notes">Hyper-V notes of the VM (see <see cref="VmNotes"/>).</param>
     Task CreateBlankVmAsync(
         string vmName, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false,
+        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         IProgress<string>? progress = null, CancellationToken ct = default);
 
+    /// <param name="notes">Hyper-V notes of the VM (see <see cref="VmNotes"/>).</param>
     Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false,
+        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         IProgress<string>? progress = null, CancellationToken ct = default);
 }
 

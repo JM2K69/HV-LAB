@@ -26,7 +26,8 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - language, time zone and a KMS key suggested for the OS;
   - optional CBS cache warm-up and Windows Update disabling;
   - live preview of the answer file, with the password masked;
-  - the answer file is removed from the VM at first logon.
+  - the answer file is removed from the VM at first logon;
+  - the creation date, the account and its password are written into the VM's Hyper-V notes.
 - **Base images**: build `BASE_*.vhdx` from a WIM/ESD file, with automatic edition matching:
   - the image is built in a temporary file, so an existing image is never left half-built;
   - overwriting an existing image asks for confirmation;

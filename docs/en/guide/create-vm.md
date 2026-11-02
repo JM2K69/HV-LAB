@@ -64,11 +64,35 @@ HV-LAB **does not create any extra account**. The answer file only sets the pass
 
 Log on as `Administrator` with the password you entered.
 
+## VM notes
+
+HV-LAB writes the creation date and the credentials into the VM's Hyper-V **Notes**, so you can find them later. In a bulk series, every VM gets its own notes.
+
+```text
+Created by HV-LAB on 2026-11-02 14:35
+Account: Administrator
+Password: Lab#2026
+```
+
+To read them:
+
+- in Hyper-V Manager: the **Summary** tab of the VM, or **Settings > Name**;
+- in PowerShell:
+
+    ```powershell
+    (Get-VM SRV-01).Notes
+    ```
+
+Without an answer file, the notes only hold the creation date.
+
+!!! warning "Lab use"
+    The password is stored in clear text in the notes, and any administrator of the host can read it. Never reuse a production password in a lab.
+
 ## What happens on creation
 
 1. The differencing disk is created on the base image.
 2. Its Windows volume is mounted on a private folder, without a drive letter, and `unattend.xml` is copied into `Windows\Panther`.
-3. The VM is created and attached to the switch.
+3. The VM is created, attached to the switch, and its [notes](#vm-notes) are written.
 4. On first boot, Windows Setup runs the *specialize* and *oobeSystem* passes, then shows the logon screen.
 
 !!! note "The answer file is deleted"

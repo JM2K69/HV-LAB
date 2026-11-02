@@ -20,6 +20,9 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
     internal static string PsLiteral(string text)
         => $"[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(text))}'))";
 
+    // Multi-line, and may hold a password: embedded like the answer file
+    private static string NotesLiteral(string? notes) => string.IsNullOrEmpty(notes) ? "''" : PsLiteral(notes);
+
     // ─── Environment ────────────────────────────────────────────────────────
 
     /// <summary>
@@ -283,7 +286,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
     public async Task CreateBlankVmAsync(
         string vmName, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false,
+        long diskSizeGB, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         InputValidator.EnsureVmName(vmName);
@@ -293,6 +296,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
 
         var script = $$"""
             $vmName      = '{{Esc(vmName)}}'
+            $notes       = {{NotesLiteral(notes)}}
             $switchName  = '{{Esc(switchName)}}'
             $memoryBytes = {{memoryMB}}MB
             $cpuCount    = {{cpuCount}}
@@ -314,7 +318,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
             New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
                    -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
 
-            Set-VM -Name $vmName -ProcessorCount $cpuCount -ErrorAction Stop
+            Set-VM -Name $vmName -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
             Add-VMHardDiskDrive -VMName $vmName -Path $vhdPath -ErrorAction Stop
 
             if ($generation -eq 2) {
@@ -357,7 +361,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
     public async Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
-        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false,
+        string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         InputValidator.EnsureVmName(vmName);
@@ -377,6 +381,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 $generation   = {{generation}}
                 $vmFolder     = '{{Esc(vmFolder)}}'
                 $answerXml    = {{answerXml}}
+                $notes        = {{NotesLiteral(notes)}}
                 $isGen2       = {{isGen2}}
                 $secureBoot   = {{secureBootPs}}
                 $pxeBoot      = {{pxeBootPs}}
@@ -430,7 +435,7 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
                        -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
 
-                Set-VM -Name $vmName -ProcessorCount $cpuCount -ErrorAction Stop
+                Set-VM -Name $vmName -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
                 Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
 
                 if ($generation -eq 2) {

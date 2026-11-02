@@ -34,5 +34,7 @@ Network boot (PXE)
 Bulk creation
 :   Like [Create a VM](create-vm.md#identity), a prefix and a count create `PREFIX-01…nn`.
 
+The VM's Hyper-V [notes](create-vm.md#vm-notes) record its creation date. They hold no account, since the accounts are created during the Windows setup.
+
 !!! tip "Unattended setup"
     To get a VM that configures itself (computer name, password, language), use [Create a VM](create-vm.md) instead.

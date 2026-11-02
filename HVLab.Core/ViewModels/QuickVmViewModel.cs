@@ -117,15 +117,16 @@ public partial class QuickVmViewModel : VmCreationViewModelBase
             onSingleSuccess: () => VmName = "");
     }
 
+    // No answer file here: the notes only hold the creation date
     private Task CreateOneAsync(string name, long memMB, int cpuCnt, string vmFolder,
                                 IProgress<string>? progress, CancellationToken ct)
         => UseDifferencingDisk
             ? HvService.CreateVMWithDifferencingDiskAsync(
                 name, SelectedBaseVhdx!, SelectedSwitch!,
                 memMB, cpuCnt, Generation, vmFolder,
-                null, SecureBoot, PxeBoot, progress, ct)
+                null, SecureBoot, PxeBoot, VmNotes.Build(DateTime.Now), progress, ct)
             : HvService.CreateBlankVmAsync(
                 name, SelectedSwitch!,
                 memMB, cpuCnt, Generation, vmFolder,
-                (long)DiskSizeGB, SecureBoot, PxeBoot, progress, ct);
+                (long)DiskSizeGB, SecureBoot, PxeBoot, VmNotes.Build(DateTime.Now), progress, ct);
 }
