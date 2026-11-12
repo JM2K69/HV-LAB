@@ -32,6 +32,7 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - la construction se fait dans un fichier temporaire, donc une image existante n'est jamais laissée à moitié construite ;
   - remplacer une image existante demande une confirmation ;
   - la progression s'affiche en direct et la construction peut être annulée.
+- **Bases Linux** : une VM Linux préparée (cloud-init) devient une base, et chaque clone reçoit au premier démarrage son nom d'hôte, son utilisateur, son mot de passe et son IP fixe.
 - **Commutateurs & NAT** : commutateurs externes, internes et privés avec VLAN, et réseaux NAT avec passerelle IPv4.
 - **Interface Fluent** :
   - fond Mica, thème clair/sombre et volet de navigation adaptatif ;

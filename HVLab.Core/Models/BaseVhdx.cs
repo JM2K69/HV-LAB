@@ -21,6 +21,18 @@ public class BaseVhdx
     public string OsIdentifier { get; set; } = string.Empty;   // e.g. WindowsServer2025Standard(DesktopExperience)
     public string OsVersion    { get; set; } = string.Empty;   // e.g. 10.0.26100.4652
 
+    // ─── Sidecar (bases made from a VM) ──────────────────────────────────────
+
+    public BaseImageInfo? Info { get; set; }
+
+    /// <summary>Linux base: its clones get a cloud-init seed instead of an unattend.xml.</summary>
+    public bool   IsLinux            => Info?.IsLinux ?? OsIdentifier.StartsWith(LinuxPrefix, StringComparison.OrdinalIgnoreCase);
+    public bool   SecureBoot         => Info?.SecureBoot ?? true;
+    public string SecureBootTemplate => Info?.SecureBootTemplate
+        ?? (IsLinux ? BaseImageInfo.LinuxSecureBootTemplate : BaseImageInfo.WindowsSecureBootTemplate);
+    /// <summary>Generation of the VM the base was made from; null for bases built from a WIM.</summary>
+    public int?   Generation         => Info?.Generation;
+
     // ─── Display helpers ─────────────────────────────────────────────────────
 
     public string SizeDisplay      => $"{SizeGB} GB";
@@ -75,7 +87,24 @@ public class BaseVhdx
             SizeGB       = sizeGB,
             IsBuilt      = true,
             CreatedAt    = info.Exists ? info.CreationTime : null,
+            Info         = BaseImageInfo.Load(filePath),
         };
+    }
+
+    // ─── Linux bases ─────────────────────────────────────────────────────────
+
+    private const string LinuxPrefix = "Linux";
+
+    /// <summary>"AlmaLinux 9" → "LinuxAlmaLinux9": the OS segment of a Linux base file name.</summary>
+    public static string LinuxIdentifier(string distribution)
+        => LinuxPrefix + new string(distribution.Where(char.IsAsciiLetterOrDigit).ToArray());
+
+    /// <summary>"9.6" → "9.6.0.0": the four numbers the file name expects; null when it is not a version.</summary>
+    public static string? NormalizeVersion(string version)
+    {
+        var parts = version.Trim().Split('.');
+        if (parts.Length is < 1 or > 4 || parts.Any(p => p.Length == 0 || !p.All(char.IsAsciiDigit))) return null;
+        return string.Join('.', parts.Concat(Enumerable.Repeat("0", 4 - parts.Length)));
     }
 
     // ─── Factory: generate filename from parts ────────────────────────────────

@@ -20,6 +20,7 @@ nav = [
   { "User guide" = [
     { "Switches & NAT" = "guide/networking.md" },
     { "Base images" = "guide/base-images.md" },
+    { "Linux bases" = "guide/linux.md" },
     { "Create a VM" = "guide/create-vm.md" },
     { "Quick VM" = "guide/quick-vm.md" },
     { "Dashboard & VMs" = "guide/virtual-machines.md" },

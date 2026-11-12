@@ -32,6 +32,7 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - the image is built in a temporary file, so an existing image is never left half-built;
   - overwriting an existing image asks for confirmation;
   - progress is shown live and the build can be cancelled.
+- **Linux bases**: a prepared Linux VM (cloud-init) becomes a base, and each clone gets its own host name, user, password and static IP on first boot.
 - **Switches & NAT**: External, Internal and Private switches with VLAN, and NAT networks with an IPv4 gateway.
 - **Fluent UI**:
   - Mica backdrop, light/dark theme and an adaptive navigation pane;

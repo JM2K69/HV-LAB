@@ -38,6 +38,68 @@ public static partial class InputValidator
         return null;
     }
 
+    [GeneratedRegex("^[a-z_][a-z0-9_-]{0,31}$")]
+    private static partial Regex LinuxUserRegex();
+
+    /// <summary>Linux account created by cloud-init: lowercase POSIX name, not root.</summary>
+    public static string? CheckLinuxUser(string? name)
+        => name is null || !LinuxUserRegex().IsMatch(name) || name == "root" ? "Val_LinuxUser" : null;
+
+    /// <summary>Empty (no key) or one OpenSSH public key line.</summary>
+    public static string? CheckSshPublicKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return null;
+        key = key.Trim();
+        return key.Contains('\n') || key.Contains('\r')
+            || !(key.StartsWith("ssh-") || key.StartsWith("ecdsa-") || key.StartsWith("sk-"))
+            ? "Val_SshKey" : null;
+    }
+
+    /// <summary>Dotted IPv4 address (a.b.c.d).</summary>
+    public static string? CheckIpv4(string? address)
+        => ParseIpv4(address) is null ? "Val_Ipv4" : null;
+
+    public static uint? ParseIpv4(string? address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) return null;
+        var parts = address.Trim().Split('.');
+        if (parts.Length != 4) return null;
+        uint value = 0;
+        foreach (var p in parts)
+        {
+            if (p.Length is 0 or > 3 || !p.All(char.IsAsciiDigit) || !byte.TryParse(p, out var b)) return null;
+            value = (value << 8) | b;
+        }
+        return value;
+    }
+
+    public static string FormatIpv4(uint value)
+        => $"{value >> 24}.{(value >> 16) & 255}.{(value >> 8) & 255}.{value & 255}";
+
+    /// <summary>DNS servers separated by commas, semicolons or spaces; null when one is not an IPv4 address.</summary>
+    public static IReadOnlyList<string>? ParseDnsServers(string? list)
+    {
+        var items = (list ?? "").Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries);
+        return items.All(i => ParseIpv4(i) is not null) ? items : null;
+    }
+
+    /// <summary>
+    /// Static IPv4 plan of <paramref name="count"/> clones numbered from <paramref name="first"/>: prefix 8–30,
+    /// gateway in the subnet, every address in the subnet, not the network or broadcast address, not the gateway.
+    /// </summary>
+    public static string? CheckStaticIpPlan(string? first, int prefixLength, string? gateway, int count)
+    {
+        if (ParseIpv4(first) is not { } ip || ParseIpv4(gateway) is not { } gw) return "Val_Ipv4";
+        if (prefixLength is < 8 or > 30) return "Val_Prefix";
+        var mask      = uint.MaxValue << (32 - prefixLength);
+        var network   = ip & mask;
+        var broadcast = network | ~mask;
+        if ((gw & mask) != network) return "Val_GatewaySubnet";
+        var last = (ulong)ip + (ulong)Math.Max(count, 1) - 1;
+        if (ip == network || last >= broadcast || (gw >= ip && gw <= last)) return "Val_IpRange";
+        return null;
+    }
+
     /// <summary>Empty (no key) or the 5×5 product key format.</summary>
     public static string? CheckProductKey(string? key)
         => string.IsNullOrWhiteSpace(key) || ProductKeyRegex().IsMatch(key.Trim()) ? null : "Val_ProductKey";

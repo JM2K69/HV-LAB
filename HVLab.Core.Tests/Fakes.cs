@@ -57,6 +57,8 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(new List<NetworkAdapterInfo>());
     /// <summary>Notes passed to each created VM, by VM name.</summary>
     public Dictionary<string, string?> CreatedNotes { get; } = [];
+    /// <summary>Secure Boot template and cloud-init seed of each differencing VM, by VM name.</summary>
+    public Dictionary<string, (string Template, CloudInitSeed? Seed)> CreatedFirmware { get; } = [];
 
     public Task CreateBlankVmAsync(string vmName, string switchName, long memoryMB, int cpuCount, int generation,
         string vmFolder, long diskSizeGB, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
@@ -69,9 +71,11 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task CreateVMWithDifferencingDiskAsync(string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder, string? answerFileContent = null,
         bool secureBoot = true, bool pxeBoot = false, string? notes = null,
+        string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         CreatedNotes[vmName] = notes;
+        CreatedFirmware[vmName] = (secureBootTemplate, cloudInit);
         return Task.CompletedTask;
     }
 }

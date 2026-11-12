@@ -36,10 +36,13 @@ public interface IHyperVService
         IProgress<string>? progress = null, CancellationToken ct = default);
 
     /// <param name="notes">Hyper-V notes of the VM (see <see cref="VmNotes"/>).</param>
+    /// <param name="secureBootTemplate">Generation 2 only: MicrosoftWindows, or MicrosoftUEFICertificateAuthority for Linux.</param>
+    /// <param name="cloudInit">Linux clone: NoCloud seed written to a second disk labelled CIDATA.</param>
     Task CreateVMWithDifferencingDiskAsync(
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
         string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
+        string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
         IProgress<string>? progress = null, CancellationToken ct = default);
 }
 
@@ -56,7 +59,18 @@ public interface IVhdxService
         string vhdxPath, string wimPath, int imageIndex, int generation,
         string? answerFileContent = null,
         IProgress<string>? progress = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Copies the system disk of a stopped VM (no checkpoint, one disk besides a cloud-init seed) into
+    /// <paramref name="destPath"/> as a standalone dynamic VHDX; the VM is left untouched.
+    /// Returns its firmware settings, which the clones reuse.
+    /// </summary>
+    Task<VmDiskCopy> CopyVmDiskAsync(string vmName, string destPath,
+        IProgress<string>? progress = null, CancellationToken ct = default);
 }
+
+/// <summary>Result of <see cref="IVhdxService.CopyVmDiskAsync"/>.</summary>
+public sealed record VmDiskCopy(int Generation, bool SecureBoot, string SecureBootTemplate, long SizeGB);
 
 /// <summary>NetNat networks.</summary>
 public interface INatService

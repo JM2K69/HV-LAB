@@ -157,28 +157,29 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <FontIcon Glyph="&#xE8A5;" FontSize="16"
                                   Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                        <TextBlock Text="{Binding [CVM_AnswerFile], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="15"/>
+                        <!-- unattend.xml for a Windows base, cloud-init for a Linux base -->
+                        <TextBlock Text="{x:Bind ViewModel.AnswerSectionTitle, Mode=OneWay}" FontWeight="SemiBold" FontSize="15"/>
                     </StackPanel>
 
                     <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
-                             Message="{Binding [CVM_AnswerInfo], Source={StaticResource Loc}}"/>
+                             Message="{x:Bind ViewModel.AnswerSectionInfo, Mode=OneWay}"/>
 
                     <ToggleSwitch Header="{Binding [CVM_UseAnswer], Source={StaticResource Loc}}"
                                   IsOn="{x:Bind ViewModel.UseAnswerFile, Mode=TwoWay}"/>
 
                     <ToggleSwitch Header="{Binding [CVM_BuildCbsCache], Source={StaticResource Loc}}"
                                   IsOn="{x:Bind ViewModel.BuildCbsCache, Mode=TwoWay}"
-                                  Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                  Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <ToggleSwitch Header="{Binding [CVM_DisableWindowsUpdate], Source={StaticResource Loc}}"
                                   IsOn="{x:Bind ViewModel.DisableWindowsUpdate, Mode=TwoWay}"
-                                  Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                  Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <ToggleSwitch Header="{Binding [CVM_AutoLogon], Source={StaticResource Loc}}"
                                   IsOn="{x:Bind ViewModel.AutoLogon, Mode=TwoWay}"
-                                  Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                  Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     <StackPanel Spacing="12"
@@ -195,7 +196,7 @@
                                          MaxLength="15" PlaceholderText="LAB-VM"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
-                                <TextBlock Text="{Binding [CVM_AdminPwd], Source={StaticResource Loc}}" FontSize="12"/>
+                                <TextBlock Text="{x:Bind ViewModel.PasswordLabel, Mode=OneWay}" FontSize="12"/>
                                 <Grid>
                                     <PasswordBox x:Name="PwdBox"
                                                  Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
@@ -241,8 +242,69 @@
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
                         </Grid>
-                        <!-- KMS / Product Key -->
-                        <StackPanel Spacing="4">
+                        <!-- Linux: sudo user, SSH key, DHCP or static IP (cloud-init) -->
+                        <StackPanel Spacing="12"
+                                    Visibility="{x:Bind ViewModel.ShowLinuxOptions, Mode=OneWay,
+                                                  Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="{Binding [CVM_LinuxUser], Source={StaticResource Loc}}" FontSize="12"/>
+                                    <TextBox Text="{x:Bind ViewModel.LinuxUser, Mode=TwoWay}" PlaceholderText="labadmin"
+                                             FontFamily="Consolas"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Text="{Binding [CVM_SshKey], Source={StaticResource Loc}}" FontSize="12"/>
+                                    <TextBox Text="{x:Bind ViewModel.SshPublicKey, Mode=TwoWay}" PlaceholderText="ssh-ed25519 AAAA… user@host"
+                                             FontFamily="Consolas" FontSize="11"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <ToggleSwitch Header="{Binding [CVM_StaticIp], Source={StaticResource Loc}}"
+                                          IsOn="{x:Bind ViewModel.UseStaticIp, Mode=TwoWay}"/>
+
+                            <StackPanel Spacing="8"
+                                        Visibility="{x:Bind ViewModel.ShowStaticIpFields, Mode=OneWay,
+                                                      Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="4">
+                                        <TextBlock Text="{Binding [CVM_IpAddress], Source={StaticResource Loc}}" FontSize="12"/>
+                                        <TextBox Text="{x:Bind ViewModel.IpAddress, Mode=TwoWay}" PlaceholderText="192.168.100.10"
+                                                 FontFamily="Consolas"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1" Spacing="4">
+                                        <TextBlock Text="{Binding [CVM_Prefix], Source={StaticResource Loc}}" FontSize="12"/>
+                                        <NumberBox Value="{x:Bind ViewModel.PrefixLength, Mode=TwoWay}"
+                                                   Minimum="8" Maximum="30" SpinButtonPlacementMode="Compact"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Spacing="4">
+                                        <TextBlock Text="{Binding [CVM_Gateway], Source={StaticResource Loc}}" FontSize="12"/>
+                                        <TextBox Text="{x:Bind ViewModel.Gateway, Mode=TwoWay}" PlaceholderText="192.168.100.1"
+                                                 FontFamily="Consolas"/>
+                                    </StackPanel>
+                                </Grid>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding [CVM_Dns], Source={StaticResource Loc}}" FontSize="12"/>
+                                    <TextBox Text="{x:Bind ViewModel.DnsServers, Mode=TwoWay}" PlaceholderText="1.1.1.1, 8.8.8.8"
+                                             FontFamily="Consolas"/>
+                                </StackPanel>
+                                <TextBlock Text="{Binding [CVM_IpBulkInfo], Source={StaticResource Loc}}" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- KMS / Product Key (Windows only) -->
+                        <StackPanel Spacing="4"
+                                    Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
+                                                  Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Text="{Binding [CVM_KmsKey], Source={StaticResource Loc}}" FontSize="12"/>
                             <ComboBox ItemsSource="{x:Bind ViewModel.KmsKeys}"
                                       SelectedItem="{x:Bind ViewModel.SelectedKmsKey, Mode=TwoWay}"
@@ -261,13 +323,15 @@
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
                         </StackPanel>
-                        <StackPanel Spacing="4">
+                        <StackPanel Spacing="4"
+                                    Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
+                                                  Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Text="{Binding [CVM_ProductKey], Source={StaticResource Loc}}" FontSize="12"/>
                             <TextBox Text="{x:Bind ViewModel.ProductKey, Mode=TwoWay}"
                                      PlaceholderText="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
                                      FontFamily="Consolas"/>
                         </StackPanel>
-                        <Expander Header="{Binding [CVM_XmlPreview], Source={StaticResource Loc}}" HorizontalAlignment="Stretch">
+                        <Expander Header="{x:Bind ViewModel.PreviewTitle, Mode=OneWay}" HorizontalAlignment="Stretch">
                             <StackPanel Spacing="8">
                                 <ScrollViewer Height="180">
                                     <TextBlock Text="{x:Bind ViewModel.AnswerFilePreview, Mode=OneWay}"

@@ -27,7 +27,8 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
 
     // ─── Answer file (injected into the differencing disk at creation time) ────
 
-    [ObservableProperty] private bool   useAnswerFile  = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowWindowsOptions), nameof(ShowLinuxOptions), nameof(ShowStaticIpFields))]
+    private bool useAnswerFile = true;
     [ObservableProperty] private string computerName   = "LAB-VM";
     [ObservableProperty] private string adminPassword  = "";
     [ObservableProperty] private bool   autoLogon      = false;
@@ -54,13 +55,43 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
             ProductKey = value.Key;
     }
 
+    // ─── Linux base: a cloud-init seed instead of unattend.xml ───────────────────
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowWindowsOptions), nameof(ShowLinuxOptions), nameof(ShowStaticIpFields),
+        nameof(AnswerSectionTitle), nameof(AnswerSectionInfo), nameof(PasswordLabel), nameof(PreviewTitle))]
+    private bool isLinuxBase;
+
+    [ObservableProperty] private string linuxUser    = "labadmin";
+    [ObservableProperty] private string sshPublicKey = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowStaticIpFields))] private bool useStaticIp;
+    [ObservableProperty] private string ipAddress    = "";
+    [ObservableProperty] private int    prefixLength = 24;
+    [ObservableProperty] private string gateway      = "";
+    [ObservableProperty] private string dnsServers   = "";
+
+    public bool ShowWindowsOptions => UseAnswerFile && !IsLinuxBase;
+    public bool ShowLinuxOptions   => UseAnswerFile && IsLinuxBase;
+    public bool ShowStaticIpFields => ShowLinuxOptions && UseStaticIp;
+
+    public string AnswerSectionTitle => T(IsLinuxBase ? "CVM_CloudInit" : "CVM_AnswerFile");
+    public string AnswerSectionInfo  => T(IsLinuxBase ? "CVM_CloudInitInfo" : "CVM_AnswerInfo");
+    public string PasswordLabel      => T(IsLinuxBase ? "CVM_UserPwd" : "CVM_AdminPwd");
+    public string PreviewTitle       => T(IsLinuxBase ? "CVM_CloudInitPreview" : "CVM_XmlPreview");
+
+    /// <summary>Base selected in the form (firmware settings of Linux bases made from a VM).</summary>
+    private BaseVhdx? _base;
+
     private OsFamily _detectedOsFamily = OsFamily.Server;
 
     protected override void OnSelectedBaseVhdxChangedCore(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return;
 
-        var vhdx = BaseVhdx.FromFile(value);
+        var vhdx = _base = BaseVhdx.FromFile(value);
+        IsLinuxBase = vhdx.IsLinux;
+        // A base made from a VM only boots with that VM's generation
+        if (vhdx.Generation is { } generation) Generation = generation;
+        if (vhdx.IsLinux) { UpdateAnswerPreview(); return; }
 
         // Detect OS family from OsIdentifier
         var norm = vhdx.OsIdentifier.ToLowerInvariant();
@@ -111,6 +142,8 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         nameof(UseAnswerFile), nameof(VmName), nameof(ComputerName), nameof(AdminPassword),
         nameof(AutoLogon), nameof(ProductKey), nameof(UiLanguage), nameof(TimeZone),
         nameof(BuildCbsCache), nameof(DisableWindowsUpdate),
+        nameof(LinuxUser), nameof(SshPublicKey), nameof(UseStaticIp), nameof(IpAddress),
+        nameof(PrefixLength), nameof(Gateway), nameof(DnsServers),
     ];
 
     private CancellationTokenSource? _previewCts;
@@ -135,6 +168,15 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
     public void UpdateAnswerPreview()
     {
         if (!UseAnswerFile) { AnswerFilePreview = T("St_AnswerDisabled"); return; }
+        if (IsLinuxBase)
+        {
+            // First VM of the series, password masked unless shown
+            var ip = !UseStaticIp ? null : InputValidator.ParseIpv4(IpAddress) is not null ? IpFor(0) : IpAddress;
+            var linux = BuildCloudInit(BulkMode ? InputValidator.ToComputerName($"{BulkPrefix}-01") : ComputerName, ip);
+            if (!ShowPassword && !string.IsNullOrEmpty(linux.Password)) linux.Password = "********";
+            AnswerFilePreview = CloudInitGenerator.Preview(CloudInitGenerator.Generate(linux));
+            return;
+        }
         var config = BuildConfig();
         // Never show the password in the preview unless the user asked to see it
         if (!ShowPassword && !string.IsNullOrEmpty(config.AdminPassword)) config.AdminPassword = "********";
@@ -142,14 +184,40 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
     }
 
     /// <summary>Answer-file checks (VM names are validated by the base class); null when valid.</summary>
-    private string? ValidateAnswerFile()
+    private string? ValidateAnswerFile(int vmCount)
     {
         if (!UseAnswerFile) return null;
         if (string.IsNullOrEmpty(AdminPassword)) return T("Val_PasswordEmpty");
         if (!BulkMode && InputValidator.CheckComputerName(ComputerName) is { } c) return T(c);
+        if (IsLinuxBase)
+        {
+            if (InputValidator.CheckLinuxUser(LinuxUser) is { } u)       return T(u);
+            if (InputValidator.CheckSshPublicKey(SshPublicKey) is { } k) return T(k);
+            if (UseStaticIp)
+            {
+                if (InputValidator.CheckStaticIpPlan(IpAddress, PrefixLength, Gateway, vmCount) is { } ip) return T(ip);
+                if (InputValidator.ParseDnsServers(DnsServers) is null) return T("Val_Dns");
+            }
+            return null;
+        }
         if (InputValidator.CheckProductKey(ProductKey) is { } p) return T(p);
         return null;
     }
+
+    /// <summary>Static IP of the clone at <paramref name="index"/> in the series (validated first address + index).</summary>
+    private string IpFor(int index) => InputValidator.FormatIpv4(InputValidator.ParseIpv4(IpAddress)!.Value + (uint)index);
+
+    private CloudInitConfig BuildCloudInit(string hostName, string? ip) => new()
+    {
+        HostName     = hostName,
+        UserName     = LinuxUser,
+        Password     = AdminPassword,
+        SshPublicKey = SshPublicKey,
+        TimeZone     = TimeZone,
+        Language     = UiLanguage,
+        StaticIp     = ip is null ? null
+            : new StaticIpConfig(ip, PrefixLength, Gateway.Trim(), InputValidator.ParseDnsServers(DnsServers) ?? []),
+    };
 
     [RelayCommand]
     public async Task CreateVmAsync()
@@ -159,12 +227,30 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         if (string.IsNullOrWhiteSpace(SelectedSwitch))
             { Status = T("St_SelectSwitch"); return; }
         if (GetNamesToCreate() is not { } names) return;
-        if (ValidateAnswerFile() is { } err) { Status = err; return; }
+        if (ValidateAnswerFile(names.Count) is { } err) { Status = err; return; }
 
         string parent = SelectedBaseVhdx, sw = SelectedSwitch;
+        var linuxBase = IsLinuxBase ? _base ?? BaseVhdx.FromFile(parent) : null;
+        var order     = names.ToList();
         await RunCreationAsync(names,
             (name, progress, ct) =>
             {
+                if (linuxBase is not null)
+                {
+                    var ip   = UseAnswerFile && UseStaticIp ? IpFor(order.IndexOf(name)) : null;
+                    var seed = UseAnswerFile
+                        ? CloudInitGenerator.Generate(BuildCloudInit(BulkMode ? InputValidator.ToComputerName(name) : ComputerName, ip))
+                        : null;
+                    var linuxNotes = UseAnswerFile
+                        ? VmNotes.Build(DateTime.Now, LinuxUser, AdminPassword, ip)
+                        : VmNotes.Build(DateTime.Now);
+                    // The clone keeps the firmware of the VM the base was made from (Secure Boot template UEFI CA)
+                    return HvService.CreateVMWithDifferencingDiskAsync(
+                        name, parent, sw, MemoryMB, CpuCount, Generation, VmFolder,
+                        null, linuxBase.SecureBoot, pxeBoot: false, linuxNotes,
+                        linuxBase.SecureBootTemplate, seed, progress, ct);
+                }
+
                 string? answerXml = UseAnswerFile
                     ? AnswerFileGenerator.Generate(BuildConfig(BulkMode ? InputValidator.ToComputerName(name) : null))
                     : null;
@@ -173,7 +259,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
                     : VmNotes.Build(DateTime.Now);
                 return HvService.CreateVMWithDifferencingDiskAsync(
                     name, parent, sw, MemoryMB, CpuCount, Generation, VmFolder,
-                    answerXml, secureBoot: true, pxeBoot: false, notes, progress, ct);
+                    answerXml, secureBoot: true, pxeBoot: false, notes, progress: progress, ct: ct);
             },
             onSingleSuccess: () => { VmName = ""; ComputerName = "LAB-VM"; });
     }

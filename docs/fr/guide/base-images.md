@@ -2,6 +2,9 @@
 
 Une image de base est une installation Windows généralisée dans un fichier `BASE_*.vhdx`. Les VM sont ensuite créées en **disque différentiel** sur ce fichier. Chaque VM ne stocke que ses propres modifications, donc créer une VM prend quelques secondes.
 
+!!! tip "Linux, ou une VM Windows personnalisée"
+    Une base peut aussi être copiée depuis une VM existante. Voir [Bases Linux](linux.md).
+
 La page **Images de base VHDX** liste les images du dossier des images de base (voir [Paramètres](settings.md)). Pour chaque image, la liste affiche l'OS, la version, l'édition, la taille et la date. Sous la liste se trouve le formulaire de construction d'une nouvelle image.
 
 ## Construire une image

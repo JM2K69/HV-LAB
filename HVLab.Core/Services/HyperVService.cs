@@ -362,9 +362,13 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
         string vmName, string parentVhdxPath, string switchName,
         long memoryMB, int cpuCount, int generation, string vmFolder,
         string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
+        string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
         IProgress<string>? progress = null, CancellationToken ct = default)
     {
         InputValidator.EnsureVmName(vmName);
+        // Seed files as an ordered hashtable of literals (they hold the password: embedded like the answer file)
+        var seedFiles = cloudInit is null ? "$null"
+            : "[ordered]@{ " + string.Join("; ", cloudInit.Files().Select(f => $"'{Esc(f.Key)}' = {PsLiteral(f.Value)}")) + " }";
         // The answer file (it holds the admin password) is embedded in the script streamed over
         // stdin — it is never written to %TEMP%.
         var answerXml = string.IsNullOrWhiteSpace(answerFileContent) ? "''" : PsLiteral(answerFileContent);
@@ -382,6 +386,8 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 $vmFolder     = '{{Esc(vmFolder)}}'
                 $answerXml    = {{answerXml}}
                 $notes        = {{NotesLiteral(notes)}}
+                $seedFiles    = {{seedFiles}}
+                $sbTemplate   = '{{Esc(secureBootTemplate)}}'
                 $isGen2       = {{isGen2}}
                 $secureBoot   = {{secureBootPs}}
                 $pxeBoot      = {{pxeBootPs}}
@@ -439,10 +445,11 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                 Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
 
                 if ($generation -eq 2) {
-                    # Secure Boot selon le choix utilisateur
+                    # Secure Boot as chosen; a Linux clone cannot boot with the Windows template, so it must not fail silently
                     $sbState = if ($secureBoot) { 'On' } else { 'Off' }
+                    $sbError = if ($sbTemplate -eq 'MicrosoftWindows') { 'SilentlyContinue' } else { 'Stop' }
                     Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
-                                   -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
+                                   -SecureBootTemplate $sbTemplate -ErrorAction $sbError
 
                     # Boot order strict: HDD first unless PXE explicitly requested
                     $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
@@ -468,6 +475,39 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
                     } else {
                         Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
                     }
+                }
+
+                # Linux clone: cloud-init NoCloud seed on a second small disk, a FAT volume labelled CIDATA.
+                # Same silent mount as the base images: no drive letter, admin-only folder under ProgramData.
+                # Attached after the boot order is set, so the system disk stays first.
+                if ($seedFiles) {
+                    Write-Output "##Prg_Seed"
+                    $seedVhd = Join-Path $vhdFolder "$vmName-cidata.vhdx"
+                    New-VHD -Path $seedVhd -SizeBytes 64MB -Dynamic -ErrorAction Stop | Out-Null
+                    $seedMount = Mount-DiskImage -ImagePath $seedVhd -NoDriveLetter -PassThru -ErrorAction Stop
+                    $seedPath  = $null
+                    try {
+                        $seedDisk = ($seedMount | Get-Disk).Number
+                        Initialize-Disk -Number $seedDisk -PartitionStyle MBR -ErrorAction Stop
+                        $seedPart = New-Partition -DiskNumber $seedDisk -UseMaximumSize -ErrorAction Stop
+                        Format-Volume -Partition $seedPart -FileSystem FAT -NewFileSystemLabel 'CIDATA' -Confirm:$false -ErrorAction Stop | Out-Null
+                        $seedPath = Join-Path $env:ProgramData ('HV-LAB\mnt\' + [guid]::NewGuid().ToString('N'))
+                        New-Item -Path $seedPath -ItemType Directory -Force | Out-Null
+                        & icacls.exe $seedPath /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+                        $seedPart | Add-PartitionAccessPath -AccessPath $seedPath -ErrorAction Stop
+                        # UTF-8 without BOM: cloud-init reads "#cloud-config" on the first line
+                        $utf8 = New-Object System.Text.UTF8Encoding $false
+                        foreach ($f in $seedFiles.GetEnumerator()) {
+                            [System.IO.File]::WriteAllText((Join-Path $seedPath $f.Key), $f.Value, $utf8)
+                        }
+                    } finally {
+                        if ($seedPath) {
+                            try { $seedPart | Remove-PartitionAccessPath -AccessPath $seedPath -ErrorAction SilentlyContinue } catch {}
+                            Remove-Item $seedPath -Force -ErrorAction SilentlyContinue
+                        }
+                        Dismount-DiskImage -ImagePath $seedVhd -ErrorAction SilentlyContinue | Out-Null
+                    }
+                    Add-VMHardDiskDrive -VMName $vmName -Path $seedVhd -ErrorAction Stop
                 }
                 Write-Output "##Prg_VmCreated|$vmName"
                 """;

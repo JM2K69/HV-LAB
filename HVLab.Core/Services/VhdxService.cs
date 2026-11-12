@@ -100,6 +100,49 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
     }
 
 
+    public async Task<VmDiskCopy> CopyVmDiskAsync(string vmName, string destPath,
+        IProgress<string>? progress = null, CancellationToken ct = default)
+    {
+        InputValidator.EnsureVmName(vmName);
+        // Convert-VHD reads the disk as the VM sees it, so a differencing disk comes out merged
+        var script = $$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $vmName   = '{{Esc(vmName)}}'
+            $destPath = '{{Esc(destPath)}}'
+            $vm = Get-VM -Name $vmName -ErrorAction Stop
+            if ($vm.State -ne 'Off') { throw "##Err_VmNotOff|$vmName" }
+            if (@(Get-VMSnapshot -VMName $vmName -ErrorAction SilentlyContinue).Count -gt 0) { throw "##Err_VmCheckpoints|$vmName" }
+            # The cloud-init seed of an HV-LAB clone is not part of the system
+            $disks = @(Get-VMHardDiskDrive -VMName $vmName | Where-Object { $_.Path -notlike '*-cidata.vhdx' })
+            if ($disks.Count -ne 1) { throw "##Err_VmDiskCount|$vmName|$($disks.Count)" }
+
+            $secureBoot = $false; $template = ''
+            if ($vm.Generation -eq 2) {
+                $fw = Get-VMFirmware -VMName $vmName
+                $secureBoot = $fw.SecureBoot -eq 'On'
+                $template   = "$($fw.SecureBootTemplate)"
+            }
+
+            Write-Output "##Prg_CopyDisk|$vmName"
+            $dir = Split-Path $destPath -Parent
+            if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+            if (Test-Path $destPath) { Remove-Item $destPath -Force }
+            Convert-VHD -Path $disks[0].Path -DestinationPath $destPath -VHDType Dynamic -ErrorAction Stop
+            $sizeGB = [math]::Ceiling((Get-VHD -Path $destPath).Size / 1GB)
+            [PSCustomObject]@{ Generation = $vm.Generation; SecureBoot = $secureBoot; SecureBootTemplate = $template; SizeGB = $sizeGB } |
+                ConvertTo-Json -Compress
+            """;
+
+        var output = await ps.RunAsync(script, progress, ct: ct);
+        var json = HyperVService.ExtractJson(output);
+        try
+        {
+            return JsonSerializer.Deserialize<VmDiskCopy>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? throw new JsonException("null");
+        }
+        catch (JsonException ex) { throw HyperVService.ParseError("copie du disque", json, ex); }
+    }
+
     public async Task<List<BaseVhdx>> GetBaseVhdxListAsync(string folder)
     {
         var result = new List<BaseVhdx>();

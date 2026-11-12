@@ -191,12 +191,108 @@ public partial class BaseVhdxViewModel : PageViewModelBase
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
-    public BaseVhdxViewModel(IVhdxService vhdxService, IDialogService dialogs)
+    public BaseVhdxViewModel(IVhdxService vhdxService, IDialogService dialogs, IHyperVService hvService)
     {
         _vhdxService = vhdxService;
         _dialogs     = dialogs;
+        _hvService   = hvService;
         baseFolder = AppSettings.Current.BaseImagesFolder;
         RefreshEditions();
+    }
+
+    // ─── Base from an existing VM (Linux, or a customized and sysprepped Windows) ──
+
+    private readonly IHyperVService _hvService;
+
+    public ObservableCollection<string> SourceVms { get; } = [];
+    public List<string> SourceFamilies { get; } = ["Linux", "Windows"];
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FromVmPreviewFileName))] private string? sourceVm;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FromVmPreviewFileName), nameof(SourceIsLinux))] private string sourceFamily = "Linux";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FromVmPreviewFileName))] private string sourceDistribution = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(FromVmPreviewFileName))] private string sourceVersion = "";
+
+    public bool SourceIsLinux => SourceFamily == "Linux";
+
+    /// <summary>OS segment of the file name: "LinuxAlmaLinux" for Linux, the name as typed (letters, digits) for Windows.</summary>
+    private string SourceOsIdentifier => SourceIsLinux
+        ? BaseVhdx.LinuxIdentifier(SourceDistribution)
+        : new string(SourceDistribution.Where(char.IsAsciiLetterOrDigit).ToArray());
+
+    /// <summary>File name without the size, which is only known once the disk is copied.</summary>
+    public string FromVmPreviewFileName
+        => $"BASE_{SourceOsIdentifier}_{BaseVhdx.NormalizeVersion(SourceVersion) ?? "?"}_<GB>";
+
+    /// <summary>Stopped VMs, offered as sources (loaded with the image list).</summary>
+    private async Task LoadSourceVmsAsync()
+    {
+        var kept = SourceVm;
+        List<VirtualMachine> vms;
+        try { vms = await _hvService.GetVirtualMachinesAsync(); }
+        catch (Exception ex) { CrashLogger.Log("Base images: VM list failed", ex); vms = []; }   // the image list stays usable
+        SourceVms.Clear();
+        foreach (var vm in vms.Where(v => v.State == "Off").OrderBy(v => v.Name)) SourceVms.Add(vm.Name);
+        SourceVm = kept is not null && SourceVms.Contains(kept) ? kept : null;
+    }
+
+    [RelayCommand]
+    public async Task CreateBaseFromVmAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SourceVm))                       { Status = T("BV_SelectSourceVm"); return; }
+        if (SourceOsIdentifier is "Linux" or "")                       { Status = T("BV_EnterDistribution"); return; }
+        if (BaseVhdx.NormalizeVersion(SourceVersion) is not { } version) { Status = T("BV_EnterVersion"); return; }
+
+        var vmName    = SourceVm;
+        var copyPath  = System.IO.Path.Combine(BaseFolder, $"~building_{Guid.NewGuid():N}.vhdx");
+        IsCreating = true; IsLoading = true;
+        ErrorMessage = string.Empty;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            BuildStatus = T("Prg_CopyDisk", vmName);
+            var copy = await _vhdxService.CopyVmDiskAsync(vmName, copyPath,
+                new Progress<string>(line => BuildStatus = TranslateProgress(line)), _cts.Token);
+
+            var vhdxPath = System.IO.Path.Combine(BaseFolder, BaseVhdx.BuildFileName(SourceOsIdentifier, version, copy.SizeGB) + ".vhdx");
+            if (File.Exists(vhdxPath)
+                && !await _dialogs.ConfirmAsync(T("BV_OverwriteTitle"),
+                       T("BV_OverwriteConfirm", System.IO.Path.GetFileName(vhdxPath)), T("BV_BtnOverwrite")))
+            {
+                await _vhdxService.DiscardPartialVhdxAsync(copyPath);
+                BuildStatus = T("Op_Cancelled");
+                return;
+            }
+
+            await MoveWithRetryAsync(copyPath, vhdxPath);
+            new BaseImageInfo
+            {
+                OsFamily           = SourceFamily,
+                Distribution       = SourceDistribution.Trim(),
+                Generation         = copy.Generation,
+                SecureBoot         = copy.SecureBoot,
+                SecureBootTemplate = string.IsNullOrEmpty(copy.SecureBootTemplate)
+                    ? (SourceIsLinux ? BaseImageInfo.LinuxSecureBootTemplate : BaseImageInfo.WindowsSecureBootTemplate)
+                    : copy.SecureBootTemplate,
+                SourceVm           = vmName,
+            }.Save(vhdxPath);
+
+            BuildStatus = T("BV_BuildOk");
+            Status = T("BV_Created", vhdxPath);
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            var cancelled = ex is OperationCanceledException;
+            BuildStatus = cancelled ? T("Op_Cancelled") : T("BV_BuildError", ex.Message);
+            if (!cancelled)
+            {
+                CrashLogger.Log($"Base image from VM failed ({vmName})",
+                                ex is PowerShellException pse ? new Exception($"{pse.Message}\n{pse.Details}", ex) : ex);
+                ErrorMessage = T("BV_BuildFailedLog", ex.Message, CrashLogger.LogFolder);
+            }
+            try { await _vhdxService.DiscardPartialVhdxAsync(copyPath); } catch { /* best effort */ }
+        }
+        finally { IsCreating = false; IsLoading = false; _cts.Dispose(); _cts = null; }
     }
 
     // ─── Commands ────────────────────────────────────────────────────────────
@@ -213,6 +309,7 @@ public partial class BaseVhdxViewModel : PageViewModelBase
             foreach (var img in images) BaseVhdxList.Add(img);
             Status = T("BV_ImagesIn", images.Count, BaseFolder);
             MarkLoaded();
+            await LoadSourceVmsAsync();
         }
         catch (Exception ex) { Status = string.Empty; ShowError(ex); }
         finally { IsLoading = false; }
@@ -321,6 +418,7 @@ public partial class BaseVhdxViewModel : PageViewModelBase
             // The VHDX is detached asynchronously after Dismount-DiskImage: wait for it, then rename with retries
             await _vhdxService.EnsureDetachedAsync(buildPath);
             await MoveWithRetryAsync(buildPath, vhdxPath);
+            File.Delete(BaseImageInfo.SidecarPath(vhdxPath));   // a replaced base made from a VM: its firmware settings no longer apply
 
             BuildStatus = T("BV_BuildOk");
             Status = T("BV_Created", vhdxPath);
@@ -366,7 +464,11 @@ public partial class BaseVhdxViewModel : PageViewModelBase
         Status = T("BV_Deleting", vhdx.Name);
         try
         {
-            await Task.Run(() => File.Delete(vhdx.FilePath));
+            await Task.Run(() =>
+            {
+                File.Delete(vhdx.FilePath);
+                File.Delete(BaseImageInfo.SidecarPath(vhdx.FilePath));   // no-op when the base has none
+            });
             Status = T("BV_Deleted", vhdx.Name);
             await RefreshAsync();
         }

@@ -2,6 +2,9 @@
 
 A base image is a generalized Windows installation in a `BASE_*.vhdx` file. VMs are then created on **differencing disks** of this file: each VM stores only its own changes, so creating a VM takes seconds.
 
+!!! tip "Linux, or a customized Windows VM"
+    A base can also be copied from an existing VM. See [Linux bases](linux.md).
+
 The **Base VHDX Images** page lists the images found in the base images folder (see [Settings](settings.md)). The list shows the OS, version, edition, size and date of each image. Below the list is the form that builds a new image.
 
 ## Build an image

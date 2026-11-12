@@ -115,7 +115,7 @@ public class BaseVhdxFormTests
 
     private static async Task<BaseVhdxViewModel> AnalyzeAsync(string json)
     {
-        var vm = new BaseVhdxViewModel(new VhdxService(new FakePowerShellRunner(_ => json)), new FakeDialogService());
+        var vm = new BaseVhdxViewModel(new VhdxService(new FakePowerShellRunner(_ => json)), new FakeDialogService(), new FakeHyperVService());
         // Same as the Edition ComboBox: clearing its items pushes a null selection back
         vm.AvailableEditions.CollectionChanged += (_, e) =>
         {

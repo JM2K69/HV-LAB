@@ -20,6 +20,7 @@ nav = [
   { "Guide d'utilisation" = [
     { "Commutateurs & NAT" = "guide/networking.md" },
     { "Images de base" = "guide/base-images.md" },
+    { "Bases Linux" = "guide/linux.md" },
     { "Créer une VM" = "guide/create-vm.md" },
     { "Quick VM" = "guide/quick-vm.md" },
     { "Tableau de bord & VM" = "guide/virtual-machines.md" },
