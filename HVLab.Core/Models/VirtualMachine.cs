@@ -56,6 +56,9 @@ public partial class VirtualMachine : ObservableObject
 
     /// <summary>Credentials HV-LAB wrote into the notes at creation (account, password, static IP).</summary>
     public VmCredentials Credentials => VmNotes.Read(Notes);
+    /// <summary>False for a VM created outside HV-LAB (or without answer file): the credential actions are hidden.</summary>
+    public bool   HasCredentials => Credentials.HasPassword;
+    public string AccountLine    => LocalizationService.T("VM_AccountLine", Credentials.Account);
 
     partial void OnStateChanged(string value)
     {
@@ -84,7 +87,12 @@ public partial class VirtualMachine : ObservableObject
     partial void OnMemoryMBChanged(long value) => OnPropertyChanged(nameof(MemoryDisplay));
     partial void OnCpuUsageChanged(int value) => OnPropertyChanged(nameof(CpuDisplay));
     partial void OnProcessorCountChanged(int value) => OnPropertyChanged(nameof(CpuDisplay));
-    partial void OnNotesChanged(string value) => OnPropertyChanged(nameof(Credentials));
+    partial void OnNotesChanged(string value)
+    {
+        OnPropertyChanged(nameof(Credentials));
+        OnPropertyChanged(nameof(HasCredentials));
+        OnPropertyChanged(nameof(AccountLine));
+    }
 
     /// <summary>Copies the refreshed values of <paramref name="fresh"/> (same VM) into this row.</summary>
     public void UpdateFrom(VirtualMachine fresh)

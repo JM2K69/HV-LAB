@@ -135,6 +135,9 @@ public class VmNotesReadTests
         var c = VmNotes.Read("2Pint Lab Kit version 26.09.27");
         Assert.False(c.HasPassword);
         Assert.Equal("", c.Account);
+        // the detail pane then hides the account line and the copy/type buttons
+        Assert.False(new VirtualMachine { Notes = "2Pint Lab Kit version 26.09.27" }.HasCredentials);
+        Assert.True(new VirtualMachine { Notes = "Account: Administrator\nPassword: x" }.HasCredentials);
     }
 }
 

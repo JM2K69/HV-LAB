@@ -371,20 +371,26 @@
                             BorderThickness="1" CornerRadius="8" Padding="16,12">
                         <StackPanel Spacing="8">
                             <TextBlock Text="{Binding [VM_Credentials], Source={StaticResource Loc}}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <TextBlock IsTextSelectionEnabled="True" TextWrapping="Wrap">
-                                <Run Text="{Binding [VM_Account], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <Run Text=" : "/>
-                                <Run Text="{x:Bind ViewModel.SelectedVm.Credentials.Account, Mode=OneWay, FallbackValue=''}"/>
-                            </TextBlock>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Click="CopyPassword_Click">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <FontIcon Glyph="&#xE8C8;" FontSize="12"/>
-                                        <TextBlock Text="{Binding [VM_CopyPassword], Source={StaticResource Loc}}"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
-                            <Grid ColumnSpacing="8">
+                            <!-- VM created outside HV-LAB (or without answer file): nothing to copy or type -->
+                            <TextBlock Text="{Binding [VM_NoCredentials], Source={StaticResource Loc}}" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
+                                                     Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
+                            <TextBlock Text="{x:Bind ViewModel.SelectedVm.AccountLine, Mode=OneWay, FallbackValue=''}"
+                                       IsTextSelectionEnabled="True" TextWrapping="Wrap"
+                                       Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
+                                                     Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <Button Click="CopyPassword_Click"
+                                    Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
+                                                  Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE8C8;" FontSize="12"/>
+                                    <TextBlock Text="{Binding [VM_CopyPassword], Source={StaticResource Loc}}"/>
+                                </StackPanel>
+                            </Button>
+                            <Grid ColumnSpacing="8"
+                                  Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
+                                                Converter={StaticResource BoolToVisibilityConverter}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -461,69 +467,111 @@
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    Margin="0,4,0,0"/>
 
-        <!-- Settings after creation -->
+        <!-- Settings after creation. Two columns so it fits without scrolling. Labels are TextBlocks, not control
+             headers: a NumberBox header stays grey after the box is re-enabled, and a TextBox header takes the
+             box's Consolas font. -->
         <ContentDialog x:Name="SettingsDialog"
                        Title="{Binding [SETVM_Title], Source={StaticResource Loc}}"
                        PrimaryButtonText="{Binding [SETVM_Apply], Source={StaticResource Loc}}"
                        CloseButtonText="{Binding [Btn_Cancel], Source={StaticResource Loc}}"
                        DefaultButton="Primary"
                        PrimaryButtonClick="SettingsDialog_PrimaryButtonClick">
-            <ScrollViewer MaxHeight="520">
-                <StackPanel Spacing="12" MinWidth="420">
-                    <InfoBar IsOpen="{x:Bind ViewModel.EditingSettings.IsRunning, Mode=OneWay, FallbackValue=False}"
+            <!-- Wider than the 548 px default of ContentDialog -->
+            <ContentDialog.Resources>
+                <x:Double x:Key="ContentDialogMaxWidth">720</x:Double>
+            </ContentDialog.Resources>
+            <ScrollViewer MaxHeight="600" Padding="0,0,16,0">
+                <Grid Width="640" ColumnSpacing="20" RowSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <InfoBar Grid.ColumnSpan="2"
+                             IsOpen="{x:Bind ViewModel.EditingSettings.IsRunning, Mode=OneWay, FallbackValue=False}"
                              Severity="Informational" IsClosable="False"
                              Message="{Binding [SETVM_Running], Source={StaticResource Loc}}"/>
-                    <InfoBar x:Name="SettingsError" Severity="Error" IsClosable="False"/>
+                    <InfoBar x:Name="SettingsError" Grid.Row="1" Grid.ColumnSpan="2" Severity="Error" IsClosable="False"/>
 
-                    <NumberBox Header="{Binding [SETVM_Cpu], Source={StaticResource Loc}}"
-                               Value="{x:Bind ViewModel.EditingSettings.ProcessorCount, Mode=TwoWay, FallbackValue=1}"
-                               Minimum="1" Maximum="64" SpinButtonPlacementMode="Compact"
-                               IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=False}"/>
-                    <ToggleSwitch Header="{Binding [SETVM_Nested], Source={StaticResource Loc}}"
-                                  IsOn="{x:Bind ViewModel.EditingSettings.Nested, Mode=TwoWay, FallbackValue=False}"
-                                  IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=False}"/>
-                    <NumberBox Header="{Binding [SETVM_Startup], Source={StaticResource Loc}}"
-                               Value="{x:Bind ViewModel.EditingSettings.StartupMB, Mode=TwoWay, FallbackValue=0}"
-                               Minimum="32" Maximum="1048576" SmallChange="512" LargeChange="1024" SpinButtonPlacementMode="Compact"
-                               IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=False}"/>
-                    <ToggleSwitch Header="{Binding [SETVM_Dynamic], Source={StaticResource Loc}}"
-                                  IsOn="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=TwoWay, FallbackValue=False}"
-                                  IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=False}"/>
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition/>
-                            <ColumnDefinition/>
-                        </Grid.ColumnDefinitions>
-                        <NumberBox Header="{Binding [SETVM_Min], Source={StaticResource Loc}}"
-                                   Value="{x:Bind ViewModel.EditingSettings.MinimumMB, Mode=TwoWay, FallbackValue=0}"
-                                   Minimum="32" Maximum="1048576" SmallChange="256" SpinButtonPlacementMode="Compact"
-                                   IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=False}"/>
-                        <NumberBox Grid.Column="1" Header="{Binding [SETVM_Max], Source={StaticResource Loc}}"
-                                   Value="{x:Bind ViewModel.EditingSettings.MaximumMB, Mode=TwoWay, FallbackValue=0}"
-                                   Minimum="32" Maximum="1048576" SmallChange="1024" SpinButtonPlacementMode="Compact"
-                                   IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=False}"/>
-                    </Grid>
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox Header="{Binding [SETVM_Iso], Source={StaticResource Loc}}"
-                                 Text="{x:Bind ViewModel.EditingSettings.IsoPath, Mode=TwoWay, FallbackValue=''}"
-                                 FontFamily="Consolas" FontSize="12"/>
-                        <Button Grid.Column="1" VerticalAlignment="Bottom" Click="BrowseIso_Click"
-                                Content="{Binding [Btn_Browse], Source={StaticResource Loc}}"/>
-                        <Button Grid.Column="2" VerticalAlignment="Bottom" Click="EjectIso_Click"
-                                Content="{Binding [SETVM_Eject], Source={StaticResource Loc}}"/>
-                    </Grid>
-                    <ComboBox Header="{Binding [SETVM_Switch], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
-                              ItemsSource="{x:Bind ViewModel.SwitchNames}"
-                              SelectedItem="{x:Bind ViewModel.EditingSettings.SwitchName, Mode=TwoWay, FallbackValue=''}"/>
-                    <NumberBox Header="{Binding [SETVM_Vlan], Source={StaticResource Loc}}"
-                               Value="{x:Bind ViewModel.EditingSettings.VlanId, Mode=TwoWay, FallbackValue=0}"
-                               Minimum="0" Maximum="4094" SpinButtonPlacementMode="Compact"/>
-                </StackPanel>
+                    <!-- Processor -->
+                    <StackPanel Grid.Row="2" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Cpu], Source={StaticResource Loc}}" FontSize="12"/>
+                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.ProcessorCount, Mode=TwoWay, FallbackValue=1}"
+                                   Minimum="1" Maximum="64" SpinButtonPlacementMode="Inline"
+                                   IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Nested], Source={StaticResource Loc}}" FontSize="12" TextWrapping="Wrap"/>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.EditingSettings.Nested, Mode=TwoWay, FallbackValue=False}"
+                                      IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
+                    </StackPanel>
+
+                    <!-- Memory -->
+                    <StackPanel Grid.Row="3" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Startup], Source={StaticResource Loc}}" FontSize="12"/>
+                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.StartupMB, Mode=TwoWay, FallbackValue=0}"
+                                   Minimum="32" Maximum="1048576" SmallChange="512" LargeChange="1024" SpinButtonPlacementMode="Inline"
+                                   IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Dynamic], Source={StaticResource Loc}}" FontSize="12"/>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=TwoWay, FallbackValue=False}"
+                                      IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="4" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Min], Source={StaticResource Loc}}" FontSize="12"/>
+                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.MinimumMB, Mode=TwoWay, FallbackValue=0}"
+                                   Minimum="32" Maximum="1048576" SmallChange="256" SpinButtonPlacementMode="Inline"
+                                   IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=True}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="4" Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Max], Source={StaticResource Loc}}" FontSize="12"/>
+                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.MaximumMB, Mode=TwoWay, FallbackValue=0}"
+                                   Minimum="32" Maximum="1048576" SmallChange="1024" SpinButtonPlacementMode="Inline"
+                                   IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=True}"/>
+                    </StackPanel>
+
+                    <!-- DVD drive -->
+                    <StackPanel Grid.Row="5" Grid.ColumnSpan="2" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Iso], Source={StaticResource Loc}}" FontSize="12"/>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Text="{x:Bind ViewModel.EditingSettings.IsoPath, Mode=TwoWay, FallbackValue=''}"
+                                     PlaceholderText="D:\ISO\ubuntu-24.04-live-server-amd64.iso"
+                                     FontFamily="Consolas" FontSize="12"/>
+                            <Button Grid.Column="1" Click="BrowseIso_Click"
+                                    Content="{Binding [Btn_Browse], Source={StaticResource Loc}}"/>
+                            <Button Grid.Column="2" Click="EjectIso_Click"
+                                    Content="{Binding [SETVM_Eject], Source={StaticResource Loc}}"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <!-- Network -->
+                    <StackPanel Grid.Row="6" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Switch], Source={StaticResource Loc}}" FontSize="12"/>
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  ItemsSource="{x:Bind ViewModel.SwitchNames}"
+                                  SelectedItem="{x:Bind ViewModel.EditingSettings.SwitchName, Mode=TwoWay, FallbackValue=''}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="6" Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{Binding [SETVM_Vlan], Source={StaticResource Loc}}" FontSize="12"/>
+                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.VlanId, Mode=TwoWay, FallbackValue=0}"
+                                   Minimum="0" Maximum="4094" SpinButtonPlacementMode="Inline"/>
+                    </StackPanel>
+                </Grid>
             </ScrollViewer>
         </ContentDialog>
     </Grid>

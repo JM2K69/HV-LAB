@@ -54,9 +54,11 @@
             <!-- ═══ Tab 1 : vSwitches ═══ -->
             <PivotItem Header="{Binding [SW_TabSwitches], Source={StaticResource Loc}}">
                 <Grid RowSpacing="12" Margin="0,12,0,0">
+                    <!-- Auto, not *: inside the page ScrollViewer a * row takes all the free height and the list
+                         floats in the middle of it, leaving an empty band under the column headers -->
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
@@ -82,7 +84,8 @@
                     <ListView Grid.Row="1"
                               ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
                               SelectionMode="None"
-                              MaxHeight="420">
+                              MaxHeight="420"
+                              VerticalAlignment="Top">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="Padding"                    Value="12,0"/>
@@ -216,9 +219,11 @@
             <!-- ═══ Tab 2 : NAT ═══ -->
             <PivotItem Header="{Binding [SW_TabNAT], Source={StaticResource Loc}}">
                 <Grid RowSpacing="12" Margin="0,12,0,0">
+                    <!-- Auto, not *: inside the page ScrollViewer a * row takes all the free height and the list
+                         floats in the middle of it, leaving an empty band under the column headers -->
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
@@ -243,7 +248,8 @@
                     <ListView Grid.Row="1"
                               ItemsSource="{x:Bind ViewModel.NatNetworks, Mode=OneWay}"
                               SelectionMode="None"
-                              MaxHeight="420">
+                              MaxHeight="420"
+                              VerticalAlignment="Top">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="Padding"                    Value="12,0"/>
