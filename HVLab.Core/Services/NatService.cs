@@ -1,76 +1,16 @@
 using System.Net;
 using System.Net.Sockets;
-using System.Text.Json;
 using HVLab.Models;
-using static HVLab.Services.HyperVService;
 using static HVLab.Services.PowerShellRunner;
 
 namespace HVLab.Services;
 
-public class NatService(IPowerShellRunner ps) : INatService
+public class NatService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : INatService
 {
-    public async Task<List<NatNetwork>> GetNatNetworksAsync()
-    {
-        const string script = """
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            try {
-                # Partir des vSwitch internes : NomSwitch -> baseIP (ex: "10.0.0")
-                $switchSubnetMap = @{}
-                Import-Module Hyper-V -ErrorAction SilentlyContinue
-                Get-VMSwitch -ErrorAction SilentlyContinue | Where-Object { $_.SwitchType -eq 'Internal' } | ForEach-Object {
-                    $adpName = "vEthernet ($($_.Name))"
-                    $adp = Get-NetAdapter -Name $adpName -ErrorAction SilentlyContinue
-                    if ($adp) {
-                        $ip = Get-NetIPAddress -InterfaceIndex $adp.InterfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1
-                        if ($ip) {
-                            $base = $ip.IPAddress -replace '\.\d+$', ''
-                            $switchSubnetMap[$base] = $_.Name
-                        }
-                    }
-                }
+    private readonly IHyperVWmi _wmi = wmi ?? new Wmi.HyperVWmi();
 
-                $nats = @(Get-NetNat -ErrorAction Stop | ForEach-Object {
-                    $nat = $_
-                    $switchName = ''
-                    try {
-                        $base = ($nat.InternalIPInterfaceAddressPrefix -split '/')[0] -replace '\.\d+$', ''
-                        if ($switchSubnetMap.ContainsKey($base)) { $switchName = $switchSubnetMap[$base] }
-                    } catch {}
-                    [PSCustomObject]@{
-                        Name                             = $nat.Name
-                        InternalIPInterfaceAddressPrefix = $nat.InternalIPInterfaceAddressPrefix
-                        Active                           = [bool]$nat.Active
-                        SwitchName                       = $switchName
-                    }
-                })
-                if ($nats.Count -gt 0) { ConvertTo-Json -InputObject $nats -Depth 2 } else { '[]' }
-            } catch {
-                throw   # rethrow: the runner reports the message
-            }
-            """;
-        var output = await ps.RunAsync(script);
-        return ParseNats(output.Trim());
-    }
-
-    private static List<NatNetwork> ParseNats(string json)
-    {
-        var result = new List<NatNetwork>();
-        if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
-        try
-        {
-            using var doc = JsonDocument.Parse(ExtractJson(json));
-            foreach (var el in doc.RootElement.EnumerateArray())
-                result.Add(new NatNetwork
-                {
-                    Name = GetStr(el, "Name"),
-                    InternalIPInterfaceAddressPrefix = GetStr(el, "InternalIPInterfaceAddressPrefix"),
-                    Active     = el.TryGetProperty("Active",     out var v) && v.ValueKind == JsonValueKind.True,
-                    SwitchName = GetStr(el, "SwitchName"),
-                });
-        }
-        catch (JsonException ex) { throw ParseError("NAT", json, ex); }
-        return result;
-    }
+    /// <summary>NAT networks through WMI (MSFT_NetNat), each matched to the internal switch whose host adapter is in its prefix.</summary>
+    public Task<List<NatNetwork>> GetNatNetworksAsync() => Task.Run(_wmi.GetNatNetworks);
 
     /// <summary>Validates an IPv4 gateway and prefix; returns the normalized address or null.</summary>
     public static string? NormalizeGateway(string? gatewayIP, int prefixLength)

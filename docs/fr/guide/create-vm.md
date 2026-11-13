@@ -9,7 +9,8 @@ La page **Créer une VM** crée une ou plusieurs VM en disque différentiel sur 
 - **Nom de la VM** : le nom affiché dans Hyper-V.
 - **Création en lot (Bulk)** : crée plusieurs VM numérotées d'un coup. Indiquez un **préfixe** et un **nombre de VM** :
     - le préfixe `SRV` avec 3 VM donne `SRV-01`, `SRV-02` et `SRV-03` ;
-    - l'**aperçu** affiche les noms avant la création.
+    - l'**aperçu** affiche les noms avant la création ;
+    - la série est placée dans un groupe de VM Hyper-V nommé d'après le préfixe (option activée par défaut), qui permet de la filtrer et de la piloter depuis la [liste des VM](virtual-machines.md#plusieurs-vm-a-la-fois).
 
 ### Matériel
 

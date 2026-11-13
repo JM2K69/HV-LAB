@@ -9,6 +9,23 @@ public interface IPowerShellRunner
                           TimeSpan? timeout = null, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Direct WMI access for the frequent Hyper-V operations (see <see cref="Wmi.HyperVWmi"/>).
+/// Synchronous: <see cref="HyperVService"/> calls it from a worker thread.
+/// </summary>
+public interface IHyperVWmi
+{
+    HyperVEnvironment GetEnvironment();
+    List<VirtualMachine> GetVirtualMachines();
+    void ChangeState(string vmId, VmPowerAction action);
+    VmThumbnail? GetThumbnail(string vmId, int maxWidth, int maxHeight);
+    void TypeScancodes(string vmId, byte[] scancodes);
+    void TypeCtrlAltDel(string vmId);
+    List<CheckpointRow> GetCheckpoints(string vmId);
+    List<VirtualSwitch> GetSwitches();
+    List<NatNetwork> GetNatNetworks();
+}
+
 /// <summary>Hyper-V host operations: VMs, switches, network adapters, environment.</summary>
 public interface IHyperVService
 {
@@ -16,10 +33,33 @@ public interface IHyperVService
     Task StartHyperVServiceAsync();
 
     Task<List<VirtualMachine>> GetVirtualMachinesAsync();
-    Task StartVMAsync(string name);
-    Task StopVMAsync(string name);
-    Task RemoveVMAsync(string name);
+    Task PowerAsync(string vmId, VmPowerAction action);
+    /// <summary>Disks that a delete with files would remove (and the shared parents it keeps).</summary>
+    Task<VmDeletePlan> GetDeletePlanAsync(string name);
+    /// <param name="files">Files of <see cref="GetDeletePlanAsync"/> to delete after the VM, or null to keep every file.</param>
+    Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null);
     void ConnectToVMConsole(string name);
+
+    // Detail pane
+    Task<VmThumbnail?> GetThumbnailAsync(string vmId, int maxWidth, int maxHeight);
+    /// <summary>Types <paramref name="text"/> into the VM as the keys of the guest layout <paramref name="language"/> (fr-FR…).</summary>
+    Task TypeTextAsync(string vmId, string text, string language, bool pressEnter);
+    Task SendCtrlAltDelAsync(string vmId);
+
+    // Checkpoints (list through WMI, changes through PowerShell)
+    Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId);
+    Task CreateCheckpointAsync(string vmName, string checkpointName);
+    Task ApplyCheckpointAsync(string vmName, string checkpointId);
+    Task RemoveCheckpointAsync(string vmName, string checkpointId, bool withChildren);
+    Task RenameCheckpointAsync(string vmName, string checkpointId, string newName);
+
+    // Settings after creation
+    Task<VmSettings> GetVmSettingsAsync(string vmName);
+    Task SetVmSettingsAsync(string vmName, VmSettings before, VmSettings after);
+
+    // Hyper-V VM groups
+    Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames);
+    Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames);
 
     Task<List<VirtualSwitch>> GetVirtualSwitchesAsync();
     Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0);
@@ -91,4 +131,14 @@ public interface IDialogService
 {
     /// <summary>Asks for confirmation; returns true when the primary button is chosen. Cancel is the default button.</summary>
     Task<bool> ConfirmAsync(string title, string content, string primaryButtonText);
+
+    /// <summary>
+    /// Confirmation with a check box (e.g. "also delete the disks"); <paramref name="optionLabel"/> null hides it.
+    /// Returns whether the primary button was chosen and the state of the check box.
+    /// </summary>
+    Task<(bool Confirmed, bool Option)> ConfirmWithOptionAsync(string title, string content, string primaryButtonText,
+                                                              string? optionLabel, bool optionDefault);
+
+    /// <summary>Asks for one line of text; null when cancelled or left empty.</summary>
+    Task<string?> PromptAsync(string title, string label, string initialValue);
 }

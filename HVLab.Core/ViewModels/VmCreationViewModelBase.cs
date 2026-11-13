@@ -47,6 +47,9 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
     [ObservableProperty, NotifyPropertyChangedFor(nameof(BulkNamesPreview))] private string bulkPrefix = "SRV";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(BulkNamesPreview))] private int    bulkCount  = 2;
 
+    /// <summary>Puts the VMs of a series in a Hyper-V VM group named after the prefix.</summary>
+    [ObservableProperty] private bool bulkGroup = true;
+
     partial void OnBulkModeChanged(bool value) => OnBulkModeChangedCore(value);
     protected virtual void OnBulkModeChangedCore(bool value) { }
 
@@ -160,6 +163,11 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
                     created.Add(names[i]);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException) { errors.Add($"{names[i]}: {ex.Message}"); }
+            }
+            if (BulkGroup && BulkMode && created.Count > 0)
+            {
+                try { await HvService.AddToGroupAsync(BulkPrefix, created); }
+                catch (Exception ex) { errors.Add(T("St_GroupFailed", BulkPrefix, ex.Message)); }
             }
             Status = errors.Count == 0
                 ? T("St_BulkOk", created.Count, string.Join(", ", created))

@@ -13,6 +13,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddHVLabCore(this IServiceCollection services)
     {
         services.AddSingleton<IPowerShellRunner, PowerShellRunner>();
+        services.AddSingleton<IHyperVWmi, Services.Wmi.HyperVWmi>();
         services.AddSingleton<IHyperVService, HyperVService>();
         services.AddSingleton<IVhdxService, VhdxService>();
         services.AddSingleton<INatService, NatService>();

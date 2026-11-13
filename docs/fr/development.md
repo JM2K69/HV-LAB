@@ -37,7 +37,8 @@ HV-LAB/
 
 - **MVVM** avec CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`). Les view models sont dans `HVLab.Core`, qui ne référence pas WinUI et est testé unitairement.
 - **Injection de dépendances** avec Microsoft.Extensions.DependencyInjection : `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` et `IThemeService`.
-- **Accès à Hyper-V** via Windows PowerShell 5.1 :
+- **Opérations Hyper-V fréquentes** via WMI depuis C# (`System.Management`, `HyperVWmi`) : liste des VM avec CPU, mémoire, IP et notes en direct, actions d'alimentation, miniature de l'écran, clavier, liste des points de contrôle, commutateurs et réseaux NAT. Une requête prend quelques dizaines de millisecondes, contre plus d'une seconde pour `Get-VM`.
+- **Opérations lourdes et rares** (images de base, création des VM, disques, paramètres, points de contrôle et groupes) via Windows PowerShell 5.1 :
     - les scripts tournent dans un pool de 3 `powershell.exe` maximum gardés ouverts, avec le module Hyper-V importé une seule fois ;
     - les scripts passent par l'entrée standard et ne sont jamais écrits dans `%TEMP%` ;
     - les opérations gèrent l'annulation et les délais ;

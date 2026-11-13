@@ -10,15 +10,19 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![WinUI](https://img.shields.io/badge/UI-WinUI%203%20(App%20SDK%201.8)-blueviolet)
 [![Release](https://img.shields.io/github/v/release/JM2K69/HV-LAB)](https://github.com/JM2K69/HV-LAB/releases/latest)
+[![Licence](https://img.shields.io/badge/licence-MIT-green)](LICENSE)
 
 ---
 
 ## Fonctionnalités
 
 - **Tableau de bord** : VM démarrées et arrêtées, commutateurs et images de base en un coup d'œil. L'environnement Hyper-V (module, service `vmms`) est vérifié au démarrage.
-- **Machines virtuelles** :
-  - démarrage, arrêt, console (`vmconnect`) et suppression ;
-  - les états se rafraîchissent automatiquement toutes les 5 s ;
+- **Machines virtuelles**, lues via WMI (quelques dizaines de millisecondes, rafraîchies toutes les 3 s) :
+  - charge CPU, mémoire, durée de fonctionnement, signal de vie et adresse IP en direct ;
+  - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, console (`vmconnect`) ;
+  - volet de détail avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance ;
+  - arbre des points de contrôle (créer, appliquer, renommer, supprimer), paramètres après création (CPU, virtualisation imbriquée, mémoire, ISO, commutateur, VLAN) ;
+  - sélection multiple, groupes de VM Hyper-V, suppression avec les disques de la VM (jamais l'image de base) ;
   - une seule action à la fois par VM, donc un double clic n'a aucun effet.
 - **Quick VM** : tailles prédéfinies, disque vierge ou différentiel, Gen 1/2, Secure Boot, PXE, création en série (`PREFIXE-01…nn`).
 - **Créer une VM** : disque différentiel issu d'une image de base, avec `unattend.xml` injecté :
@@ -149,4 +153,6 @@ HV-LAB/
 - **Auteur** : [JM2K69](https://github.com/JM2K69)
 - **Issues** : [GitHub Issues](https://github.com/JM2K69/HV-LAB/issues)
 
-© 2026 JM2K69
+## Licence
+
+HV-LAB Manager est distribué sous [licence MIT](LICENSE). © 2026 JM2K69

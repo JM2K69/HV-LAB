@@ -360,6 +360,12 @@
 
                     <ToggleSwitch IsOn="{x:Bind ViewModel.BulkMode, Mode=TwoWay}"/>
 
+                    <!-- The series becomes a Hyper-V VM group named after the prefix -->
+                    <ToggleSwitch Header="{Binding [CVM_BulkGroup], Source={StaticResource Loc}}"
+                                  IsOn="{x:Bind ViewModel.BulkGroup, Mode=TwoWay}"
+                                  Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
                     <Grid ColumnSpacing="12"
                           Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
                                         Converter={StaticResource BoolToVisibilityConverter}}">

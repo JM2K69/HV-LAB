@@ -9,7 +9,8 @@ The **Create VM** page creates one or more VMs on a differencing disk of a [base
 - **VM name**: the name shown in Hyper-V.
 - **Bulk creation**: creates several numbered VMs at once. Set a **prefix** and a **number of VMs**:
     - prefix `SRV` with 3 VMs gives `SRV-01`, `SRV-02` and `SRV-03`;
-    - the **preview** shows the names before creation.
+    - the **preview** shows the names before creation;
+    - the series is put in a Hyper-V VM group named after the prefix (option on by default), which filters and drives it from the [VM list](virtual-machines.md#several-vms-at-once).
 
 ### Hardware
 

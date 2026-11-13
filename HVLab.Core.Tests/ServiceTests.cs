@@ -4,56 +4,15 @@ using HVLab.ViewModels;
 
 namespace HVLab.Core.Tests;
 
-public class HyperVParsingTests
+public class HyperVScriptTests
 {
-    private const string TwoVms = """
-        [{"Name":"SRV-01","State":"Running","ProcessorCount":2,"MemoryMB":4096,"Generation":2,"SwitchName":"LAN","Uptime":"01:02:03","VlanInfo":"10"},
-         {"Name":"SRV-02","State":"Off","ProcessorCount":1,"MemoryMB":2048,"Generation":1,"SwitchName":null,"Uptime":"00:00:00","VlanInfo":12}]
-        """;
-
-    [Fact]
-    public async Task Vms_are_parsed_from_json()
-    {
-        var hv = new HyperVService(new FakePowerShellRunner(_ => TwoVms));
-        var vms = await hv.GetVirtualMachinesAsync();
-
-        Assert.Equal(2, vms.Count);
-        Assert.True(vms[0].IsRunning);
-        Assert.Equal(4096, vms[0].MemoryMB);
-        Assert.Equal("", vms[1].SwitchName);     // null → empty
-        Assert.Equal("12", vms[1].VlanInfo);      // number → text (no exception)
-    }
-
-    [Fact]
-    public async Task Stray_output_before_the_json_is_ignored()
-    {
-        var hv = new HyperVService(new FakePowerShellRunner(_ => "WARNING: something\r\n" + TwoVms));
-        Assert.Equal(2, (await hv.GetVirtualMachinesAsync()).Count);
-    }
-
-    [Fact]
-    public async Task Unreadable_output_is_an_error_not_an_empty_list()
-    {
-        var hv = new HyperVService(new FakePowerShellRunner(_ => "[not json"));
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(hv.GetVirtualMachinesAsync);
-        Assert.Contains("[not json", ex.Message);
-    }
-
-    [Fact]
-    public async Task Empty_array_gives_no_vm()
-    {
-        var hv = new HyperVService(new FakePowerShellRunner(_ => "[]"));
-        Assert.Empty(await hv.GetVirtualMachinesAsync());
-    }
-
     [Fact]
     public async Task Vm_names_are_escaped_in_scripts()
     {
         var runner = new FakePowerShellRunner(_ => "");
-        await new HyperVService(runner).StartVMAsync("it's");
+        await new HyperVService(runner).RemoveVMAsync("it's");
         Assert.Contains("'it''s'", runner.Scripts.Single());
     }
-
     [Fact]
     public async Task Invalid_vm_name_never_reaches_powershell()
     {

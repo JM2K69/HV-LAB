@@ -7,8 +7,19 @@ namespace HVLab.Services;
 
 public enum HyperVEnvironment { Ok, FeatureMissing, ServiceStopped }
 
-public class HyperVService(IPowerShellRunner ps) : IHyperVService
+/// <summary>
+/// Hyper-V operations. Frequent ones (VM list, power actions, screen, keyboard, checkpoint list, switches)
+/// go through WMI (<see cref="IHyperVWmi"/>), heavy and rare ones (VM creation, disks, settings, groups)
+/// through the PowerShell pool.
+/// </summary>
+public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHyperVService
 {
+    private readonly IHyperVWmi _wmi = wmi ?? new Wmi.HyperVWmi();
+
+    /// <summary>WMI calls are synchronous: run them off the UI thread.</summary>
+    private static Task<T> Wmi<T>(Func<T> call) => Task.Run(call);
+    private static Task Wmi(Action call) => Task.Run(call);
+
     // ─── PowerShell runner ──────────────────────────────────────────────────
 
     private Task<string> RunScriptAsync(
@@ -25,108 +36,275 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
 
     // ─── Environment ────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Quick host check (no Get-WindowsOptionalFeature, which takes seconds):
-    /// Hyper-V PowerShell module present and vmms service running.
-    /// </summary>
-    public async Task<HyperVEnvironment> GetEnvironmentStatusAsync()
-    {
-        const string script = """
-            if (-not (Get-Module -ListAvailable -Name Hyper-V)) { 'FeatureMissing'; return }
-            $svc = Get-Service -Name vmms -ErrorAction SilentlyContinue
-            if (-not $svc) { 'FeatureMissing' } elseif ($svc.Status -ne 'Running') { 'ServiceStopped' } else { 'Ok' }
-            """;
-        var output = (await RunScriptAsync(script, timeout: TimeSpan.FromSeconds(30))).Trim();
-        return Enum.TryParse<HyperVEnvironment>(output, out var env) ? env : HyperVEnvironment.Ok;
-    }
+    /// <summary>Quick host check through WMI: Hyper-V PowerShell module present and vmms service running.</summary>
+    public Task<HyperVEnvironment> GetEnvironmentStatusAsync() => Wmi(_wmi.GetEnvironment);
 
     public Task StartHyperVServiceAsync()
         => RunScriptAsync("Start-Service -Name vmms -ErrorAction Stop", timeout: TimeSpan.FromSeconds(60));
 
     // ─── Virtual Machines ───────────────────────────────────────────────────
 
-    public async Task<List<VirtualMachine>> GetVirtualMachinesAsync()
-    {
-        // $vm.NetworkAdapters is a property already loaded with Get-VM — no extra WMI call per VM.
-        // VLAN is fetched via Get-VMNetworkAdapterVlan (one call for all NICs of the VM).
-        const string script = """
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            try {
-                Import-Module Hyper-V -ErrorAction Stop
-                $vms = @(Get-VM -ErrorAction Stop | ForEach-Object {
-                    $nic     = $_.NetworkAdapters | Select-Object -First 1
-                    $vlans   = @($_.NetworkAdapters | ForEach-Object {
-                        try {
-                            $v = Get-VMNetworkAdapterVlan -VMNetworkAdapter $_ -ErrorAction SilentlyContinue
-                            if ($v -and $v.OperationMode -eq 'Access')  { $v.AccessVlanId }
-                            elseif ($v -and $v.OperationMode -eq 'Trunk') { ($v.AllowedVlanIdList -join ',') }
-                        } catch {}
-                    } | Where-Object { $_ -and $_ -ne 0 } | Sort-Object -Unique)
-                    $vlanStr = if ($vlans.Count -gt 0) { $vlans -join ', ' } else { '' }
-                    [PSCustomObject]@{
-                        Name           = $_.Name
-                        State          = $_.State.ToString()
-                        ProcessorCount = $_.ProcessorCount
-                        MemoryMB       = [Math]::Round($_.MemoryStartup / 1MB, 0)
-                        Generation     = $_.Generation
-                        SwitchName     = if ($nic) { $nic.SwitchName } else { '' }
-                        Uptime         = $_.Uptime.ToString()
-                        VlanInfo       = $vlanStr
-                    }
-                })
-                if ($vms.Count -gt 0) { ConvertTo-Json -InputObject $vms -Depth 2 -Compress } else { '[]' }
-            } catch {
-                throw   # rethrow: the runner reports the message
-            }
-            """;
-        var output = await RunScriptAsync(script);
-        return ParseVMs(output.Trim());
-    }
+    public Task<List<VirtualMachine>> GetVirtualMachinesAsync() => Wmi(_wmi.GetVirtualMachines);
 
-    private static List<VirtualMachine> ParseVMs(string json)
+    public Task PowerAsync(string vmId, VmPowerAction action) => Wmi(() => _wmi.ChangeState(vmId, action));
+
+    public async Task<VmDeletePlan> GetDeletePlanAsync(string name)
     {
-        var result = new List<VirtualMachine>();
-        if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
+        InputValidator.EnsureVmName(name);
+        // The VM's own disks and checkpoint disks. Differencing parents are followed only while they stay inside
+        // the VM folder: the base image, a disk another VM uses and anything in the base images folder are kept.
+        var script = $$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $vm      = Get-VM -Name '{{Esc(name)}}' -ErrorAction Stop
+            $vmPath  = "$($vm.Path)".TrimEnd('\')
+            $baseDir = '{{Esc(AppSettings.Current.BaseImagesFolder)}}'.TrimEnd('\').ToLowerInvariant()
+            $others  = @(Get-VM | Where-Object { $_.Id -ne $vm.Id } | ForEach-Object {
+                           @(Get-VMHardDiskDrive -VM $_) + @(Get-VMSnapshot -VM $_ | Get-VMHardDiskDrive) } |
+                         Where-Object Path | ForEach-Object { $_.Path.ToLowerInvariant() })
+            $roots = @(@(Get-VMHardDiskDrive -VM $vm) + @(Get-VMSnapshot -VM $vm | Get-VMHardDiskDrive) |
+                       Where-Object Path | ForEach-Object Path | Select-Object -Unique)
+            $files = [System.Collections.Generic.List[string]]::new()
+            $kept  = [System.Collections.Generic.List[string]]::new()
+            foreach ($root in $roots) {
+                $p = $root; $first = $true
+                while ($p) {
+                    $lower  = $p.ToLowerInvariant()
+                    $inside = $lower.StartsWith($vmPath.ToLowerInvariant() + '\') -or $lower.EndsWith('.avhdx')
+                    $shared = ($others -contains $lower) -or ($baseDir -and $lower.StartsWith($baseDir + '\'))
+                    if ($shared -or (-not $first -and -not $inside)) { if (-not $kept.Contains($p)) { $kept.Add($p) }; break }
+                    if (-not (Test-Path -LiteralPath $p)) { break }
+                    if (-not $files.Contains($p)) { $files.Add($p) }
+                    $first = $false
+                    $p = (Get-VHD -Path $p -ErrorAction SilentlyContinue).ParentPath
+                }
+            }
+            [PSCustomObject]@{ VmFolder = $vmPath; Files = @($files); KeptParents = @($kept) } | ConvertTo-Json -Depth 3 -Compress
+            """;
+        var json = ExtractJson(await RunScriptAsync(script));
         try
         {
-            using var doc = JsonDocument.Parse(ExtractJson(json));
-            foreach (var el in doc.RootElement.EnumerateArray())
-                result.Add(new VirtualMachine
-                {
-                    Name           = GetStr(el, "Name"),
-                    State          = GetStr(el, "State"),
-                    ProcessorCount = GetInt(el, "ProcessorCount", 1),
-                    MemoryMB       = GetLong(el, "MemoryMB"),
-                    Generation     = GetInt(el, "Generation", 2),
-                    SwitchName     = GetStr(el, "SwitchName"),
-                    Uptime         = GetStr(el, "Uptime"),
-                    VlanInfo       = GetStr(el, "VlanInfo"),
-                });
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            return new VmDeletePlan(GetStr(root, "VmFolder"), Strings(root, "Files"), Strings(root, "KeptParents"));
         }
-        catch (JsonException ex) { throw ParseError("VM", json, ex); }
-        return result;
+        catch (JsonException ex) { throw ParseError("disques", json, ex); }
     }
 
-    public async Task StartVMAsync(string name)
-        => await RunScriptAsync($$"""
+    /// <summary>JSON array of strings (a single string when PowerShell unrolled a one-item array).</summary>
+    private static List<string> Strings(JsonElement e, string name)
+        => !e.TryGetProperty(name, out var v) ? []
+         : v.ValueKind == JsonValueKind.Array ? v.EnumerateArray().Select(x => x.GetString() ?? "").Where(s => s.Length > 0).ToList()
+         : v.ValueKind == JsonValueKind.String && v.GetString() is { Length: > 0 } s ? [s] : [];
+
+    public async Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null)
+    {
+        InputValidator.EnsureVmName(name);
+        var fileList = files is { Count: > 0 } ? "@(" + string.Join(", ", files.Select(f => $"'{Esc(f)}'")) + ")" : "@()";
+        var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
-            Start-VM -Name '{{Esc(name)}}' -ErrorAction Stop
+            $vm     = Get-VM -Name '{{Esc(name)}}' -ErrorAction Stop
+            $vmPath = "$($vm.Path)"
+            $files  = {{fileList}}
+            if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force -ErrorAction Stop }
+            Remove-VM -VM $vm -Force -ErrorAction Stop
+            foreach ($f in $files) {
+                # Hyper-V can keep a disk open for a moment after Remove-VM
+                for ($i = 0; $i -lt 20 -and (Test-Path -LiteralPath $f); $i++) {
+                    try { Remove-Item -LiteralPath $f -Force -ErrorAction Stop } catch { Start-Sleep -Milliseconds 500 }
+                }
+                if (Test-Path -LiteralPath $f) { throw "##Err_FileLocked|$f" }
+            }
+            # Empty folders of an HV-LAB VM folder (<VMs folder>\<name>): never the Hyper-V default folder
+            if ($files.Count -gt 0 -and $vmPath -and (Split-Path $vmPath -Leaf) -eq $vm.Name -and (Test-Path -LiteralPath $vmPath)) {
+                Get-ChildItem -LiteralPath $vmPath -Directory -Recurse | Sort-Object { $_.FullName.Length } -Descending |
+                    Where-Object { -not (Get-ChildItem -LiteralPath $_.FullName -Force) } |
+                    Remove-Item -Force -ErrorAction SilentlyContinue
+                if (-not (Get-ChildItem -LiteralPath $vmPath -Force)) { Remove-Item -LiteralPath $vmPath -Force -ErrorAction SilentlyContinue }
+            }
+            """;
+        await RunScriptAsync(script);
+    }
+
+    // ─── Detail pane: screen, keyboard ──────────────────────────────────────
+
+    public Task<VmThumbnail?> GetThumbnailAsync(string vmId, int maxWidth, int maxHeight)
+        => Wmi(() => _wmi.GetThumbnail(vmId, maxWidth, maxHeight));
+
+    public Task TypeTextAsync(string vmId, string text, string language, bool pressEnter)
+        => Wmi(() =>
+        {
+            var codes = KeyboardScancodes.Build(text, KeyboardScancodes.Klid(language), pressEnter);
+            // Short batches: the virtual keyboard takes a bounded scancode buffer
+            foreach (var chunk in codes.Chunk(64)) _wmi.TypeScancodes(vmId, chunk);
+        });
+
+    public Task SendCtrlAltDelAsync(string vmId) => Wmi(() => _wmi.TypeCtrlAltDel(vmId));
+
+    // ─── Checkpoints: list through WMI, changes through PowerShell ──────────
+
+    public Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId) => Wmi(() => _wmi.GetCheckpoints(vmId));
+
+    public Task CreateCheckpointAsync(string vmName, string checkpointName)
+    {
+        InputValidator.EnsureVmName(vmName);
+        return RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            Checkpoint-VM -Name '{{Esc(vmName)}}' -SnapshotName '{{Esc(checkpointName)}}' -ErrorAction Stop
+            """);
+    }
+
+    /// <summary>Checkpoints are addressed by ID: names can repeat.</summary>
+    private Task CheckpointScriptAsync(string vmName, string checkpointId, string action)
+    {
+        InputValidator.EnsureVmName(vmName);
+        var id = Guid.Parse(checkpointId);
+        return RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $cp = Get-VMSnapshot -VMName '{{Esc(vmName)}}' -ErrorAction Stop | Where-Object { $_.Id -eq '{{id}}' } | Select-Object -First 1
+            if (-not $cp) { throw "##Err_CheckpointNotFound" }
+            {{action}}
+            """);
+    }
+
+    public Task ApplyCheckpointAsync(string vmName, string checkpointId)
+        => CheckpointScriptAsync(vmName, checkpointId, """
+            $vm = Get-VM -Name $cp.VMName
+            $wasRunning = $vm.State -eq 'Running'
+            if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force -ErrorAction Stop }
+            Restore-VMSnapshot -VMSnapshot $cp -Confirm:$false -ErrorAction Stop
+            if ($wasRunning -and (Get-VM -Name $cp.VMName).State -ne 'Running') { Start-VM -VM $vm -ErrorAction Stop }
             """);
 
-    public async Task StopVMAsync(string name)
-        => await RunScriptAsync($$"""
+    public Task RemoveCheckpointAsync(string vmName, string checkpointId, bool withChildren)
+        => CheckpointScriptAsync(vmName, checkpointId, withChildren
+            ? "Remove-VMSnapshot -VMSnapshot $cp -IncludeAllChildSnapshots -Confirm:$false -ErrorAction Stop"
+            : "Remove-VMSnapshot -VMSnapshot $cp -Confirm:$false -ErrorAction Stop");
+
+    public Task RenameCheckpointAsync(string vmName, string checkpointId, string newName)
+        => CheckpointScriptAsync(vmName, checkpointId,
+            $"Rename-VMSnapshot -VMSnapshot $cp -NewName '{Esc(newName)}' -ErrorAction Stop");
+
+    // ─── Settings after creation ────────────────────────────────────────────
+
+    public async Task<VmSettings> GetVmSettingsAsync(string vmName)
+    {
+        InputValidator.EnsureVmName(vmName);
+        var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
-            Stop-VM -Name '{{Esc(name)}}' -Force -ErrorAction Stop
-            $i = 0
-            while ((Get-VM -Name '{{Esc(name)}}').State -ne 'Off' -and $i -lt 30) {
-                Start-Sleep -Milliseconds 500; $i++
+            $vm   = Get-VM -Name '{{Esc(vmName)}}' -ErrorAction Stop
+            $mem  = Get-VMMemory -VM $vm
+            $nic  = @(Get-VMNetworkAdapter -VM $vm) | Select-Object -First 1
+            $vlan = if ($nic) { Get-VMNetworkAdapterVlan -VMNetworkAdapter $nic } else { $null }
+            $dvd  = @(Get-VMDvdDrive -VM $vm) | Select-Object -First 1
+            [PSCustomObject]@{
+                ProcessorCount = $vm.ProcessorCount
+                Nested         = [bool](Get-VMProcessor -VM $vm).ExposeVirtualizationExtensions
+                StartupMB      = [int]($mem.Startup / 1MB)
+                DynamicMemory  = [bool]$mem.DynamicMemoryEnabled
+                MinimumMB      = [int]($mem.Minimum / 1MB)
+                MaximumMB      = [int]($mem.Maximum / 1MB)
+                IsoPath        = if ($dvd -and $dvd.Path) { "$($dvd.Path)" } else { '' }
+                SwitchName     = if ($nic -and $nic.SwitchName) { "$($nic.SwitchName)" } else { '' }
+                VlanId         = if ($vlan -and "$($vlan.OperationMode)" -eq 'Access') { [int]$vlan.AccessVlanId } else { 0 }
+                IsRunning      = "$($vm.State)" -ne 'Off'
+            } | ConvertTo-Json -Compress
+            """;
+        var json = ExtractJson(await RunScriptAsync(script));
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            static bool B(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.True;
+            return new VmSettings
+            {
+                ProcessorCount = GetInt(r, "ProcessorCount", 1),
+                Nested         = B(r, "Nested"),
+                StartupMB      = GetInt(r, "StartupMB"),
+                DynamicMemory  = B(r, "DynamicMemory"),
+                MinimumMB      = GetInt(r, "MinimumMB"),
+                MaximumMB      = GetInt(r, "MaximumMB"),
+                IsoPath        = GetStr(r, "IsoPath"),
+                SwitchName     = GetStr(r, "SwitchName"),
+                VlanId         = GetInt(r, "VlanId", 0),
+                IsRunning      = B(r, "IsRunning"),
+            };
+        }
+        catch (JsonException ex) { throw ParseError("paramètres", json, ex); }
+    }
+
+    /// <summary>Applies only what changed; processor and memory only when the VM was off (see <see cref="VmSettings"/>).</summary>
+    public Task SetVmSettingsAsync(string vmName, VmSettings before, VmSettings after)
+    {
+        InputValidator.EnsureVmName(vmName);
+        var lines = SettingsScript(before, after);
+        return lines.Count == 0 ? Task.CompletedTask
+            : RunScriptAsync($"Import-Module Hyper-V -ErrorAction Stop\n$vm = Get-VM -Name '{Esc(vmName)}' -ErrorAction Stop\n"
+                             + string.Join("\n", lines));
+    }
+
+    internal static List<string> SettingsScript(VmSettings before, VmSettings after)
+    {
+        var lines = new List<string>();
+        var nic = "Get-VMNetworkAdapter -VM $vm | Select-Object -First 1";
+        if (!before.IsRunning)
+        {
+            if (after.ProcessorCount != before.ProcessorCount || after.Nested != before.Nested)
+                lines.Add($"Set-VMProcessor -VM $vm -Count {after.ProcessorCount} -ExposeVirtualizationExtensions ${(after.Nested ? "true" : "false")} -ErrorAction Stop");
+            // VMs inside the VM reach the network through the outer adapter: MAC spoofing on
+            if (after.Nested && !before.Nested)
+                lines.Add("Get-VMNetworkAdapter -VM $vm | Set-VMNetworkAdapter -MacAddressSpoofing On -ErrorAction Stop");
+            if (after.StartupMB != before.StartupMB || after.DynamicMemory != before.DynamicMemory
+                || (after.DynamicMemory && (after.MinimumMB != before.MinimumMB || after.MaximumMB != before.MaximumMB)))
+                lines.Add(after.DynamicMemory
+                    ? $"Set-VMMemory -VM $vm -DynamicMemoryEnabled $true -StartupBytes {after.StartupMB}MB -MinimumBytes {after.MinimumMB}MB -MaximumBytes {after.MaximumMB}MB -ErrorAction Stop"
+                    : $"Set-VMMemory -VM $vm -DynamicMemoryEnabled $false -StartupBytes {after.StartupMB}MB -ErrorAction Stop");
+        }
+        if (after.IsoPath != before.IsoPath)
+            lines.Add(after.IsoPath.Length == 0
+                ? "Get-VMDvdDrive -VM $vm | Set-VMDvdDrive -Path $null -ErrorAction Stop"
+                : $"$dvd = @(Get-VMDvdDrive -VM $vm) | Select-Object -First 1; " +
+                  $"if ($dvd) {{ Set-VMDvdDrive -VMDvdDrive $dvd -Path '{Esc(after.IsoPath)}' -ErrorAction Stop }} " +
+                  $"else {{ Add-VMDvdDrive -VM $vm -Path '{Esc(after.IsoPath)}' -ErrorAction Stop }}");
+        if (after.SwitchName != before.SwitchName && after.SwitchName.Length > 0)
+            lines.Add($"{nic} | Connect-VMNetworkAdapter -SwitchName '{Esc(after.SwitchName)}' -ErrorAction Stop");
+        if (after.VlanId != before.VlanId)
+            lines.Add(after.VlanId == 0
+                ? $"{nic} | Set-VMNetworkAdapterVlan -Untagged -ErrorAction Stop"
+                : $"{nic} | Set-VMNetworkAdapterVlan -Access -VlanId {after.VlanId} -ErrorAction Stop");
+        return lines;
+    }
+
+    // ─── Hyper-V VM groups ──────────────────────────────────────────────────
+
+    private static string NameList(IReadOnlyList<string> vmNames)
+    {
+        foreach (var n in vmNames) InputValidator.EnsureVmName(n);
+        return "@(" + string.Join(", ", vmNames.Select(n => $"'{Esc(n)}'")) + ")";
+    }
+
+    public Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames)
+        => RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $group = Get-VMGroup -Name '{{Esc(groupName)}}' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $group) { $group = New-VMGroup -Name '{{Esc(groupName)}}' -GroupType VMCollectionType -ErrorAction Stop }
+            foreach ($name in {{NameList(vmNames)}}) {
+                $vm = Get-VM -Name $name -ErrorAction Stop
+                if (-not ($group.VMMembers | Where-Object { $_.Id -eq $vm.Id })) { Add-VMGroupMember -VMGroup $group -VM $vm -ErrorAction Stop }
             }
             """);
 
-    public async Task RemoveVMAsync(string name)
-        => await RunScriptAsync($"""
+    public Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames)
+        => RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            Remove-VM -Name '{Esc(name)}' -Force -ErrorAction Stop
+            $names = {{NameList(vmNames)}}
+            foreach ($group in @(Get-VMGroup)) {
+                $members = @($group.VMMembers | Where-Object { $names -contains $_.Name })
+                if ($members.Count -eq 0) { continue }
+                foreach ($vm in $members) { Remove-VMGroupMember -VMGroup $group -VM $vm -ErrorAction Stop }
+                # A group these VMs leave empty is removed
+                $left = Get-VMGroup -Name $group.Name -ErrorAction SilentlyContinue | Select-Object -First 1
+                if ($left -and -not $left.VMMembers -and -not $left.VMGroupMembers) { Remove-VMGroup -VMGroup $left -Force -ErrorAction SilentlyContinue }
+            }
             """);
 
     /// <summary>
@@ -154,57 +332,8 @@ public class HyperVService(IPowerShellRunner ps) : IHyperVService
 
     // ─── Virtual Switches
 
-    public async Task<List<VirtualSwitch>> GetVirtualSwitchesAsync()
-    {
-        const string script = """
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            try {
-                Import-Module Hyper-V -ErrorAction Stop
-                $switches = @(Get-VMSwitch -ErrorAction Stop | ForEach-Object {
-                    $vlan = 0
-                    try {
-                        $vna = Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName $_.Name -ErrorAction SilentlyContinue
-                        if ($vna -and $vna.OperationMode -eq 'Access') { $vlan = $vna.AccessVlanId }
-                    } catch {}
-                    [PSCustomObject]@{
-                        Name              = $_.Name
-                        SwitchType        = $_.SwitchType.ToString()
-                        Notes             = if ($_.Notes) { $_.Notes } else { '' }
-                        NetAdapterName    = if ($_.NetAdapterName) { $_.NetAdapterName } else { '' }
-                        AllowManagementOS = $_.AllowManagementOS
-                        VlanId            = $vlan
-                    }
-                })
-                if ($switches.Count -gt 0) { ConvertTo-Json -InputObject $switches -Depth 2 } else { '[]' }
-            } catch {
-                throw   # rethrow: the runner reports the message
-            }
-            """;
-        var output = await RunScriptAsync(script);
-        return ParseSwitches(output.Trim());
-    }
-
-    private static List<VirtualSwitch> ParseSwitches(string json)
-    {
-        var result = new List<VirtualSwitch>();
-        if (string.IsNullOrWhiteSpace(json) || json == "[]") return result;
-        try
-        {
-            using var doc = JsonDocument.Parse(ExtractJson(json));
-            foreach (var el in doc.RootElement.EnumerateArray())
-                result.Add(new VirtualSwitch
-                {
-                    Name              = GetStr(el, "Name"),
-                    SwitchType        = GetStr(el, "SwitchType"),
-                    Notes             = GetStr(el, "Notes"),
-                    NetAdapterName    = GetStr(el, "NetAdapterName"),
-                    AllowManagementOS = el.TryGetProperty("AllowManagementOS", out var v) && v.ValueKind == JsonValueKind.True,
-                    VlanId            = GetInt(el, "VlanId", 0),
-                });
-        }
-        catch (JsonException ex) { throw ParseError("commutateurs", json, ex); }
-        return result;
-    }
+    /// <summary>Switches through WMI: the Create VM and Quick VM pages load them on every visit.</summary>
+    public Task<List<VirtualSwitch>> GetVirtualSwitchesAsync() => Wmi(_wmi.GetSwitches);
 
     public async Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0)
     {

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.QuickVmPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -327,6 +327,12 @@
                                    FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <ToggleSwitch IsOn="{x:Bind ViewModel.BulkMode, Mode=TwoWay}"/>
+
+                        <!-- The series becomes a Hyper-V VM group named after the prefix -->
+                        <ToggleSwitch Header="{Binding [CVM_BulkGroup], Source={StaticResource Loc}}"
+                                      IsOn="{x:Bind ViewModel.BulkGroup, Mode=TwoWay}"
+                                      Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
+                                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                         <!-- Bulk options row -->
                         <Grid ColumnSpacing="12"

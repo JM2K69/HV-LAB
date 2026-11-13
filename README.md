@@ -10,15 +10,19 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
 ![.NET](https://img.shields.io/badge/.NET-10.0-purple)
 ![WinUI](https://img.shields.io/badge/UI-WinUI%203%20(App%20SDK%201.8)-blueviolet)
 [![Release](https://img.shields.io/github/v/release/JM2K69/HV-LAB)](https://github.com/JM2K69/HV-LAB/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ---
 
 ## Features
 
 - **Dashboard**: running and stopped VMs, switches and base images at a glance, with a check of the Hyper-V environment (module, `vmms` service) at startup.
-- **Virtual machines**:
-  - start, stop, open the console (`vmconnect`) and delete VMs;
-  - states are refreshed automatically every 5 s;
+- **Virtual machines**, read through WMI (a few tens of milliseconds, refreshed every 3 s):
+  - live CPU load, memory, uptime, heartbeat and IP address;
+  - start, clean shutdown, turn off, save, pause/resume, restart, reset, console (`vmconnect`);
+  - detail pane with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop;
+  - checkpoint tree (create, apply, rename, delete), settings after creation (CPU, nested virtualization, memory, ISO, switch, VLAN);
+  - multi-select, Hyper-V VM groups, delete with the VM's own disks (never the base image);
   - each VM runs one action at a time, so a double click does nothing.
 - **Quick VM**: size presets, blank disk or differencing disk, Gen 1/2, Secure Boot, PXE, bulk creation (`PREFIX-01…nn`).
 - **Create VM**: differencing disk from a base image with an injected `unattend.xml`:
@@ -149,4 +153,6 @@ HV-LAB/
 - **Author**: [JM2K69](https://github.com/JM2K69)
 - **Issues**: [GitHub Issues](https://github.com/JM2K69/HV-LAB/issues)
 
-© 2026 JM2K69
+## License
+
+HV-LAB Manager is released under the [MIT License](LICENSE). © 2026 JM2K69

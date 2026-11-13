@@ -19,11 +19,32 @@ internal sealed class FakePowerShellRunner(Func<string, string> respond) : IPowe
 internal sealed class FakeDialogService(bool answer = true) : IDialogService
 {
     public int Calls { get; private set; }
+    /// <summary>Check box state returned by <see cref="ConfirmWithOptionAsync"/>; null keeps the default.</summary>
+    public bool? Option { get; set; }
+    public string? PromptAnswer { get; set; }
+    public string LastContent { get; private set; } = "";
+    public string? LastOptionLabel { get; private set; }
 
     public Task<bool> ConfirmAsync(string title, string content, string primaryButtonText)
     {
         Calls++;
+        LastContent = content;
         return Task.FromResult(answer);
+    }
+
+    public Task<(bool Confirmed, bool Option)> ConfirmWithOptionAsync(string title, string content, string primaryButtonText,
+                                                                     string? optionLabel, bool optionDefault)
+    {
+        Calls++;
+        LastContent = content;
+        LastOptionLabel = optionLabel;
+        return Task.FromResult((answer, optionLabel is not null && (Option ?? optionDefault)));
+    }
+
+    public Task<string?> PromptAsync(string title, string label, string initialValue)
+    {
+        Calls++;
+        return Task.FromResult(PromptAnswer);
     }
 }
 
@@ -39,16 +60,49 @@ internal sealed class FakeHyperVService : IHyperVService
 
     private static VirtualMachine Clone(VirtualMachine v) => new()
     {
-        Name = v.Name, State = v.State, MemoryMB = v.MemoryMB, ProcessorCount = v.ProcessorCount,
+        Id = v.Id, Name = v.Name, State = v.State, MemoryMB = v.MemoryMB, ProcessorCount = v.ProcessorCount,
         Uptime = v.Uptime, SwitchName = v.SwitchName, VlanInfo = v.VlanInfo, Generation = v.Generation,
+        GroupName = v.GroupName, Notes = v.Notes, IpAddress = v.IpAddress,
     };
+
+    /// <summary>Calls made by the view models, e.g. "power SRV-01 Start", "remove SRV-01 2 files".</summary>
+    public List<string> Calls { get; } = [];
+    public VmDeletePlan Plan { get; set; } = new(@"C:\VMs\X", [@"C:\VMs\X\Virtual Hard Disks\X.vhdx"], [@"C:\Bases\BASE_X.vhdx"]);
+    public List<CheckpointRow> CheckpointRows { get; set; } = [];
+    public VmSettings Settings { get; set; } = new();
 
     public Task<HyperVEnvironment> GetEnvironmentStatusAsync() => Task.FromResult(HyperVEnvironment.Ok);
     public Task StartHyperVServiceAsync() => Task.CompletedTask;
-    public Task StartVMAsync(string name) => Task.CompletedTask;
-    public Task StopVMAsync(string name) => Task.CompletedTask;
-    public Task RemoveVMAsync(string name) => Task.CompletedTask;
+    public Task PowerAsync(string vmId, VmPowerAction action) { Calls.Add($"power {vmId} {action}"); return Task.CompletedTask; }
+    public Task<VmDeletePlan> GetDeletePlanAsync(string name) => Task.FromResult(Plan);
+    public Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null)
+    {
+        Calls.Add($"remove {name} {files?.Count ?? 0} files");
+        Vms.RemoveAll(v => v.Name == name);
+        return Task.CompletedTask;
+    }
     public void ConnectToVMConsole(string name) { }
+    public Task<VmThumbnail?> GetThumbnailAsync(string vmId, int maxWidth, int maxHeight) => Task.FromResult<VmThumbnail?>(null);
+    public Task TypeTextAsync(string vmId, string text, string language, bool pressEnter)
+    { Calls.Add($"type {vmId} {text} {language} {pressEnter}"); return Task.CompletedTask; }
+    public Task SendCtrlAltDelAsync(string vmId) { Calls.Add($"cad {vmId}"); return Task.CompletedTask; }
+    public Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId) => Task.FromResult(CheckpointRows.ToList());
+    public Task CreateCheckpointAsync(string vmName, string checkpointName) { Calls.Add($"checkpoint {vmName} {checkpointName}"); return Task.CompletedTask; }
+    public Task ApplyCheckpointAsync(string vmName, string checkpointId) { Calls.Add($"apply {vmName} {checkpointId}"); return Task.CompletedTask; }
+    public Task RemoveCheckpointAsync(string vmName, string checkpointId, bool withChildren)
+    { Calls.Add($"remove-checkpoint {vmName} {checkpointId} {withChildren}"); return Task.CompletedTask; }
+    public Task RenameCheckpointAsync(string vmName, string checkpointId, string newName)
+    { Calls.Add($"rename-checkpoint {vmName} {checkpointId} {newName}"); return Task.CompletedTask; }
+    public Task<VmSettings> GetVmSettingsAsync(string vmName) => Task.FromResult(Settings.Clone());
+    public Task SetVmSettingsAsync(string vmName, VmSettings before, VmSettings after)
+    { Calls.Add($"settings {vmName} {string.Join(" | ", HyperVService.SettingsScript(before, after))}"); return Task.CompletedTask; }
+    public Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames)
+    {
+        Calls.Add($"group {groupName} {string.Join(",", vmNames)}");
+        foreach (var v in Vms.Where(v => vmNames.Contains(v.Name))) v.GroupName = groupName;
+        return Task.CompletedTask;
+    }
+    public Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames) { Calls.Add($"ungroup {string.Join(",", vmNames)}"); return Task.CompletedTask; }
     public Task<List<VirtualSwitch>> GetVirtualSwitchesAsync() => Task.FromResult(new List<VirtualSwitch>());
     public Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0) => Task.CompletedTask;
     public Task CreateInternalSwitchAsync(string name, int vlanId = 0) => Task.CompletedTask;
