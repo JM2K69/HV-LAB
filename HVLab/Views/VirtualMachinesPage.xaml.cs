@@ -1,4 +1,5 @@
 ﻿using HVLab.Models;
+using HVLab.Services;
 using HVLab.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -12,7 +13,7 @@ public sealed partial class VirtualMachinesPage : Page
 {
     public VirtualMachinesViewModel ViewModel { get; } = App.GetService<VirtualMachinesViewModel>();
 
-    /// <summary>Gen / CPU / VLAN columns: collapsed when the page is narrower than 900 px.</summary>
+    /// <summary>Gen / CPU / VLAN columns: collapsed when the page is narrower than 1000 px (window at its minimum).</summary>
     public Visibility DetailColumnsVisibility
     {
         get => (Visibility)GetValue(DetailColumnsVisibilityProperty);
@@ -24,7 +25,48 @@ public sealed partial class VirtualMachinesPage : Page
                                     typeof(VirtualMachinesPage), new PropertyMetadata(Visibility.Visible));
 
     private void Page_SizeChanged(object sender, SizeChangedEventArgs e)
-        => DetailColumnsVisibility = e.NewSize.Width < 900 ? Visibility.Collapsed : Visibility.Visible;
+        => DetailColumnsVisibility = e.NewSize.Width < 1000 ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>An exported blueprint opens in the Labs editor (the view model told the page which file).</summary>
+    private void OnBlueprintWritten(object? sender, string file) => App.MainAppWindow?.NavigateTo("labs");
+
+    private void Labs_Click(object sender, RoutedEventArgs e) => App.MainAppWindow?.NavigateTo("labs");
+
+    /// <summary>Row menu: one VM (or the VMs selected with it) as a blueprint.</summary>
+    private async void ExportBlueprint_Click(object sender, RoutedEventArgs e)
+    {
+        if (VmOf(sender) is not { } vm) return;
+        var selected = VmList.SelectedItems.OfType<VirtualMachine>().ToList();
+        await ViewModel.ExportBlueprintAsync(selected.Contains(vm) && selected.Count > 1 ? selected : [vm]);
+    }
+
+    private void Search_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        SearchBox.Focus(FocusState.Keyboard);
+        args.Handled = true;
+    }
+
+    /// <summary>Right-click (or the menu key) on a row: the row's "More actions" menu, at the pointer.</summary>
+    private void Row_ContextRequested(UIElement sender, ContextRequestedEventArgs e)
+    {
+        var more = Descendants(sender).OfType<Button>().LastOrDefault(b => b.Flyout is MenuFlyout);
+        if (more?.Flyout is not MenuFlyout menu) return;
+        if (e.TryGetPosition(sender, out var point))
+            menu.ShowAt(sender, new Microsoft.UI.Xaml.Controls.Primitives.FlyoutShowOptions { Position = point });
+        else
+            menu.ShowAt(more);
+        e.Handled = true;
+    }
+
+    private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+    {
+        for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+            yield return child;
+            foreach (var d in Descendants(child)) yield return d;
+        }
+    }
 
     // WMI makes a refresh cheap: the list polls every 3 s while the page is visible
     private readonly DispatcherQueueTimer _pollTimer;
@@ -35,6 +77,7 @@ public sealed partial class VirtualMachinesPage : Page
         _pollTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _pollTimer.Interval = TimeSpan.FromSeconds(3);
         _pollTimer.Tick += async (_, _) => await ViewModel.RefreshAsync(silent: true);
+        ViewModel.BlueprintWritten += OnBlueprintWritten;
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)

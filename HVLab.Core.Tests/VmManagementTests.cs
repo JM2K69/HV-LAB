@@ -320,6 +320,50 @@ public class VmManagementViewModelTests
     }
 
     [Fact]
+    public async Task A_lab_checkpoint_pauses_the_running_vms_around_the_checkpoints()
+    {
+        var a = Vm("DC01", "Running"); var b = Vm("SRV01", "Off");
+        var hv = new FakeHyperVService { Vms = [a, b] };
+        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService { PromptAnswer = " baseline " });
+        await vm.RefreshAsync();
+        vm.SetSelection(vm.VirtualMachines);
+        await vm.CheckpointSelectedCommand.ExecuteAsync(null);
+        Assert.Equal([$"power {a.Id} Pause", $"checkpoint {a.Id} baseline", $"checkpoint {b.Id} baseline", $"power {a.Id} Resume"], hv.Calls);
+    }
+
+    [Fact]
+    public async Task Start_in_sequence_goes_by_name_and_skips_running_vms()
+    {
+        var srv = Vm("02-SRV", "Off"); var dc = Vm("01-DC", "Off"); var up = Vm("00-UP", "Running");
+        var hv = new FakeHyperVService { Vms = [srv, dc, up] };
+        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService()) { SequenceHeartbeatTimeout = TimeSpan.Zero };
+        await vm.RefreshAsync();
+        vm.SetSelection(vm.VirtualMachines);
+        await vm.StartSelectedInSequenceCommand.ExecuteAsync(null);
+        Assert.Equal([$"power {dc.Id} Start", $"power {srv.Id} Start"], hv.Calls);
+    }
+
+    [Fact]
+    public async Task Search_and_state_filter_narrow_the_list()
+    {
+        var a = Vm("DC01", "Running"); a.IpAddress = "192.168.100.10";
+        var b = Vm("SRV-01", "Off"); var c = Vm("CLI-01", "Saved");
+        var hv = new FakeHyperVService { Vms = [a, b, c] };
+        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService());
+        await vm.RefreshAsync();
+
+        vm.SearchText = "100.10";
+        Assert.Equal(["DC01"], vm.VisibleMachines.Select(v => v.Name));
+        vm.SearchText = "srv";
+        Assert.Equal(["SRV-01"], vm.VisibleMachines.Select(v => v.Name));
+        vm.SearchText = "";
+        vm.StateFilterIndex = 3;                                   // saved or paused
+        Assert.Equal(["CLI-01"], vm.VisibleMachines.Select(v => v.Name));
+        vm.StateFilterIndex = 0;
+        Assert.Equal(3, vm.VisibleMachines.Count);
+    }
+
+    [Fact]
     public async Task Grouping_suggests_the_bulk_prefix()
     {
         var a = Vm("SRV-01", "Off"); var b = Vm("SRV-02", "Off");
@@ -409,6 +453,18 @@ public class VmManagementViewModelTests
     }
 
     [Fact]
+    public async Task A_guest_command_runs_with_the_account_of_the_notes_and_shows_its_output()
+    {
+        var a = Vm("DC01", "Running", notes: "Created by HV-LAB on 2026-11-02 10:50\nAccount: Administrator\nPassword: P@ss");
+        var hv = new FakeHyperVService { Vms = [a], GuestOutput = "DC01  Windows Server 2025" };
+        var dialogs = new FakeDialogService { TextAnswer = "Get-ComputerInfo" };
+        var d = Details(hv, dialogs, a);
+        await d.RunInGuestCommand.ExecuteAsync(null);
+        Assert.Equal([$"guest {a.Id} Administrator Get-ComputerInfo"], hv.Calls);
+        Assert.Equal("DC01  Windows Server 2025", dialogs.LastShownText);
+    }
+
+    [Fact]
     public async Task Window_power_actions_use_the_vm_id()
     {
         var a = Vm("A", "Running");
@@ -486,6 +542,8 @@ public class VmScriptTests
         var script = runner.Scripts.Single();
         Assert.Contains("##Err_VmExists", script);
         Assert.Contains("$vm = New-VM -Name $vmName", script);
+        Assert.Contains("-AutomaticCheckpointsEnabled $false -AutomaticStopAction ShutDown", script);   // lab defaults
+        Assert.Contains("6C09BB55-D683-4DA0-8931-C9BF705F6480", script);                               // Guest Service Interface
         Assert.DoesNotContain("-VMName $vmName", script);
         Assert.DoesNotContain("Set-VM -Name", script);
     }

@@ -41,7 +41,7 @@
                                TextTrimming="CharacterEllipsis"/>
                     <Border CornerRadius="12" Padding="10,3" VerticalAlignment="Center"
                             Background="{x:Bind helpers:Display.StateBrush(ViewModel.Vm.State), Mode=OneWay}">
-                        <TextBlock Text="{x:Bind ViewModel.Vm.State, Mode=OneWay}" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
+                        <TextBlock Text="{x:Bind helpers:Display.StateText(ViewModel.Vm.State), Mode=OneWay}" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
                     </Border>
                     <!-- Enhanced session available in the guest (vmconnect: clipboard, sound, any resolution) -->
                     <Border CornerRadius="12" Padding="10,3" VerticalAlignment="Center"
@@ -173,7 +173,7 @@
                                         <TextBlock Grid.Row="4" Text="{Binding [VM_Uptime], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <TextBlock Grid.Row="4" Grid.Column="1" Text="{x:Bind ViewModel.Vm.Uptime, Mode=OneWay}"/>
                                         <TextBlock Grid.Row="5" Text="{Binding [VM_Heartbeat], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind ViewModel.Vm.Heartbeat, Mode=OneWay}"/>
+                                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{x:Bind helpers:Display.HeartbeatText(ViewModel.Vm.Heartbeat), Mode=OneWay}"/>
                                         <TextBlock Grid.Row="6" Text="{Binding [SW_ColName], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                         <TextBlock Grid.Row="6" Grid.Column="1" Text="{x:Bind ViewModel.Vm.SwitchName, Mode=OneWay}" TextWrapping="Wrap"/>
                                         <TextBlock Grid.Row="7" Text="{Binding [VM_GroupFilter], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -183,9 +183,13 @@
 
                                 <!-- Connections -->
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button Click="Ssh_Click" Content="{Binding [VM_Ssh], Source={StaticResource Loc}}"/>
-                                    <Button Click="Rdp_Click" Content="{Binding [VM_Rdp], Source={StaticResource Loc}}"/>
-                                    <Button Click="CopyIp_Click" Content="{Binding [VM_CopyIp], Source={StaticResource Loc}}"/>
+                                    <!-- Enabled once the VM has an IPv4 address (integration services or the notes) -->
+                                    <Button Click="Ssh_Click" Content="{Binding [VM_Ssh], Source={StaticResource Loc}}"
+                                            IsEnabled="{x:Bind ViewModel.Vm.HasIp, Mode=OneWay}"/>
+                                    <Button Click="Rdp_Click" Content="{Binding [VM_Rdp], Source={StaticResource Loc}}"
+                                            IsEnabled="{x:Bind ViewModel.Vm.HasIp, Mode=OneWay}"/>
+                                    <Button Click="CopyIp_Click" Content="{Binding [VM_CopyIp], Source={StaticResource Loc}}"
+                                            IsEnabled="{x:Bind ViewModel.Vm.HasIp, Mode=OneWay}"/>
                                 </StackPanel>
 
                                 <!-- Credentials written by HV-LAB at creation -->
@@ -225,6 +229,31 @@
                                         </StackPanel>
                                         <Button Command="{x:Bind ViewModel.SendCtrlAltDelCommand}"
                                                 Content="{Binding [VM_SendCtrlAltDel], Source={StaticResource Loc}}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Windows guests: PowerShell Direct and Copy-VMFile, with the account of the notes -->
+                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="8" Padding="16,12"
+                                        Visibility="{x:Bind ViewModel.Vm.HasCredentials, Mode=OneWay}">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="{Binding [GUEST_Title], Source={StaticResource Loc}}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                                        <TextBlock Text="{Binding [GUEST_Hint], Source={StaticResource Loc}}" TextWrapping="Wrap"
+                                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                        <Button Command="{x:Bind ViewModel.RunInGuestCommand}" IsEnabled="{x:Bind ViewModel.Vm.IsRunning, Mode=OneWay}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon Glyph="&#xE756;" FontSize="12"/>
+                                                <TextBlock Text="{Binding [GUEST_RunButton], Source={StaticResource Loc}}"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Click="CopyToGuest_Click" IsEnabled="{x:Bind ViewModel.Vm.IsRunning, Mode=OneWay}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon Glyph="&#xE8C8;" FontSize="12"/>
+                                                <TextBlock Text="{Binding [GUEST_CopyButton], Source={StaticResource Loc}}"/>
+                                            </StackPanel>
+                                        </Button>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -327,7 +356,11 @@
                             </Button>
                         </StackPanel>
                         <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Checkpoints}"
-                                  SelectedItem="{x:Bind ViewModel.SelectedCheckpoint, Mode=TwoWay}" SelectionMode="Single">
+                                  SelectedItem="{x:Bind ViewModel.SelectedCheckpoint, Mode=TwoWay}" SelectionMode="Single"
+                                  AutomationProperties.Name="{Binding [VM_Checkpoints], Source={StaticResource Loc}}">
+                            <ListView.KeyboardAccelerators>
+                                <KeyboardAccelerator Key="Delete" Invoked="DeleteCheckpoint_Invoked"/>
+                            </ListView.KeyboardAccelerators>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="models:CheckpointRow">
                                     <StackPanel Orientation="Horizontal" Spacing="8" Padding="{x:Bind helpers:CheckpointDisplay.Indent(Indent)}">
@@ -375,36 +408,36 @@
 
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Cpu], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.EditingSettings.ProcessorCount, Mode=TwoWay, FallbackValue=1}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SETVM_Cpu], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.EditingSettings.ProcessorCount, Mode=TwoWay, FallbackValue=1}"
                                                Minimum="1" Maximum="64" SpinButtonPlacementMode="Inline"
                                                IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Nested], Source={StaticResource Loc}}" FontSize="12" TextWrapping="Wrap"/>
-                                    <ToggleSwitch IsOn="{x:Bind ViewModel.EditingSettings.Nested, Mode=TwoWay, FallbackValue=False}"
+                                    <ToggleSwitch AutomationProperties.Name="{Binding [SETVM_Nested], Source={StaticResource Loc}}" IsOn="{x:Bind ViewModel.EditingSettings.Nested, Mode=TwoWay, FallbackValue=False}"
                                                   IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Startup], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.EditingSettings.StartupMB, Mode=TwoWay, FallbackValue=0}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SETVM_Startup], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.EditingSettings.StartupMB, Mode=TwoWay, FallbackValue=0}"
                                                Minimum="32" Maximum="1048576" SmallChange="512" LargeChange="1024" SpinButtonPlacementMode="Inline"
                                                IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Dynamic], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <ToggleSwitch IsOn="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=TwoWay, FallbackValue=False}"
+                                    <ToggleSwitch AutomationProperties.Name="{Binding [SETVM_Dynamic], Source={StaticResource Loc}}" IsOn="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=TwoWay, FallbackValue=False}"
                                                   IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Min], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.EditingSettings.MinimumMB, Mode=TwoWay, FallbackValue=0}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SETVM_Min], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.EditingSettings.MinimumMB, Mode=TwoWay, FallbackValue=0}"
                                                Minimum="32" Maximum="1048576" SmallChange="256" SpinButtonPlacementMode="Inline"
                                                IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=True}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Max], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.EditingSettings.MaximumMB, Mode=TwoWay, FallbackValue=0}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SETVM_Max], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.EditingSettings.MaximumMB, Mode=TwoWay, FallbackValue=0}"
                                                Minimum="32" Maximum="1048576" SmallChange="1024" SpinButtonPlacementMode="Inline"
                                                IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=True}"/>
                                 </StackPanel>
@@ -417,7 +450,7 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <TextBox Text="{x:Bind ViewModel.EditingSettings.IsoPath, Mode=TwoWay, FallbackValue=''}"
+                                        <TextBox AutomationProperties.Name="{Binding [SETVM_Iso], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.EditingSettings.IsoPath, Mode=TwoWay, FallbackValue=''}"
                                                  PlaceholderText="D:\ISO\ubuntu-24.04-live-server-amd64.iso" FontFamily="Consolas" FontSize="12"/>
                                         <Button Grid.Column="1" Click="BrowseIso_Click" Content="{Binding [Btn_Browse], Source={StaticResource Loc}}"/>
                                         <Button Grid.Column="2" Click="EjectIso_Click" Content="{Binding [SETVM_Eject], Source={StaticResource Loc}}"/>
@@ -428,30 +461,30 @@
                                            Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,6,0,0"/>
                                 <StackPanel Grid.Row="5" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_Switch], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.SwitchNames}"
+                                    <ComboBox AutomationProperties.Name="{Binding [SETVM_Switch], Source={StaticResource Loc}}" HorizontalAlignment="Stretch" ItemsSource="{x:Bind ViewModel.SwitchNames}"
                                               SelectedItem="{x:Bind ViewModel.EditingSettings.SwitchName, Mode=TwoWay, FallbackValue=''}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="5" Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [SETVM_VlanMode], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{x:Bind models:VmSettings.VlanModes}"
+                                    <ComboBox AutomationProperties.Name="{Binding [SETVM_VlanMode], Source={StaticResource Loc}}" HorizontalAlignment="Stretch" ItemsSource="{x:Bind models:VmSettings.VlanModes}"
                                               SelectedItem="{x:Bind ViewModel.EditingSettings.VlanMode, Mode=TwoWay, FallbackValue=''}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="6" Spacing="4"
                                             Visibility="{x:Bind ViewModel.EditingSettings.IsAccess, Mode=OneWay, FallbackValue=Collapsed}">
                                     <TextBlock Text="{Binding [SETVM_Vlan], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.EditingSettings.VlanId, Mode=TwoWay, FallbackValue=0}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SETVM_Vlan], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.EditingSettings.VlanId, Mode=TwoWay, FallbackValue=0}"
                                                Minimum="1" Maximum="4094" SpinButtonPlacementMode="Inline"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="6" Spacing="4"
                                             Visibility="{x:Bind ViewModel.EditingSettings.IsTrunk, Mode=OneWay, FallbackValue=Collapsed}">
                                     <TextBlock Text="{Binding [SETVM_NativeVlan], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.EditingSettings.NativeVlanId, Mode=TwoWay, FallbackValue=0}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SETVM_NativeVlan], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.EditingSettings.NativeVlanId, Mode=TwoWay, FallbackValue=0}"
                                                Minimum="0" Maximum="4094" SpinButtonPlacementMode="Inline"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="6" Grid.Column="1" Spacing="4"
                                             Visibility="{x:Bind ViewModel.EditingSettings.IsTrunk, Mode=OneWay, FallbackValue=Collapsed}">
                                     <TextBlock Text="{Binding [SETVM_AllowedVlans], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.EditingSettings.AllowedVlans, Mode=TwoWay, FallbackValue=''}"
+                                    <TextBox AutomationProperties.Name="{Binding [SETVM_AllowedVlans], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.EditingSettings.AllowedVlans, Mode=TwoWay, FallbackValue=''}"
                                              PlaceholderText="10,20,100-110" FontFamily="Consolas"/>
                                 </StackPanel>
                                 <StackPanel Grid.Row="7" Grid.ColumnSpan="2">

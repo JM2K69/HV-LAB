@@ -24,6 +24,18 @@ public class AnswerFileConfig
     public bool DisableWindowsUpdate { get; set; } = false;
     /// <summary>Controls which OOBE elements are emitted. Server omits client-only nodes.</summary>
     public OsFamily OsFamily { get; set; } = OsFamily.Server;
+
+    /// <summary>Static IPv4 (null = DHCP), set on the adapter whose MAC is <see cref="MacAddress"/>.</summary>
+    public StaticIpConfig? StaticIp { get; set; }
+    /// <summary>Static MAC HV-LAB gives the VM's adapter (00-15-5D-...): the interface identifier of the TCPIP settings.</summary>
+    public string MacAddress { get; set; } = "";
+    /// <summary>Active Directory domain joined during setup; empty = workgroup.</summary>
+    public string JoinDomain { get; set; } = "";
+    /// <summary>Account allowed to join: DOMAIN\user, user@domain, or a user of <see cref="JoinDomain"/>.</summary>
+    public string DomainUser { get; set; } = "";
+    public string DomainPassword { get; set; } = "";
+    /// <summary>Optional OU (distinguished name) of the computer account.</summary>
+    public string DomainOu { get; set; } = "";
 }
 
 public static class AnswerFileGenerator
@@ -51,6 +63,9 @@ public static class AnswerFileGenerator
                     </component>
               """
             : string.Empty;
+
+        var networkBlock = NetworkBlock(c);
+        var joinBlock    = JoinBlock(c);
 
         var autoLogonUser = AdministratorAccount;
 
@@ -112,7 +127,7 @@ public static class AnswerFileGenerator
                         <UILanguage>{c.UILanguage}</UILanguage>
                         <UserLocale>{c.UserLocale}</UserLocale>
                     </component>
-                    {windowsUpdateBlock}
+                    {windowsUpdateBlock}{networkBlock}{joinBlock}
                 </settings>
 
                 <settings pass="oobeSystem">
@@ -133,6 +148,80 @@ public static class AnswerFileGenerator
     private static string X(string v) => v
         .Replace("&", "&amp;").Replace("<", "&lt;")
         .Replace(">", "&gt;").Replace("\"", "&quot;");
+
+    private const string Component =
+        """processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS" """;
+
+    /// <summary>
+    /// Static IPv4, default route and DNS servers (specialize pass) on the adapter identified by its MAC: HV-LAB
+    /// sets that MAC static on the VM, so the right interface gets the address whatever Windows names it.
+    /// </summary>
+    internal static string NetworkBlock(AnswerFileConfig c)
+    {
+        if (c.StaticIp is not { } ip || c.MacAddress.Length == 0) return "";
+        var mac = X(c.MacAddress);
+        var dns = string.Join("", ip.DnsServers.Select((server, i) =>
+            $"""<IpAddress wcm:action="add" wcm:keyValue="{i + 1}">{X(server)}</IpAddress>"""));
+        var dnsComponent = ip.DnsServers.Count == 0 ? "" : $"""
+
+                    <component name="Microsoft-Windows-DNS-Client" {Component}>
+                        <Interfaces>
+                            <Interface wcm:action="add">
+                                <Identifier>{mac}</Identifier>
+                                <DNSServerSearchOrder>{dns}</DNSServerSearchOrder>
+                            </Interface>
+                        </Interfaces>
+                    </component>
+            """;
+        return $"""
+
+                    <component name="Microsoft-Windows-TCPIP" {Component}>
+                        <Interfaces>
+                            <Interface wcm:action="add">
+                                <Identifier>{mac}</Identifier>
+                                <Ipv4Settings><DhcpEnabled>false</DhcpEnabled></Ipv4Settings>
+                                <UnicastIpAddresses>
+                                    <IpAddress wcm:action="add" wcm:keyValue="1">{X(ip.Address)}/{ip.PrefixLength}</IpAddress>
+                                </UnicastIpAddresses>
+                                <Routes>
+                                    <Route wcm:action="add">
+                                        <Identifier>1</Identifier>
+                                        <Prefix>0.0.0.0/0</Prefix>
+                                        <NextHopAddress>{X(ip.Gateway)}</NextHopAddress>
+                                    </Route>
+                                </Routes>
+                            </Interface>
+                        </Interfaces>
+                    </component>{dnsComponent}
+            """;
+    }
+
+    /// <summary>
+    /// Domain join during setup (specialize pass). The DNS servers above must reach a domain controller.
+    /// "LAB\admin" or "admin@lab.local" give their own domain; a bare user name belongs to <see cref="AnswerFileConfig.JoinDomain"/>.
+    /// </summary>
+    internal static string JoinBlock(AnswerFileConfig c)
+    {
+        if (c.JoinDomain.Length == 0) return "";
+        var (domain, user) = c.DomainUser.Split('\\') is [var d, var u] ? (d, u)
+                           : c.DomainUser.Split('@') is [var u2, var d2] ? (d2, u2)
+                           : (c.JoinDomain, c.DomainUser);
+        var ou = c.DomainOu.Length > 0 ? $"<MachineObjectOU>{X(c.DomainOu)}</MachineObjectOU>" : "";
+        return $"""
+
+                    <component name="Microsoft-Windows-UnattendedJoin" {Component}>
+                        <Identification>
+                            <Credentials>
+                                <Domain>{X(domain)}</Domain>
+                                <Username>{X(user)}</Username>
+                                <Password>{X(c.DomainPassword)}</Password>
+                            </Credentials>
+                            <JoinDomain>{X(c.JoinDomain)}</JoinDomain>
+                            {ou}
+                        </Identification>
+                    </component>
+            """;
+    }
 
     // Deletes the answer file (plain-text password) left in the guest's Panther folder.
     private const string DeleteUnattendCommand =

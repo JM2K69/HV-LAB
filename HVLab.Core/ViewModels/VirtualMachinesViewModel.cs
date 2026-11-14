@@ -11,10 +11,41 @@ namespace HVLab.ViewModels;
 /// The VM list: live rows, per-row actions, group filter and bulk actions on the selection.
 /// The details of one VM (screen, credentials, checkpoints, settings) live in its own window (<see cref="VmDetailsViewModel"/>).
 /// </summary>
-public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogService dialogs) : PageViewModelBase
+public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogService dialogs, LabBlueprintService? labs = null)
+    : PageViewModelBase
 {
     private readonly IHyperVService _hvService = hvService;
     private readonly IDialogService _dialogs   = dialogs;
+
+    // ─── Lab blueprints (edited and deployed on the Labs page) ──────────────
+
+    /// <summary>A blueprint was exported: the page opens it in the Labs editor.</summary>
+    public event EventHandler<string>? BlueprintWritten;
+
+    /// <summary>The selection as a blueprint (bulk bar).</summary>
+    [RelayCommand]
+    private Task ExportBlueprintAsync() => ExportBlueprintAsync(_selection);
+
+    /// <summary>
+    /// Writes <paramref name="vms"/> as a blueprint (VMs folder\Blueprints\name.json, never overwriting one), named
+    /// after their group, else their common prefix, and asks the Labs page to open it; the password is left to fill in.
+    /// </summary>
+    public async Task ExportBlueprintAsync(IReadOnlyList<VirtualMachine> vms)
+    {
+        if (labs is null || vms.Count == 0) return;
+        ClearActionError();
+        var name = vms.Select(v => v.GroupName).FirstOrDefault(g => g.Length > 0) ?? CommonPrefix(vms);
+        try
+        {
+            var lab = await labs.ExportAsync(name, vms);
+            var file = labs.FreePath(name);
+            await File.WriteAllTextAsync(file, lab.ToJson());
+            Status = T("LAB_Exported", file);
+            labs.RequestedFile = file;
+            BlueprintWritten?.Invoke(this, file);
+        }
+        catch (Exception ex) { ShowActionError(ex); }
+    }
 
     /// <summary>Every VM of the host, updated in place on each refresh.</summary>
     [ObservableProperty] private ObservableCollection<VirtualMachine> virtualMachines = [];
@@ -86,6 +117,35 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
 
     partial void OnSelectedGroupChanged(string? value) => SyncVisible();
 
+    // ─── Search and state filter ────────────────────────────────────────────
+
+    /// <summary>Matches the name, IP address, guest OS and group (case-insensitive, any part).</summary>
+    [ObservableProperty] private string searchText = "";
+    partial void OnSearchTextChanged(string value) => SyncVisible();
+
+    /// <summary>0 = all, 1 = running, 2 = off, 3 = saved or paused.</summary>
+    [ObservableProperty] private int stateFilterIndex;
+    partial void OnStateFilterIndexChanged(int value) => SyncVisible();
+
+    public IReadOnlyList<string> StateFilters { get; } =
+        [T("VM_FilterAll"), T("VM_FilterRunning"), T("VM_FilterStopped"), T("VM_FilterOther")];
+
+    internal bool Matches(VirtualMachine v)
+    {
+        if (!ShowsAllGroups && v.GroupName != SelectedGroup) return false;
+        var stateOk = StateFilterIndex switch
+        {
+            1 => v.IsRunning,
+            2 => v.State == "Off",
+            3 => v.State is "Saved" or "Paused",
+            _ => true,
+        };
+        if (!stateOk) return false;
+        var q = SearchText.Trim();
+        return q.Length == 0
+            || new[] { v.Name, v.IpAddress, v.GuestOs, v.GroupName }.Any(f => f.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
     private void RefreshGroups()
     {
         var names = VirtualMachines.Select(v => v.GroupName).Where(g => g.Length > 0).Distinct().Order().ToList();
@@ -97,7 +157,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     /// <summary>Brings <see cref="VisibleMachines"/> in line with the filter, keeping row instances (and the selection).</summary>
     private void SyncVisible()
     {
-        var wanted = VirtualMachines.Where(v => ShowsAllGroups || v.GroupName == SelectedGroup).ToList();
+        var wanted = VirtualMachines.Where(Matches).ToList();
         for (int i = VisibleMachines.Count - 1; i >= 0; i--)
             if (!wanted.Contains(VisibleMachines[i])) VisibleMachines.RemoveAt(i);
         for (int i = 0; i < wanted.Count; i++)
@@ -243,6 +303,90 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
             await RunVmActionAsync(v, null, T("VM_Removing", v.Name),
                 () => _hvService.RemoveVMAsync(v.Target, withFiles ? plans[v]?.Files : null), refresh: false);
         await RefreshAsync(silent: true);
+    }
+
+    // ─── Lab operations on the selection ────────────────────────────────────
+
+    /// <summary>
+    /// One checkpoint of the same name on every selected VM. The running ones are paused first and resumed after,
+    /// so the whole lab is captured at the same moment (a DC and its members stay consistent).
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckpointSelectedAsync()
+    {
+        var targets = _selection.ToList();
+        if (targets.Count == 0) return;
+        var name = await _dialogs.PromptAsync(T("VM_LabCheckpointTitle"), T("VM_LabCheckpointName"),
+                                              $"{CommonPrefix(targets)} {DateTime.Now:yyyy-MM-dd HH-mm}");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        name = name.Trim();
+        ClearActionError();
+        Status = T("VM_LabCheckpointing", targets.Count);
+        var paused = new List<VirtualMachine>();
+        var errors = new List<string>();
+        try
+        {
+            foreach (var v in targets.Where(v => v.IsRunning))
+            {
+                try { await _hvService.PowerAsync(v.Id, VmPowerAction.Pause); paused.Add(v); }
+                catch (Exception ex) { errors.Add($"{v.Name}: {ex.Message}"); }
+            }
+            foreach (var v in targets)
+            {
+                try { await _hvService.CreateCheckpointAsync(v.Target, name); }
+                catch (Exception ex) { errors.Add($"{v.Name}: {ex.Message}"); }
+            }
+        }
+        finally
+        {
+            foreach (var v in paused)
+            {
+                try { await _hvService.PowerAsync(v.Id, VmPowerAction.Resume); }
+                catch (Exception ex) { errors.Add($"{v.Name}: {ex.Message}"); }
+            }
+        }
+        Status = errors.Count == 0 ? T("VM_LabCheckpointDone", name, targets.Count) : T("St_Ready");
+        if (errors.Count > 0) ShowActionError(string.Join(Environment.NewLine, errors));
+        await RefreshAsync(silent: true);
+    }
+
+    /// <summary>How long a VM of a sequence may take to report its heartbeat before the next one starts anyway.</summary>
+    internal TimeSpan SequenceHeartbeatTimeout { get; set; } = TimeSpan.FromMinutes(3);
+
+    /// <summary>
+    /// Starts the selected VMs one after the other, by name (01-DC, 02-SRV…), each waiting for the previous one to
+    /// report its heartbeat: the domain controller is up before its members boot.
+    /// </summary>
+    [RelayCommand]
+    private async Task StartSelectedInSequenceAsync()
+    {
+        var targets = _selection.Where(v => v.CanStart).OrderBy(v => v.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        if (targets.Count == 0) return;
+        ClearActionError();
+        for (var i = 0; i < targets.Count; i++)
+        {
+            var v = targets[i];
+            Status = T("VM_SeqStarting", i + 1, targets.Count, v.Name);
+            try { await _hvService.PowerAsync(v.Id, VmPowerAction.Start); }
+            catch (Exception ex) { ShowActionError(ex, v.Name + ":"); break; }
+            if (i < targets.Count - 1) await WaitForHeartbeatAsync(v.Id, SequenceHeartbeatTimeout);
+        }
+        if (!HasError) Status = T("VM_SeqDone", targets.Count);
+        await RefreshAsync(silent: true);
+    }
+
+    private async Task WaitForHeartbeatAsync(string vmId, TimeSpan timeout)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                if ((await _hvService.GetVirtualMachinesAsync()).FirstOrDefault(x => x.Id == vmId)?.Heartbeat == "OK") return;
+            }
+            catch (Exception) { /* a missed read: try again */ }
+            await Task.Delay(TimeSpan.FromSeconds(3));
+        }
     }
 
     [RelayCommand]

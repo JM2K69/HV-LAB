@@ -83,6 +83,11 @@
                         <FontIcon Glyph="&#xE945;"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem Tag="labs" AccessKey="L" Content="{Binding [Nav_Labs], Source={StaticResource Loc}}">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE81E;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <NavigationView.FooterMenuItems>

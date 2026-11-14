@@ -33,6 +33,8 @@ public interface IHyperVWmi
     void MouseButton(string vmId, int button, bool down);
     void MouseWheel(string vmId, int delta);
     bool GetEnhancedSessionHost();
+    /// <summary>Host memory and processors, and the free space of the drives holding <paramref name="folders"/>.</summary>
+    HostCapacity GetHostCapacity(IEnumerable<string> folders);
 }
 
 /// <summary>Hyper-V host operations: VMs, switches, network adapters, environment.</summary>
@@ -42,6 +44,7 @@ public interface IHyperVService
     Task StartHyperVServiceAsync();
 
     Task<List<VirtualMachine>> GetVirtualMachinesAsync();
+    Task<HostCapacity> GetHostCapacityAsync();
     Task PowerAsync(string vmId, VmPowerAction action);
     /// <summary>Disks that a delete with files would remove (and the shared parents it keeps).</summary>
     Task<VmDeletePlan> GetDeletePlanAsync(string name);
@@ -54,6 +57,12 @@ public interface IHyperVService
     /// <summary>Types <paramref name="text"/> into the VM as the keys of the guest layout <paramref name="language"/> (fr-FR…).</summary>
     Task TypeTextAsync(string vmId, string text, string language, bool pressEnter);
     Task SendCtrlAltDelAsync(string vmId);
+
+    // Guest automation (Windows guests): PowerShell Direct over VMBus, no network needed
+    /// <summary>Runs <paramref name="script"/> in the guest as <paramref name="account"/>; returns its output as text.</summary>
+    Task<string> InvokeInGuestAsync(string vmId, string account, string password, string script);
+    /// <summary>Copies a host file into <paramref name="guestFolder"/> (Guest Service Interface), creating the folder.</summary>
+    Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder);
 
     // Checkpoints (list through WMI, changes through PowerShell)
     Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId);
@@ -119,7 +128,7 @@ public interface IHyperVService
         long memoryMB, int cpuCount, int generation, string vmFolder,
         string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
-        IProgress<string>? progress = null, CancellationToken ct = default);
+        IProgress<string>? progress = null, CancellationToken ct = default, string? staticMac = null);
 }
 
 /// <summary>WIM analysis and base VHDX images.</summary>
@@ -128,6 +137,8 @@ public interface IVhdxService
     Task<List<WimImageInfo>> GetWimImagesAsync(string wimPath);
     Task<List<BaseVhdx>> GetBaseVhdxListAsync(string folder);
     Task CreateBaseVhdxAsync(string vhdxPath, long sizeGB);
+    /// <summary>Parent VHDX (lower-case path) → names of the VMs whose disk chains use it.</summary>
+    Task<Dictionary<string, List<string>>> GetBaseDependentsAsync();
     Task DiscardPartialVhdxAsync(string vhdxPath);
     /// <summary>Dismounts the VHDX and waits until Windows has really released it (detach is asynchronous).</summary>
     Task EnsureDetachedAsync(string vhdxPath);
@@ -177,4 +188,10 @@ public interface IDialogService
 
     /// <summary>Asks for one line of text; null when cancelled or left empty.</summary>
     Task<string?> PromptAsync(string title, string label, string initialValue);
+
+    /// <summary>Asks for several lines (a script); null when cancelled or left empty.</summary>
+    Task<string?> PromptTextAsync(string title, string label, string initialValue);
+
+    /// <summary>Shows a read-only text that can be selected and copied (a command's output).</summary>
+    Task ShowTextAsync(string title, string text);
 }

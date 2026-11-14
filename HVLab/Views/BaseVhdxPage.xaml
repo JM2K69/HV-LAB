@@ -134,6 +134,11 @@
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                TextTrimming="CharacterEllipsis"
                                                ToolTipService.ToolTip="{x:Bind FilePath}"/>
+                                    <!-- VMs built on this base (its delete is refused while there are any) -->
+                                    <TextBlock Text="{x:Bind UsedByText, Mode=OneWay}" FontSize="11"
+                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                               Visibility="{x:Bind IsUsed, Mode=OneWay}"
+                                               ToolTipService.ToolTip="{x:Bind UsedByList, Mode=OneWay}"/>
                                 </StackPanel>
                             </StackPanel>
 
@@ -199,7 +204,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Grid.Column="0"
+                            <TextBox Grid.Column="0" AutomationProperties.Name="{Binding [BV_StepWim], Source={StaticResource Loc}}"
                                      Text="{x:Bind ViewModel.WimPath, Mode=TwoWay}"
                                      PlaceholderText="{Binding [BV_WimPlaceholder], Source={StaticResource Loc}}"
                                      FontFamily="Consolas" FontSize="12"
@@ -289,14 +294,14 @@
 
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{Binding [BV_OsFamily], Source={StaticResource Loc}}" FontSize="12"/>
-                                <ComboBox ItemsSource="{x:Bind ViewModel.OsFamilies}"
+                                <ComboBox AutomationProperties.Name="{Binding [BV_OsFamily], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.OsFamilies}"
                                           SelectedItem="{x:Bind ViewModel.SelectedOsFamily, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
 
                             <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="{Binding [BV_Edition], Source={StaticResource Loc}}" FontSize="12"/>
-                                <ComboBox ItemsSource="{x:Bind ViewModel.AvailableEditions}"
+                                <ComboBox AutomationProperties.Name="{Binding [BV_Edition], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.AvailableEditions}"
                                           SelectedItem="{x:Bind ViewModel.SelectedEdition, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
@@ -326,8 +331,8 @@
                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
                                     </Border>
                                 </StackPanel>
-                                <TextBox Text="{x:Bind ViewModel.OsVersion, Mode=TwoWay}"
-                                         PlaceholderText="10.0.26100.4652  (détectée automatiquement)"
+                                <TextBox Text="{x:Bind ViewModel.OsVersion, Mode=TwoWay}" AutomationProperties.Name="{Binding [BV_OsVersion], Source={StaticResource Loc}}"
+                                         PlaceholderText="{Binding [BV_OsVersionPh], Source={StaticResource Loc}}"
                                          FontFamily="Consolas"/>
                             </StackPanel>
                             <!-- Index WIM : auto-sélectionné par l'analyse -->
@@ -342,7 +347,7 @@
                                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
                                     </Border>
                                 </StackPanel>
-                                <NumberBox Value="{x:Bind ViewModel.ImageIndex, Mode=TwoWay}"
+                                <NumberBox Value="{x:Bind ViewModel.ImageIndex, Mode=TwoWay}" AutomationProperties.Name="{Binding [BV_ImageIndex], Source={StaticResource Loc}}"
                                            Minimum="1" Maximum="20"
                                            SpinButtonPlacementMode="Inline"
                                            Width="110"/>
@@ -382,12 +387,12 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{Binding [BV_SizeGB], Source={StaticResource Loc}}" FontSize="12"/>
-                                <NumberBox Value="{x:Bind ViewModel.SizeGB, Mode=TwoWay}"
+                                <NumberBox AutomationProperties.Name="{Binding [BV_SizeGB], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.SizeGB, Mode=TwoWay}"
                                            Minimum="20" Maximum="500" SpinButtonPlacementMode="Inline"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="{Binding [BV_Generation], Source={StaticResource Loc}}" FontSize="12"/>
-                                <ComboBox ItemsSource="{x:Bind ViewModel.Generations}"
+                                <ComboBox AutomationProperties.Name="{Binding [BV_Generation], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.Generations}"
                                           SelectedItem="{x:Bind ViewModel.Generation, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
@@ -401,7 +406,7 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Grid.Column="0" Text="{x:Bind ViewModel.BaseFolder, Mode=TwoWay}"
+                                <TextBox AutomationProperties.Name="{Binding [BV_DestFolder], Source={StaticResource Loc}}" Grid.Column="0" Text="{x:Bind ViewModel.BaseFolder, Mode=TwoWay}"
                                          PlaceholderText="C:\HV-LAB\BaseImages"/>
                                 <Button Grid.Column="1" Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseBaseFolder_Click"/>
                             </Grid>
@@ -447,14 +452,14 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [BV_SourceVm], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.SourceVms}"
+                            <ComboBox AutomationProperties.Name="{Binding [BV_SourceVm], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.SourceVms}"
                                       SelectedItem="{x:Bind ViewModel.SourceVm, Mode=TwoWay}"
                                       PlaceholderText="{Binding [BV_PhSelectVm], Source={StaticResource Loc}}"
                                       HorizontalAlignment="Stretch"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding [BV_SourceFamily], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.SourceFamilies}"
+                            <ComboBox AutomationProperties.Name="{Binding [BV_SourceFamily], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.SourceFamilies}"
                                       SelectedItem="{x:Bind ViewModel.SourceFamily, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
                         </StackPanel>
@@ -467,11 +472,11 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [BV_Distribution], Source={StaticResource Loc}}" FontSize="12"/>
-                            <TextBox Text="{x:Bind ViewModel.SourceDistribution, Mode=TwoWay}" PlaceholderText="AlmaLinux"/>
+                            <TextBox AutomationProperties.Name="{Binding [BV_Distribution], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.SourceDistribution, Mode=TwoWay}" PlaceholderText="AlmaLinux"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding [BV_SourceVersion], Source={StaticResource Loc}}" FontSize="12"/>
-                            <TextBox Text="{x:Bind ViewModel.SourceVersion, Mode=TwoWay}" PlaceholderText="9.6" FontFamily="Consolas"/>
+                            <TextBox AutomationProperties.Name="{Binding [BV_SourceVersion], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.SourceVersion, Mode=TwoWay}" PlaceholderText="9.6" FontFamily="Consolas"/>
                         </StackPanel>
                     </Grid>
 

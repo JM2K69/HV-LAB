@@ -78,6 +78,13 @@ public sealed partial class VmWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
+    /// <summary>Opens the window of a VM just created (its name is unique: namesakes are refused at creation).</summary>
+    public static async Task ShowByNameAsync(string name)
+    {
+        var vm = (await App.GetService<IHyperVService>().GetVirtualMachinesAsync()).FirstOrDefault(v => v.Name == name);
+        if (vm is not null) Show(vm);
+    }
+
     /// <summary>Keeps the open VM windows on the theme chosen in Settings.</summary>
     public static void ApplyThemeToAll(string theme)
     {
@@ -113,14 +120,15 @@ public sealed partial class VmWindow : Window
         // The window keeps its VM live on its own (WMI: cheap), whatever page the main window shows
         _refreshTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _refreshTimer.Interval = TimeSpan.FromSeconds(3);
-        _refreshTimer.Tick += async (_, _) => await ViewModel.RefreshAsync();
+        // Nothing is polled while the window is minimized (no WMI query for a window nobody sees)
+        _refreshTimer.Tick += async (_, _) => { if (!IsMinimized) await ViewModel.RefreshAsync(); };
         _screenTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _screenTimer.Interval = TimeSpan.FromSeconds(2);
-        _screenTimer.Tick += async (_, _) => await RefreshScreenAsync();
+        _screenTimer.Tick += async (_, _) => { if (!IsMinimized) await RefreshScreenAsync(); };
         // Console frames while the Console tab is shown: one request at a time (~200 ms each at 1024×768), back to back
         _consoleTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
         _consoleTimer.Interval = TimeSpan.FromMilliseconds(40);
-        _consoleTimer.Tick += async (_, _) => await NextConsoleFrameAsync();
+        _consoleTimer.Tick += async (_, _) => { if (!IsMinimized) await NextConsoleFrameAsync(); };
         _refreshTimer.Start();
         _screenTimer.Start();
 
@@ -136,6 +144,24 @@ public sealed partial class VmWindow : Window
 
         // A click anywhere outside the console screen gives keyboard and mouse back to the host
         RootGrid.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(Root_PointerPressed), true);
+
+        // F5 refreshes the VM (and the checkpoint tree); in the console, keys go to the guest instead
+        var refresh = new KeyboardAccelerator { Key = Windows.System.VirtualKey.F5 };
+        refresh.Invoked += async (_, args) =>
+        {
+            args.Handled = true;
+            await ViewModel.RefreshAsync();
+            if (Tabs.SelectedIndex == (int)VmWindowTab.Checkpoints) await ViewModel.LoadCheckpointsAsync();
+        };
+        RootGrid.KeyboardAccelerators.Add(refresh);
+
+        // Not smaller than the layout needs (header buttons, two-column settings)
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            var scale = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96.0;
+            presenter.PreferredMinimumWidth  = (int)(820 * scale);
+            presenter.PreferredMinimumHeight = (int)(560 * scale);
+        }
 
         _ = RefreshScreenAsync();
         _ = ViewModel.LoadCheckpointsAsync();
@@ -213,6 +239,8 @@ public sealed partial class VmWindow : Window
     private bool _fullScreen;
     private readonly HashSet<(uint Code, bool Extended)> _keysDown = [];
 
+    private bool IsMinimized => AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized };
+
     private async Task NextConsoleFrameAsync()
     {
         if (_consoleBusy) return;
@@ -277,6 +305,7 @@ public sealed partial class VmWindow : Window
         var key = (e.KeyStatus.ScanCode, e.KeyStatus.IsExtendedKey);
         _keysDown.Remove(key);
         await ViewModel.SendKeyAsync(key.ScanCode, key.IsExtendedKey, keyUp: true);
+        _ = NextConsoleFrameAsync();   // show the typed character without waiting for the next tick
     }
 
     private void Console_GotFocus(object sender, RoutedEventArgs e) => SetCaptured(true);
@@ -414,7 +443,8 @@ public sealed partial class VmWindow : Window
 
     // ── Connections and clipboard (view concerns: external tools, clipboard)
 
-    private static bool IsSafeArgument(string value) => Regex.IsMatch(value, @"^[A-Za-z0-9._-]+$");
+    /// <summary>Account name passed to ssh: letters, digits, dot, dash, underscore, never a leading dash (an option).</summary>
+    private static bool IsSafeArgument(string value) => Regex.IsMatch(value, @"^[A-Za-z0-9._][A-Za-z0-9._-]*$");
 
     /// <summary>SSH in Windows Terminal (or a console) with the account HV-LAB wrote into the notes.</summary>
     private void Ssh_Click(object sender, RoutedEventArgs e)
@@ -422,19 +452,50 @@ public sealed partial class VmWindow : Window
         var vm = ViewModel.Vm;
         if (InputValidator.ParseIpv4(vm.IpAddress) is null) return;
         var target = IsSafeArgument(vm.Credentials.Account) ? $"{vm.Credentials.Account}@{vm.IpAddress}" : vm.IpAddress;
-        try { Process.Start(new ProcessStartInfo("wt.exe", $"ssh {target}") { UseShellExecute = true }); }
-        catch (Exception) { Process.Start(new ProcessStartInfo("cmd.exe", $"/k ssh {target}") { UseShellExecute = true }); }
+        // As the user, unelevated: Windows Terminal, else a console; elevated fallback only from absolute paths
+        if (!UnelevatedLauncher.TryStart("wt.exe", $"ssh {target}"))
+            UnelevatedLauncher.Start(UnelevatedLauncher.System32("cmd.exe"), $"/k ssh {target}",
+                                     UnelevatedLauncher.System32("cmd.exe"), $"/k \"{UnelevatedLauncher.System32(@"OpenSSH\ssh.exe")}\" {target}");
     }
 
     private void Rdp_Click(object sender, RoutedEventArgs e)
     {
-        if (InputValidator.ParseIpv4(ViewModel.Vm.IpAddress) is not null)
-            Process.Start(new ProcessStartInfo("mstsc.exe", $"/v:{ViewModel.Vm.IpAddress}") { UseShellExecute = true });
+        var ip = ViewModel.Vm.IpAddress;
+        if (InputValidator.ParseIpv4(ip) is null) return;
+        var mstsc = UnelevatedLauncher.System32("mstsc.exe");
+        UnelevatedLauncher.Start(mstsc, $"/v:{ip}", mstsc, $"/v:{ip}");
     }
 
     private void CopyIp_Click(object sender, RoutedEventArgs e) => Copy(ViewModel.Vm.IpAddress);
     private void CopyErrorDetails_Click(object sender, RoutedEventArgs e) => Copy($"{ViewModel.ErrorMessage}\n\n{ViewModel.ErrorDetails}");
-    private void CopyPassword_Click(object sender, RoutedEventArgs e) => Copy(ViewModel.Vm.Credentials.Password);
+    /// <summary>
+    /// The password is kept out of the clipboard history and the cloud clipboard, and cleared after 30 s
+    /// unless something else has been copied meanwhile.
+    /// </summary>
+    private void CopyPassword_Click(object sender, RoutedEventArgs e)
+    {
+        var password = ViewModel.Vm.Credentials.Password;
+        if (string.IsNullOrEmpty(password)) return;
+        var package = new DataPackage();
+        package.SetText(password);
+        Clipboard.SetContentWithOptions(package, new ClipboardContentOptions { IsAllowedInHistory = false, IsRoamable = false });
+        ViewModel.Status = Loc["VM_CopiedSecret"];
+
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromSeconds(30);
+        timer.IsRepeating = false;
+        timer.Tick += async (t, _) =>
+        {
+            t.Stop();
+            try
+            {
+                var content = Clipboard.GetContent();
+                if (content.Contains(StandardDataFormats.Text) && await content.GetTextAsync() == password) Clipboard.Clear();
+            }
+            catch (Exception) { /* clipboard busy: leave it */ }
+        };
+        timer.Start();
+    }
 
     private void Copy(string? text)
     {
@@ -443,6 +504,18 @@ public sealed partial class VmWindow : Window
         package.SetText(text);
         Clipboard.SetContent(package);
         ViewModel.Status = Loc["VM_Copied"];
+    }
+
+    private async void CopyToGuest_Click(object sender, RoutedEventArgs e)
+    {
+        var file = Win32FolderPicker.PickFile(WinRT.Interop.WindowNative.GetWindowHandle(this), Loc["GUEST_CopyButton"], "*", "*.*");
+        if (file is not null) await ViewModel.CopyToGuestAsync(file);
+    }
+
+    private void DeleteCheckpoint_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        if (ViewModel.RemoveCheckpointCommand.CanExecute(null)) ViewModel.RemoveCheckpointCommand.Execute(null);
+        args.Handled = true;
     }
 
     // ── Settings tab: ISO picker

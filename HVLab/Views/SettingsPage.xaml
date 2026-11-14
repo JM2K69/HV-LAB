@@ -26,7 +26,7 @@
                     <FontIcon Glyph="&#xEDA2;"/>
                 </ctk:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBox Text="{x:Bind ViewModel.BaseImagesFolder, Mode=TwoWay}"
+                    <TextBox Text="{x:Bind ViewModel.BaseImagesFolder, Mode=TwoWay}" AutomationProperties.Name="{Binding [SET_BaseImages], Source={StaticResource Loc}}"
                              PlaceholderText="C:\HV-LAB\BaseImages"
                              Width="320" FontFamily="Consolas" FontSize="12"/>
                     <Button Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseBaseImages_Click"/>
@@ -39,7 +39,7 @@
                     <FontIcon Glyph="&#xE7F8;"/>
                 </ctk:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBox Text="{x:Bind ViewModel.VmsFolder, Mode=TwoWay}"
+                    <TextBox Text="{x:Bind ViewModel.VmsFolder, Mode=TwoWay}" AutomationProperties.Name="{Binding [SET_VMs], Source={StaticResource Loc}}"
                              PlaceholderText="C:\HV-LAB\VMs"
                              Width="320" FontFamily="Consolas" FontSize="12"/>
                     <Button Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseVms_Click"/>
@@ -72,7 +72,7 @@
                 <ctk:SettingsCard.HeaderIcon>
                     <FontIcon Glyph="&#xF2B7;"/>
                 </ctk:SettingsCard.HeaderIcon>
-                <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
+                <ComboBox ItemsSource="{x:Bind ViewModel.Languages}" AutomationProperties.Name="{Binding [SET_Language], Source={StaticResource Loc}}"
                           SelectedItem="{x:Bind ViewModel.SelectedLanguage, Mode=TwoWay}"
                           MinWidth="120"/>
             </ctk:SettingsCard>
@@ -88,7 +88,22 @@
                     <FontIcon Glyph="&#xE7F4;"/>
                 </ctk:SettingsCard.HeaderIcon>
                 <ToggleSwitch IsOn="{x:Bind ViewModel.EnhancedSession, Mode=TwoWay}"
-                              IsEnabled="{x:Bind ViewModel.EnhancedSessionLoaded, Mode=OneWay}"/>
+                              IsEnabled="{x:Bind ViewModel.EnhancedSessionLoaded, Mode=OneWay}"
+                              AutomationProperties.Name="{Binding [SET_Enhanced], Source={StaticResource Loc}}"/>
+            </ctk:SettingsCard>
+
+            <!-- ══ Security ═══════════════════════════════════════════════ -->
+            <TextBlock Text="{Binding [SET_SecSecurity], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,20,0,4"/>
+
+            <ctk:SettingsCard Header="{Binding [SET_ProtectNotes], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_ProtectNotesDesc], Source={StaticResource Loc}}">
+                <ctk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE72E;"/>
+                </ctk:SettingsCard.HeaderIcon>
+                <ToggleSwitch IsOn="{x:Bind ViewModel.ProtectNotesPassword, Mode=TwoWay}"
+                              AutomationProperties.Name="{Binding [SET_ProtectNotes], Source={StaticResource Loc}}"/>
             </ctk:SettingsCard>
 
             <!-- ══ À propos ═════════════════════════════════════════════════ -->

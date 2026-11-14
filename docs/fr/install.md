@@ -18,7 +18,7 @@ Rien d'autre à installer : la version publiée est autonome, avec .NET 10 et le
     .\Install.ps1
     ```
 
-L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer.
+L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer. HV-LAB apparaît aussi dans **Paramètres > Applications**, avec sa version et son éditeur.
 
 !!! tip "Vérifier le téléchargement"
     Chaque release publie aussi un fichier `.sha256`. Comparez-le avec l'empreinte du zip :
@@ -36,7 +36,7 @@ L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans
 | `-Destination <dossier>` | Installe ailleurs que dans `C:\Program Files\HV-LAB`. |
 | `-Source <dossier>` | Dossier qui contient `HVLab.exe`. Par défaut, le dossier du script, ou `HVLab\publish` depuis les sources. |
 | `-SelfSign` | Signe `HVLab.exe` avec un certificat auto-signé `CN=JM2K69` approuvé par **cette machine seulement** : l'invite UAC affiche alors *Éditeur vérifié : JM2K69* au lieu de *Éditeur inconnu*. Le certificat est créé une fois (clé privée non exportable, signature de code uniquement, valable 10 ans) puis réutilisé : les installations suivantes signent l'exe sans l'option. |
-| `-Uninstall` | Supprime le dossier d'installation, les raccourcis et le certificat créé par `-SelfSign`. |
+| `-Uninstall` | Supprime le dossier d'installation, les raccourcis, l'entrée de **Paramètres > Applications** et le certificat créé par `-SelfSign`. |
 
 !!! note "Pourquoi un certificat auto-signé"
     Windows n'affiche un éditeur que pour un exe signé par un certificat auquel la machine fait confiance. Une autorité de certification publique certifie un nom légal, jamais un pseudonyme, et c'est payant. `-SelfSign` ajoute le certificat aux magasins *Autorités de certification racines de confiance* et *Éditeurs approuvés* de l'ordinateur : sur une autre machine, le zip de la release affiche toujours *Éditeur inconnu*.
@@ -59,12 +59,15 @@ Choisissez ensuite vos dossiers dans les [Paramètres](guide/settings.md) :
 
 Téléchargez la nouvelle release et lancez son `Install.ps1` de la même façon :
 
-- il ferme l'application si elle est ouverte ;
-- il remplace les fichiers installés.
+1. il prépare la nouvelle version dans un dossier à côté, `HV-LAB.new`, sans toucher à la version installée ;
+2. il demande à l'application ouverte de se fermer, et l'arrête si elle l'est encore au bout de 10 secondes ;
+3. il échange les deux dossiers.
 
-Vos paramètres sont conservés, car ils sont dans `%LocalAppData%\HV-LAB`.
+Si la copie échoue, la version installée reste intacte. Vos paramètres sont conservés, car ils sont dans `%LocalAppData%\HV-LAB`.
 
 ## Désinstaller
+
+Désinstallez HV-LAB depuis **Paramètres > Applications**, comme toute application, ou lancez :
 
 ```powershell
 & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall

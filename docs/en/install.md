@@ -18,7 +18,7 @@ There is nothing else to install. The release is self-contained and includes .NE
     .\Install.ps1
     ```
 
-The application is copied to `C:\Program Files\HV-LAB`, and a shortcut is added to the Start menu.
+The application is copied to `C:\Program Files\HV-LAB`, and a shortcut is added to the Start menu. HV-LAB also appears in **Settings > Apps**, with its version and publisher.
 
 !!! tip "Checking the download"
     Each release also publishes a `.sha256` file. Compare it with the hash of the zip:
@@ -36,7 +36,7 @@ The application is copied to `C:\Program Files\HV-LAB`, and a shortcut is added 
 | `-Destination <folder>` | Installs somewhere else than `C:\Program Files\HV-LAB`. |
 | `-Source <folder>` | Folder that contains `HVLab.exe`. The default is the script's own folder, or `HVLab\publish` when run from the sources. |
 | `-SelfSign` | Signs `HVLab.exe` with a self-signed `CN=JM2K69` certificate trusted by **this machine only**, so the UAC prompt shows *Verified publisher: JM2K69* instead of *Unknown publisher*. The certificate is created once (non-exportable private key, code signing only, valid 10 years) and reused: later installations sign the exe without the option. |
-| `-Uninstall` | Removes the installation folder, the shortcuts and the certificate created by `-SelfSign`. |
+| `-Uninstall` | Removes the installation folder, the shortcuts, the **Settings > Apps** entry and the certificate created by `-SelfSign`. |
 
 !!! note "Why a self-signed certificate"
     Windows shows a publisher only for a signed exe whose certificate the machine trusts. A public certificate authority certifies a legal name, never a pseudonym, and charges for it. `-SelfSign` adds the certificate to the *Trusted Root* and *Trusted Publishers* stores of the computer: on another machine, the release zip still shows *Unknown publisher*.
@@ -59,12 +59,15 @@ Then choose your folders in [Settings](guide/settings.md):
 
 Download the new release and run its `Install.ps1` in the same way:
 
-- it closes the application if it is running;
-- it replaces the installed files.
+1. it prepares the new version in a side folder, `HV-LAB.new`, while the installed one stays in place;
+2. it asks the running application to close, and stops it if it is still open after 10 seconds;
+3. it swaps the two folders.
 
-Your settings are kept, because they live in `%LocalAppData%\HV-LAB`.
+If the copy fails, the installed version is left intact. Your settings are kept, because they live in `%LocalAppData%\HV-LAB`.
 
 ## Uninstall
+
+Uninstall HV-LAB from **Settings > Apps**, like any application, or run:
 
 ```powershell
 & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall

@@ -6,7 +6,7 @@ La page **Créer une VM** crée une ou plusieurs VM en disque différentiel sur 
 
 ### Identité
 
-- **Nom de la VM** : le nom affiché dans Hyper-V.
+- **Nom de la VM** : le nom affiché dans Hyper-V. Un nom déjà utilisé par une VM de l'hôte est refusé.
 - **Création en lot (Bulk)** : crée plusieurs VM numérotées d'un coup. Indiquez un **préfixe** et un **nombre de VM** :
     - le préfixe `SRV` avec 3 VM donne `SRV-01`, `SRV-02` et `SRV-03` ;
     - l'**aperçu** affiche les noms avant la création ;
@@ -38,6 +38,32 @@ Laissez **Utiliser un fichier de réponse** coché pour une installation automat
 | Fuseau horaire | Par exemple `Romance Standard Time` (Paris) ou `Pacific Standard Time`. |
 | Clé KMS (GVLK) | Les clés client KMS publiques de Microsoft. La clé qui correspond à l'image de base est proposée et recopiée dans **Clé produit**. |
 | Clé produit (optionnel) | N'importe quelle clé, appliquée pendant la passe *specialize*. Laissez vide pour ne pas en mettre. |
+
+### Adresse IP fixe
+
+**Adresse IP fixe (sinon DHCP)** donne à la VM une adresse fixe, sur une base Windows comme sur une base [Linux](linux.md). Activée, elle demande :
+
+- l'**Adresse IP (1re VM)** et le **Préfixe (/)** ;
+- la **Passerelle** ;
+- les **Serveurs DNS**, séparés par des virgules.
+
+Sur une base Windows, la carte réseau de la VM reçoit une adresse MAC fixe (`00-15-5D-…`), et `unattend.xml` règle l'IP, le préfixe, la passerelle et les DNS sur cette carte. En mode lot, chaque VM reçoit l'adresse suivante : `SRV-01` reçoit `192.168.100.10`, `SRV-02` reçoit `192.168.100.11`, et ainsi de suite. L'adresse est écrite dans les [notes](#notes-de-la-vm).
+
+!!! info "Réseaux NAT"
+    Les [réseaux NAT](networking.md#reseaux-nat) d'HV-LAB n'ont pas de DHCP. Utilisez une IP fixe, avec la passerelle du NAT comme passerelle.
+
+### Joindre un domaine Active Directory
+
+Sur une base Windows, **Joindre un domaine Active Directory** fait rejoindre un domaine à la VM pendant l'installation, dans la passe *specialize*.
+
+| Champ | Remarques |
+|---|---|
+| Domaine | Par exemple `lab.local`. |
+| Unité d'organisation (facultatif) | Par exemple `OU=Servers,DC=lab,DC=local`. Laissez vide pour le conteneur par défaut. |
+| Compte autorisé à joindre | `DOMAINE\utilisateur`, `utilisateur@domaine`, ou un utilisateur du domaine comme `Administrator`. |
+| Mot de passe du compte | Le mot de passe de ce compte. |
+
+La VM doit pouvoir contacter un contrôleur de domaine pendant l'installation. Avec une IP fixe, mettez l'adresse du contrôleur de domaine en serveur DNS.
 
 ### Options
 
@@ -73,9 +99,10 @@ HV-LAB écrit la date de création et les identifiants dans les **Notes** Hyper-
 Créée par HV-LAB le 02/11/2026 14:35
 Compte : Administrator
 Mot de passe : Lab#2026
+IP : 192.168.100.10
 ```
 
-Pour les lire :
+La ligne `IP` n'apparaît qu'avec une [IP fixe](#adresse-ip-fixe). Pour lire les notes :
 
 - dans le Gestionnaire Hyper-V : l'onglet **Résumé** de la VM, ou **Paramètres > Nom** ;
 - en PowerShell :
@@ -87,14 +114,24 @@ Pour les lire :
 Sans fichier de réponse, les notes contiennent seulement la date de création.
 
 !!! warning "Usage en labo"
-    Le mot de passe est stocké en clair dans les notes, et tout administrateur de l'hôte peut le lire. Ne réutilisez jamais un mot de passe de production dans un labo.
+    Par défaut, le mot de passe est stocké en clair dans les notes, et tout administrateur de l'hôte peut le lire. Ne réutilisez jamais un mot de passe de production dans un labo. Pour le garder chiffré, activez **Protéger le mot de passe dans les notes (DPAPI)** dans les [Paramètres](settings.md#securite).
 
 ## Déroulement de la création
 
+Cliquez sur **Créer la VM**. En cas de problème, un bandeau rouge à côté du bouton en donne la raison. Quand la VM est prête, un bandeau vert propose **Ouvrir la VM**, qui ouvre sa [fenêtre](virtual-machines.md#fenetre-de-la-vm).
+
 1. Le disque différentiel est créé sur l'image de base.
 2. Son volume Windows est monté sur un dossier privé, sans lettre de lecteur, et `unattend.xml` est copié dans `Windows\Panther`.
-3. La VM est créée et reliée au commutateur, puis ses [notes](#notes-de-la-vm) sont écrites.
-4. Au premier démarrage, le programme d'installation de Windows exécute les passes *specialize* et *oobeSystem*, puis affiche l'écran de connexion.
+3. La VM est créée avec les réglages de labo ci-dessous et reliée au commutateur, puis ses [notes](#notes-de-la-vm) sont écrites. Avec une IP fixe, sa carte reçoit l'adresse MAC fixe que nomme `unattend.xml`.
+4. Au premier démarrage, le programme d'installation de Windows exécute la passe *specialize* (nom d'ordinateur, IP fixe, jonction au domaine) et la passe *oobeSystem*, puis affiche l'écran de connexion.
+
+Chaque VM créée par HV-LAB, ici ou avec [Quick VM](quick-vm.md), reçoit des réglages de labo :
+
+- aucun point de contrôle automatique ;
+- l'action d'arrêt automatique **Arrêter** : la VM s'arrête avec l'hôte au lieu d'enregistrer sa mémoire sur le disque ;
+- le service d'intégration *Interface de services d'invité* activé, pour [Copier un fichier vers la VM…](virtual-machines.md#automatisation-invites-windows).
+
+Si la création échoue, dépasse son délai ou est annulée, HV-LAB supprime seulement ce qu'elle a produit : les disques sont démontés, puis la VM et son dossier sont supprimés.
 
 !!! note "Le fichier de réponse est supprimé"
     `unattend.xml` contient le mot de passe en clair. Une commande de première ouverture de session supprime `%WINDIR%\Panther\unattend.xml` de la VM.

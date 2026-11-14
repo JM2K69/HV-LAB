@@ -101,7 +101,7 @@ In bulk mode, the address goes up by one for each clone: `ALMA-01` gets `192.168
 1. The differencing disk is created on the base.
 2. A 64 MB disk, `<VM>-cidata.vhdx`, is created next to it, with a FAT volume labelled `CIDATA` that holds:
     - `meta-data`: a unique instance ID and the host name;
-    - `user-data`: the user, its password, the SSH key, the time zone and the keyboard;
+    - `user-data`: the user, a SHA-512 crypt hash of its password (`hashed_passwd`), the SSH key, the time zone and the keyboard;
     - `network-config`: the static IP, when one is set.
 3. The clone keeps the template VM's generation and Secure Boot template.
 4. Its [Hyper-V notes](create-vm.md#vm-notes) hold the creation date, the user, its password and the IP.
@@ -116,7 +116,7 @@ ssh labadmin@192.168.100.10
     The static IP is set on `eth0`, the name the Hyper-V network adapter gets on most distributions.
 
 !!! warning "Lab use"
-    The password is stored in clear text on the `CIDATA` disk and in the VM notes.
+    The `CIDATA` disk only holds a hash of the password, never the password itself. The VM notes still hold it for HV-LAB, in clear text unless **Protect the password in the notes (DPAPI)** is on in [Settings](settings.md#security).
 
 ## Quick VM
 

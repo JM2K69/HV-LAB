@@ -156,6 +156,30 @@
                 </Border>
             </Grid>
 
+            <!-- ═══ Host capacity: memory and vCPU of the running VMs, free space of the HV-LAB drives ═══ -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20,16"
+                    Visibility="{x:Bind ViewModel.HasCapacity, Mode=OneWay}">
+                <Grid ColumnSpacing="16" RowSpacing="6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.ColumnSpan="2" Text="{Binding [Dash_Capacity], Source={StaticResource Loc}}"
+                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <FontIcon Grid.Row="1" Glyph="&#xEEA0;" FontSize="14" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.MemoryText, Mode=OneWay}" TextWrapping="Wrap"/>
+                    <FontIcon Grid.Row="2" Glyph="&#xE950;" FontSize="14" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.CpuText, Mode=OneWay}" TextWrapping="Wrap"/>
+                    <FontIcon Grid.Row="3" Glyph="&#xEDA2;" FontSize="14" Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.DiskText, Mode=OneWay}" TextWrapping="Wrap"/>
+                </Grid>
+            </Border>
+
             <!-- ═══ Démarrage rapide ══════════════════════════════════════════ -->
             <TextBlock Text="{Binding [Dash_QuickStart], Source={StaticResource Loc}}" FontSize="14"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"

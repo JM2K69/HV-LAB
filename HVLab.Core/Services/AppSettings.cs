@@ -48,6 +48,12 @@ public sealed class AppSettings
     /// </summary>
     public string Language { get; set; } = "fr";
 
+    /// <summary>
+    /// Off by default (a lab: the password in clear in Hyper-V Manager is handy). On: the password written into the
+    /// notes of new VMs is DPAPI-protected, readable back by this Windows account on this host only.
+    /// </summary>
+    public bool ProtectNotesPassword { get; set; }
+
     // ─── Load / Save ──────────────────────────────────────────────────────────
 
     /// <summary>

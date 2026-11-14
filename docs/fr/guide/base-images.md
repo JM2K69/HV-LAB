@@ -5,7 +5,7 @@ Une image de base est une installation Windows généralisée dans un fichier `B
 !!! tip "Linux, ou une VM Windows personnalisée"
     Une base peut aussi être copiée depuis une VM existante. Voir [Bases Linux](linux.md).
 
-La page **Images de base VHDX** liste les images du dossier des images de base (voir [Paramètres](settings.md)). Pour chaque image, la liste affiche l'OS, la version, l'édition, la taille et la date. Sous la liste se trouve le formulaire de construction d'une nouvelle image.
+La page **Images de base VHDX** liste les images du dossier des images de base (voir [Paramètres](settings.md)). Pour chaque image, la liste affiche l'OS, la version, l'édition, la taille et la date, ainsi que **Utilisée par N VM** : le nombre de VM construites dessus. Survolez-le pour voir leurs noms. Sous la liste se trouve le formulaire de construction d'une nouvelle image.
 
 ## Construire une image
 
@@ -67,6 +67,8 @@ Une image existante n'est jamais laissée à moitié construite. Si un fichier d
 !!! danger "Ne modifiez jamais une image de base utilisée par des VM"
     Un disque différentiel dépend du contenu exact de son parent. Si vous démarrez une VM directement sur une image de base, ou si vous la remplacez, toutes les VM construites dessus deviennent inutilisables. HV-LAB vous prévient avant de remplacer une image.
 
+Au démarrage, HV-LAB réserve l'écriture dans le dossier des images de base aux administrateurs. Tout le monde garde l'accès en lecture, mais un utilisateur standard ne peut plus remplacer une base.
+
 ## En cas d'échec
 
 Le bandeau d'erreur donne la raison et le chemin du journal de construction, qui contient le détail. Causes fréquentes :
@@ -77,4 +79,4 @@ Le bandeau d'erreur donne la raison et le chemin du journal de construction, qui
 
 ## Supprimer une image
 
-Utilisez le bouton de suppression sur la ligne de l'image et confirmez. Supprimez d'abord les VM qui en dépendent.
+Utilisez le bouton de suppression sur la ligne de l'image et confirmez. Une image encore utilisée par une VM ne peut pas être supprimée : HV-LAB refuse et liste ces VM. Supprimez-les d'abord, sinon elles ne démarreraient plus.

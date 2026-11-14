@@ -10,7 +10,7 @@ namespace HVLab.ViewModels;
 /// Shared state and flow of the VM creation pages (Create VM, Quick VM): switch and base image
 /// lists, single / bulk naming, validation of names, cancellable creation loop with progress.
 /// </summary>
-public abstract partial class VmCreationViewModelBase : ObservableObject
+public abstract partial class VmCreationViewModelBase : PageViewModelBase
 {
     protected readonly IHyperVService HvService;
     protected readonly IVhdxService   VhdxService;
@@ -29,6 +29,23 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
     [ObservableProperty] private bool   isLoading;
     [ObservableProperty] private bool   isCreating;
     [ObservableProperty] private string status = T("St_Ready");
+
+    /// <summary>Result of the last creation, shown in a Success InfoBar (errors go to the Error InfoBar).</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSuccess))] private string successMessage = "";
+    public bool HasSuccess => SuccessMessage.Length > 0;
+    /// <summary>Name of the VM a single creation made: the "Open the VM" button of the Success InfoBar.</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanOpenCreatedVm))] private string createdVmName = "";
+    public bool CanOpenCreatedVm => CreatedVmName.Length > 0;
+
+    /// <summary>A form error: in the Error InfoBar, never in the status line.</summary>
+    protected void Fail(string message)
+    {
+        SuccessMessage = "";
+        ShowActionError(message);
+    }
+
+    [RelayCommand]
+    private void DismissSuccess() { SuccessMessage = ""; CreatedVmName = ""; }
 
     // ── Identity ────────────────────────────────────────────────────────────
 
@@ -96,8 +113,9 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
             if (prevVhdx   is not null && BaseVhdxList.Contains(prevVhdx))     SelectedBaseVhdx = prevVhdx;
 
             Status = T("St_Ready");
+            MarkLoaded();
         }
-        catch (Exception ex) { Status = T("St_LoadError", ex.Message); }
+        catch (Exception ex) { Status = T("St_Ready"); ShowError(ex); }
         finally { IsLoading = false; }
     }
 
@@ -115,14 +133,14 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
         IReadOnlyList<string> names;
         if (BulkMode)
         {
-            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Status = T("St_EnterPrefix"); return null; }
-            if (BulkCount < 1)                         { Status = T("St_CountMin");    return null; }
+            if (string.IsNullOrWhiteSpace(BulkPrefix)) { Fail(T("St_EnterPrefix")); return null; }
+            if (BulkCount < 1)                         { Fail(T("St_CountMin"));    return null; }
             names = BulkNames(BulkPrefix, BulkCount);
         }
         else names = [VmName];
 
         foreach (var name in names)
-            if (InputValidator.CheckVmName(name) is { } key) { Status = $"{T(key)} ({name})"; return null; }
+            if (InputValidator.CheckVmName(name) is { } key) { Fail($"{T(key)} ({name})"); return null; }
         return names;
     }
 
@@ -137,6 +155,8 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
         Action? onSingleSuccess = null)
     {
         IsLoading = true; IsCreating = true;
+        ClearActionError();
+        SuccessMessage = ""; CreatedVmName = "";
         var cts     = _cts = new CancellationTokenSource();
         var created = new List<string>();
         var errors  = new List<string>();
@@ -148,7 +168,9 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
                 var name = names[0];
                 Status = T("St_CreatingVm", name);
                 await createOne(name, new Progress<string>(line => Status = TranslateProgress(line)), cts.Token);
-                Status = T("St_VmCreated", name);
+                Status = T("St_Ready");
+                SuccessMessage = T("St_VmCreated", name);
+                CreatedVmName = name;
                 onSingleSuccess?.Invoke();
                 return;
             }
@@ -169,15 +191,18 @@ public abstract partial class VmCreationViewModelBase : ObservableObject
                 try { await HvService.AddToGroupAsync(BulkPrefix, created); }
                 catch (Exception ex) { errors.Add(T("St_GroupFailed", BulkPrefix, ex.Message)); }
             }
-            Status = errors.Count == 0
-                ? T("St_BulkOk", created.Count, string.Join(", ", created))
-                : T("St_BulkPartial", created.Count, errors.Count, string.Join(" | ", errors));
+            Status = T("St_Ready");
+            if (created.Count > 0) SuccessMessage = T("St_BulkOk", created.Count, string.Join(", ", created));
+            // One line per failed VM, in the Error InfoBar
+            if (errors.Count > 0)
+                ShowActionError(T("St_BulkPartial", created.Count, errors.Count, "").TrimEnd(' ', ':', '|')
+                                + Environment.NewLine + string.Join(Environment.NewLine, errors));
         }
         catch (OperationCanceledException)
         {
             Status = bulk ? T("Op_CancelledBulk", created.Count, names.Count) : T("Op_Cancelled");
         }
-        catch (Exception ex) { Status = T("St_Error", ex.Message); }
+        catch (Exception ex) { Status = T("St_Ready"); ShowActionError(ex); }
         finally
         {
             IsLoading = false; IsCreating = false;

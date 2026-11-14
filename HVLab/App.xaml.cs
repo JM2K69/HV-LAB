@@ -38,6 +38,9 @@ public partial class App : Application
         (GetService<IPowerShellRunner>() as PowerShellRunner)?.Warmup();
         // Mount folders left by an injection interrupted in a previous session (crash, kill)
         _ = Task.Run(HyperVService.PurgeMountFolders);
+        // Base images: writable by administrators only (a standard user must not swap the image every clone boots)
+        var baseImages = AppSettings.Current.BaseImagesFolder;
+        _ = Task.Run(() => FolderSecurity.HardenBaseImagesFolder(baseImages));
 
         // Afficher le splash immédiatement
         var splash = new SplashWindow();

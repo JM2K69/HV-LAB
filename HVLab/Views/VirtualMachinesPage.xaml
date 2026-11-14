@@ -15,7 +15,7 @@
         <GridLength x:Key="ColState">96</GridLength>
         <GridLength x:Key="ColRam">80</GridLength>
         <GridLength x:Key="ColIp">118</GridLength>
-        <GridLength x:Key="ColActions">186</GridLength>
+        <GridLength x:Key="ColActions">148</GridLength>
         <x:Double x:Key="ColGen">50</x:Double>
         <x:Double x:Key="ColCpu">70</x:Double>
         <x:Double x:Key="ColVlan">60</x:Double>
@@ -32,20 +32,26 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Header: title, group filter, refresh -->
-        <Grid Grid.Row="0" Margin="0,0,0,8" ColumnSpacing="12">
+        <!-- Header on two rows (fits the 1000 px minimum): title and actions, then search and filters -->
+        <Grid Grid.Row="0" Margin="0,0,0,8" ColumnSpacing="12" RowSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <TextBlock Text="{Binding [VM_Title], Source={StaticResource Loc}}" FontSize="28" FontWeight="SemiBold"/>
-            <ComboBox Grid.Column="1" VerticalAlignment="Center" MinWidth="180"
-                      ItemsSource="{x:Bind ViewModel.Groups}"
-                      SelectedItem="{x:Bind ViewModel.SelectedGroup, Mode=TwoWay}"
-                      PlaceholderText="{Binding [VM_GroupAll], Source={StaticResource Loc}}"
-                      AutomationProperties.Name="{Binding [VM_GroupFilter], Source={StaticResource Loc}}"
-                      ToolTipService.ToolTip="{Binding [VM_GroupFilter], Source={StaticResource Loc}}"/>
+            <!-- Lab blueprints are edited and deployed on the Labs page -->
+            <Button Grid.Column="1" VerticalAlignment="Center" Click="Labs_Click"
+                    ToolTipService.ToolTip="{Binding [LAB_DeployTip], Source={StaticResource Loc}}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE81E;" FontSize="14"/>
+                    <TextBlock Text="{Binding [LAB_Menu], Source={StaticResource Loc}}"/>
+                </StackPanel>
+            </Button>
             <Button Grid.Column="2" VerticalAlignment="Center"
                     Command="{x:Bind ViewModel.ReloadCommand}"
                     ToolTipService.ToolTip="F5">
@@ -57,6 +63,29 @@
                     <TextBlock Text="{Binding [Btn_Refresh], Source={StaticResource Loc}}"/>
                 </StackPanel>
             </Button>
+
+            <!-- Search (Ctrl+F), state and group filters: the 3 s polling keeps the rows and the selection -->
+            <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Orientation="Horizontal" Spacing="12">
+                <AutoSuggestBox x:Name="SearchBox" Width="300" QueryIcon="Find"
+                                Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="{Binding [VM_Search], Source={StaticResource Loc}}"
+                                AutomationProperties.Name="{Binding [VM_Search], Source={StaticResource Loc}}">
+                    <AutoSuggestBox.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="F" Modifiers="Control" Invoked="Search_Invoked"/>
+                    </AutoSuggestBox.KeyboardAccelerators>
+                </AutoSuggestBox>
+                <ComboBox MinWidth="170"
+                          ItemsSource="{x:Bind ViewModel.StateFilters}"
+                          SelectedIndex="{x:Bind ViewModel.StateFilterIndex, Mode=TwoWay}"
+                          AutomationProperties.Name="{Binding [VM_FilterState], Source={StaticResource Loc}}"
+                          ToolTipService.ToolTip="{Binding [VM_FilterState], Source={StaticResource Loc}}"/>
+                <ComboBox MinWidth="170"
+                          ItemsSource="{x:Bind ViewModel.Groups}"
+                          SelectedItem="{x:Bind ViewModel.SelectedGroup, Mode=TwoWay}"
+                          PlaceholderText="{Binding [VM_GroupAll], Source={StaticResource Loc}}"
+                          AutomationProperties.Name="{Binding [VM_GroupFilter], Source={StaticResource Loc}}"
+                          ToolTipService.ToolTip="{Binding [VM_GroupFilter], Source={StaticResource Loc}}"/>
+            </StackPanel>
         </Grid>
 
         <!-- Progress, errors, bulk bar -->
@@ -98,6 +127,23 @@
                     </Button>
                     <Button Command="{x:Bind ViewModel.TurnOffSelectedCommand}"
                             Content="{Binding [VM_BulkTurnOff], Source={StaticResource Loc}}"/>
+                    <Button Command="{x:Bind ViewModel.StartSelectedInSequenceCommand}"
+                            ToolTipService.ToolTip="{Binding [VM_SeqTip], Source={StaticResource Loc}}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE8CB;" FontSize="12"/>
+                            <TextBlock Text="{Binding [VM_BulkSequence], Source={StaticResource Loc}}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{x:Bind ViewModel.ExportBlueprintCommand}"
+                            ToolTipService.ToolTip="{Binding [LAB_ExportTip], Source={StaticResource Loc}}"
+                            Content="{Binding [LAB_Export], Source={StaticResource Loc}}"/>
+                    <Button Command="{x:Bind ViewModel.CheckpointSelectedCommand}"
+                            ToolTipService.ToolTip="{Binding [VM_LabCheckpointTip], Source={StaticResource Loc}}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE81C;" FontSize="12"/>
+                            <TextBlock Text="{Binding [VM_BulkCheckpoint], Source={StaticResource Loc}}"/>
+                        </StackPanel>
+                    </Button>
                     <Button Command="{x:Bind ViewModel.GroupSelectedCommand}"
                             Content="{Binding [VM_BulkGroup], Source={StaticResource Loc}}"/>
                     <Button Command="{x:Bind ViewModel.UngroupSelectedCommand}"
@@ -158,7 +204,8 @@
             </ListView.ItemContainerStyle>
             <ListView.ItemTemplate>
                 <DataTemplate x:DataType="models:VirtualMachine">
-                    <Grid ColumnSpacing="8" VerticalAlignment="Center" Background="Transparent">
+                    <Grid ColumnSpacing="8" VerticalAlignment="Center" Background="Transparent"
+                          ContextRequested="Row_ContextRequested">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="{StaticResource ColName}"/>
                             <ColumnDefinition Width="{StaticResource ColState}"/>
@@ -190,7 +237,7 @@
                                 HorizontalAlignment="Left" Padding="10,3"
                                 VerticalAlignment="Center"
                                 Background="{x:Bind State, Mode=OneWay, Converter={StaticResource StateToColorConverter}}">
-                            <TextBlock Text="{x:Bind State, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"
+                            <TextBlock Text="{x:Bind State, Mode=OneWay, Converter={StaticResource LocalizedValueConverter}, ConverterParameter=State_}" FontSize="11" FontWeight="SemiBold"
                                        Foreground="White"/>
                         </Border>
 
@@ -238,18 +285,17 @@
                                     ToolTipService.ToolTip="{Binding [VM_TipConsole], Source={StaticResource Loc}}">
                                 <FontIcon Glyph="&#xE8A7;" FontSize="12"/>
                             </Button>
-                            <Button Click="Details_Click" Tag="{x:Bind}"
-                                    Width="32" Height="32" Padding="0"
-                                    AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_Details', Name)}"
-                                    ToolTipService.ToolTip="{Binding [VM_Details], Source={StaticResource Loc}}">
-                                <FontIcon Glyph="&#xE8A0;" FontSize="12"/>
-                            </Button>
                             <Button Width="32" Height="32" Padding="0"
                                     AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_MoreActions', Name)}"
                                     ToolTipService.ToolTip="{Binding [VM_MoreActions], Source={StaticResource Loc}}">
                                 <FontIcon Glyph="&#xE712;" FontSize="12"/>
                                 <Button.Flyout>
                                     <MenuFlyout>
+                                        <MenuFlyoutItem Text="{Binding [VM_OpenWindow], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        Click="Details_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8A0;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator/>
                                         <MenuFlyoutItem Text="{Binding [VM_TurnOff], Source={StaticResource Loc}}" Tag="{x:Bind}"
                                                         IsEnabled="{x:Bind CanTurnOff, Mode=OneWay}" Click="TurnOff_Click">
                                             <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7E8;"/></MenuFlyoutItem.Icon>
@@ -276,6 +322,10 @@
                                         <MenuFlyoutItem Text="{Binding [VM_OpenConsoleTab], Source={StaticResource Loc}}" Tag="{x:Bind}"
                                                         Click="ConsoleTab_Click">
                                             <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7F4;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{Binding [LAB_Export], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        Click="ExportBlueprint_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE81E;"/></MenuFlyoutItem.Icon>
                                         </MenuFlyoutItem>
                                         <MenuFlyoutItem Text="{Binding [VM_Settings], Source={StaticResource Loc}}" Tag="{x:Bind}"
                                                         Click="Settings_Click">

@@ -52,15 +52,14 @@ public static class CloudInitGenerator
             // A sudo rule rather than a group: wheel (RHEL) and sudo (Debian) differ between distributions
             .Append("    sudo: \"ALL=(ALL) NOPASSWD:ALL\"\n")
             .Append("    shell: /bin/bash\n")
-            .Append("    lock_passwd: false\n");
+            .Append("    lock_passwd: false\n")
+            // SHA-512 crypt, not the password: the CIDATA disk stays attached to the clone and anyone reading it
+            // would otherwise get the password (HV-LAB's notes keep it for the lab owner)
+            .Append($"    hashed_passwd: {Q(Sha512Crypt.Hash(c.Password))}\n");
         if (!string.IsNullOrWhiteSpace(c.SshPublicKey))
             user.Append("    ssh_authorized_keys:\n").Append($"      - {Q(c.SshPublicKey.Trim())}\n");
         user.Append("chpasswd:\n")
             .Append("  expire: false\n")
-            .Append("  users:\n")
-            .Append($"    - name: {c.UserName}\n")
-            .Append($"      password: {Q(c.Password)}\n")
-            .Append("      type: text\n")
             .Append("ssh_pwauth: true\n");
         if (TimeZoneInfo.TryConvertWindowsIdToIanaId(c.TimeZone, out var iana))
             user.Append($"timezone: {iana}\n");

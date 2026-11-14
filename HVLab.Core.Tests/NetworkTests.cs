@@ -9,7 +9,9 @@ internal sealed class FakeNatService : INatService
 {
     public List<NatNetwork> Nats { get; set; } = [];
     public Task<List<NatNetwork>> GetNatNetworksAsync() => Task.FromResult(Nats.ToList());
-    public Task CreateNatNetworkAsync(string switchName, string natName, string gatewayIP, int prefixLength) => Task.CompletedTask;
+    public List<string> Created { get; } = [];
+    public Task CreateNatNetworkAsync(string switchName, string natName, string gatewayIP, int prefixLength)
+    { Created.Add($"{natName} {switchName} {gatewayIP}/{prefixLength}"); return Task.CompletedTask; }
     public Task RemoveNatNetworkAsync(string name) => Task.CompletedTask;
 }
 
@@ -49,7 +51,10 @@ public class TopologyTests
         Assert.Equal("VLAN 20", topo[1].Vms[1].VlanLabel);
         Assert.Equal(UplinkKind.ConnectionSharing, topo[2].Uplink);
         Assert.Equal(UplinkKind.HostOnly, topo[3].Uplink);
-        Assert.Equal("Internal · VLAN 10", topo[3].TypeLine);
+        // The type shows in the UI language; "Internal" stays the internal value
+        Assert.Equal($"{LocalizationService.Instance.Display("SwType_", "Internal")} · VLAN 10", topo[3].TypeLine);
+        Assert.NotEqual("SwType_Internal", LocalizationService.Instance.Display("SwType_", "Internal"));
+        Assert.Equal("Bogus", LocalizationService.Instance.Display("SwType_", "Bogus"));   // unknown value: shown as is
         Assert.Equal(UplinkKind.Isolated, topo[4].Uplink);
         Assert.False(topo[4].HasUplink);
         Assert.True(topo[4].HasNoVms);

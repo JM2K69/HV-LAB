@@ -35,6 +35,7 @@ It is a WinUI 3 / .NET 10 application and needs nothing else on the computer. It
 
     - computer name and Administrator password;
     - language, time zone and KMS key;
+    - optional static IP and Active Directory domain join;
     - optional auto-logon.
 
     Bulk mode creates `SRV-01…nn` in one go.
@@ -57,13 +58,21 @@ It is a WinUI 3 / .NET 10 application and needs nothing else on the computer. It
 
     [:octicons-arrow-right-24: Switches & NAT](guide/networking.md)
 
+-   **Lab blueprints**
+
+    ---
+
+    Compose a whole lab in a form: switch, NAT, domain, VMs with their base image, static IP and domain join. HV-LAB generates the JSON, creates only what is missing, and exports existing VMs to a blueprint.
+
+    [:octicons-arrow-right-24: Lab blueprints](guide/labs.md)
+
 </div>
 
 The interface follows Fluent design:
 
 - Mica backdrop and a light or dark theme;
 - French or English, switchable live;
-- keyboard shortcuts: ++f5++ refreshes and ++del++ deletes the selection.
+- keyboard shortcuts: ++ctrl+f++ searches the VMs, ++f5++ refreshes and ++del++ deletes the selection.
 
 Every long operation can be cancelled, and every input is validated before it reaches PowerShell.
 

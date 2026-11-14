@@ -87,6 +87,24 @@ public static partial class InputValidator
     /// Static IPv4 plan of <paramref name="count"/> clones numbered from <paramref name="first"/>: prefix 8–30,
     /// gateway in the subnet, every address in the subnet, not the network or broadcast address, not the gateway.
     /// </summary>
+    [GeneratedRegex(@"^[A-Za-z0-9]([A-Za-z0-9-]{0,62})(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}))*$")]
+    private static partial Regex DomainNameRegex();
+
+    /// <summary>Active Directory domain to join: DNS name (lab.local) or NetBIOS name (LAB).</summary>
+    public static string? CheckDomainName(string? name)
+        => !string.IsNullOrWhiteSpace(name) && name.Length <= 253 && DomainNameRegex().IsMatch(name.Trim()) ? null : "Val_DomainName";
+
+    /// <summary>
+    /// A MAC address in the Hyper-V range (00-15-5D-xx-xx-xx), random: given static to a Windows VM with a static IP,
+    /// it identifies the adapter in unattend.xml.
+    /// </summary>
+    public static string NewHyperVMac()
+    {
+        Span<byte> tail = stackalloc byte[3];
+        System.Security.Cryptography.RandomNumberGenerator.Fill(tail);
+        return $"00-15-5D-{tail[0]:X2}-{tail[1]:X2}-{tail[2]:X2}";
+    }
+
     public static string? CheckStaticIpPlan(string? first, int prefixLength, string? gateway, int count)
     {
         if (ParseIpv4(first) is not { } ip || ParseIpv4(gateway) is not { } gw) return "Val_Ipv4";

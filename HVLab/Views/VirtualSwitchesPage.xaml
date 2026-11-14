@@ -155,7 +155,7 @@
                                                                 <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                                                                     <Ellipse Width="10" Height="10" VerticalAlignment="Center"
                                                                              Fill="{x:Bind State, Converter={StaticResource StateToColorConverter}}"
-                                                                             ToolTipService.ToolTip="{x:Bind State}"/>
+                                                                             ToolTipService.ToolTip="{x:Bind State, Converter={StaticResource LocalizedValueConverter}, ConverterParameter=State_}"/>
                                                                     <TextBlock Text="{x:Bind VmName}" FontWeight="SemiBold" VerticalAlignment="Center"/>
                                                                     <TextBlock Text="{x:Bind AdapterName}" FontSize="11" VerticalAlignment="Center"
                                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
@@ -242,7 +242,7 @@
                                     <TextBlock Grid.Column="0" Text="{x:Bind Name}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
                                                ToolTipService.ToolTip="{x:Bind Name}"/>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind SwitchType}"
+                                    <TextBlock Grid.Column="1" Text="{x:Bind SwitchType, Converter={StaticResource LocalizedValueConverter}, ConverterParameter=SwType_}"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2" Text="{x:Bind NetAdapterName}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
@@ -293,14 +293,21 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [SW_NameLabel], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.NewSwitchName, Mode=TwoWay}"
+                                    <TextBox AutomationProperties.Name="{Binding [SW_NameLabel], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.NewSwitchName, Mode=TwoWay}"
                                              PlaceholderText="{Binding [SW_PlaceholderName], Source={StaticResource Loc}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [SW_TypeLabel], Source={StaticResource Loc}}" FontSize="12"/>
                                     <ComboBox ItemsSource="{x:Bind ViewModel.SwitchTypes}"
                                               SelectedItem="{x:Bind ViewModel.NewSwitchType, Mode=TwoWay}"
-                                              HorizontalAlignment="Stretch"/>
+                                              AutomationProperties.Name="{Binding [SW_TypeLabel], Source={StaticResource Loc}}"
+                                              HorizontalAlignment="Stretch">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Converter={StaticResource LocalizedValueConverter}, ConverterParameter=SwType_}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
                                 </StackPanel>
                             </Grid>
 
@@ -308,7 +315,7 @@
                                         Visibility="{x:Bind ViewModel.IsExternalSwitch, Mode=OneWay,
                                                       Converter={StaticResource BoolToVisibilityConverter}}">
                                 <TextBlock Text="{Binding [SW_AdapterLabel], Source={StaticResource Loc}}" FontSize="12"/>
-                                <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
+                                <ComboBox AutomationProperties.Name="{Binding [SW_AdapterLabel], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
                                           SelectedItem="{x:Bind ViewModel.SelectedNetAdapter, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"
                                           PlaceholderText="{Binding [SW_AdapterPlaceholder], Source={StaticResource Loc}}">
@@ -344,7 +351,7 @@
                                             Visibility="{x:Bind ViewModel.IsVlanVisible, Mode=OneWay,
                                                           Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock Text="{Binding [SW_VlanId], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.NewVlanId, Mode=TwoWay}"
+                                    <NumberBox AutomationProperties.Name="{Binding [SW_VlanId], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.NewVlanId, Mode=TwoWay}"
                                                Minimum="1" Maximum="4094"
                                                SpinButtonPlacementMode="Inline"
                                                Width="240"
@@ -465,12 +472,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [NAT_NameLabel], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.NewNatName, Mode=TwoWay}"
+                                    <TextBox AutomationProperties.Name="{Binding [NAT_NameLabel], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.NewNatName, Mode=TwoWay}"
                                              PlaceholderText="{Binding [NAT_PlaceholderName], Source={StaticResource Loc}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [NAT_InternalSwitch], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <ComboBox ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
+                                    <ComboBox AutomationProperties.Name="{Binding [NAT_InternalSwitch], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
                                               SelectedItem="{x:Bind ViewModel.SelectedNatSwitch, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch"
                                               PlaceholderText="{Binding [NAT_SelectSwitch], Source={StaticResource Loc}}"/>
@@ -483,12 +490,12 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [NAT_GatewayIP], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.NatGatewayIP, Mode=TwoWay}"
+                                    <TextBox AutomationProperties.Name="{Binding [NAT_GatewayIP], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.NatGatewayIP, Mode=TwoWay}"
                                              PlaceholderText="192.168.100.1"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [NAT_Prefix], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <NumberBox Value="{x:Bind ViewModel.NatPrefixLength, Mode=TwoWay}"
+                                    <NumberBox AutomationProperties.Name="{Binding [NAT_Prefix], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.NatPrefixLength, Mode=TwoWay}"
                                                Minimum="8" Maximum="30" SpinButtonPlacementMode="Inline"/>
                                 </StackPanel>
                             </Grid>
@@ -512,14 +519,14 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [ICS_Switch], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <ComboBox ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
+                                    <ComboBox AutomationProperties.Name="{Binding [ICS_Switch], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
                                               SelectedItem="{x:Bind ViewModel.IcsSwitch, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch"
                                               PlaceholderText="{Binding [NAT_SelectSwitch], Source={StaticResource Loc}}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [ICS_Public], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
+                                    <ComboBox AutomationProperties.Name="{Binding [ICS_Public], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
                                               SelectedItem="{x:Bind ViewModel.IcsPublicAdapter, Mode=TwoWay}"
                                               HorizontalAlignment="Stretch"
                                               PlaceholderText="{Binding [SW_AdapterPlaceholder], Source={StaticResource Loc}}"/>
@@ -553,12 +560,18 @@
                 <InfoBar x:Name="ChangeTypeError" Severity="Error" IsClosable="False"/>
                 <RadioButtons ItemsSource="{x:Bind ViewModel.SwitchTypes}"
                               SelectedItem="{x:Bind ViewModel.EditSwitchType, Mode=TwoWay}"
-                              MaxColumns="3"/>
+                              MaxColumns="3">
+                    <RadioButtons.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Converter={StaticResource LocalizedValueConverter}, ConverterParameter=SwType_}"/>
+                        </DataTemplate>
+                    </RadioButtons.ItemTemplate>
+                </RadioButtons>
                 <StackPanel Spacing="4"
                             Visibility="{x:Bind ViewModel.EditIsExternal, Mode=OneWay,
                                           Converter={StaticResource BoolToVisibilityConverter}}">
                     <TextBlock Text="{Binding [SW_AdapterLabel], Source={StaticResource Loc}}" FontSize="12"/>
-                    <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
+                    <ComboBox AutomationProperties.Name="{Binding [SW_AdapterLabel], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.EditSwitchAdapter, Mode=TwoWay}"
                               HorizontalAlignment="Stretch"
                               PlaceholderText="{Binding [SW_AdapterPlaceholder], Source={StaticResource Loc}}"/>

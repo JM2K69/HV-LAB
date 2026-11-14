@@ -36,5 +36,14 @@ Bulk creation
 
 The VM's Hyper-V [notes](create-vm.md#vm-notes) record its creation date. They hold no account, since the accounts are created during the Windows setup.
 
+## Create
+
+Click **Create VM**. A name already used by a VM of the host is refused. If something goes wrong, a red banner next to the button gives the reason. When the VM is ready, a green banner offers **Open the VM**, which opens its [window](virtual-machines.md#vm-window).
+
+As with [Create a VM](create-vm.md#what-happens-on-creation):
+
+- the VM gets the lab settings: no automatic checkpoints, automatic stop action **Shut down**, *Guest Service Interface* turned on;
+- a creation that fails, times out or is cancelled is cleaned up: HV-LAB removes only what it made.
+
 !!! tip "Unattended setup"
     To get a VM that configures itself (computer name, password, language), use [Create a VM](create-vm.md) instead.

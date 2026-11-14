@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVhdxService, VhdxService>();
         services.AddSingleton<INatService, NatService>();
         services.AddSingleton<AppStartupCache>();
+        services.AddSingleton<LabBlueprintService>();
 
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<VirtualMachinesViewModel>();
@@ -26,6 +27,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<CreateVmViewModel>();
         services.AddTransient<QuickVmViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<LabsViewModel>();
         return services;
     }
 }

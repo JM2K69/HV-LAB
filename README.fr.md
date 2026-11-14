@@ -16,27 +16,34 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
 
 ## Fonctionnalités
 
-- **Tableau de bord** : VM démarrées et arrêtées, commutateurs et images de base en un coup d'œil. L'environnement Hyper-V (module, service `vmms`) est vérifié au démarrage.
+- **Tableau de bord** : VM démarrées et arrêtées, commutateurs et images de base en un coup d'œil, capacité de l'hôte (mémoire et vCPU des VM démarrées, espace disque libre). L'environnement Hyper-V (module, service `vmms`) est vérifié au démarrage.
 - **Machines virtuelles**, lues via WMI (quelques dizaines de millisecondes, rafraîchies toutes les 3 s) :
+  - recherche (Ctrl+F : nom, IP, OS, groupe), filtres par état et par groupe ;
   - charge CPU, mémoire, durée de fonctionnement, signal de vie et adresse IP en direct ;
-  - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, console (`vmconnect`, une fenêtre par VM) ;
+  - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, `vmconnect` (une fenêtre par VM), depuis la ligne ou son menu du clic droit ;
   - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, un badge de session avancée, et des onglets pour la console, les points de contrôle et les paramètres ;
+  - automatisation des VM Windows : exécuter une commande PowerShell (PowerShell Direct, sans réseau) ou copier un fichier dans la VM ;
   - console intégrée : l'écran de la VM à sa résolution réelle, zoom (ajuster, 50–200 %, Ctrl + molette), clavier et souris envoyés à la VM, saisie du presse-papiers, plein écran ;
   - arbre des points de contrôle (créer, appliquer, renommer, supprimer), paramètres après création (CPU, virtualisation imbriquée, mémoire, ISO, commutateur, VLAN) ;
   - sélection multiple, groupes de VM Hyper-V, suppression avec les disques de la VM (jamais l'image de base) ;
-  - une seule action à la fois par VM, donc un double clic n'a aucun effet.
+  - opérations de lab sur une sélection : démarrage en séquence (par nom, chaque VM attendant le signal de vie de la précédente), un point de contrôle pour tout le lab ;
+  - VM désignées par leur GUID Hyper-V, donc deux VM de même nom ne sont jamais confondues ; une seule action à la fois par VM.
+- **Page Labs** : composez un lab entier dans un formulaire (commutateur, NAT, domaine, VM avec leur image de base, taille, IP fixe et jonction au domaine) ; HV-LAB génère le blueprint JSON, montre le plan, puis déploie seulement ce qui manque et regroupe les VM. Des VM existantes s'exportent en blueprint.
 - **Quick VM** : tailles prédéfinies, disque vierge ou différentiel, Gen 1/2, Secure Boot, PXE, création en série (`PREFIXE-01…nn`).
 - **Créer une VM** : disque différentiel issu d'une image de base, avec `unattend.xml` injecté :
   - nom d'ordinateur, mot de passe administrateur (obligatoire) et ouverture de session automatique optionnelle ;
   - langue, fuseau horaire et clé KMS suggérée selon l'OS ;
+  - IP fixe (sur une adresse MAC fixe) et jonction à un domaine Active Directory pendant l'installation ;
   - préchargement du cache CBS et désactivation de Windows Update en option ;
   - aperçu en direct du fichier de réponse, avec le mot de passe masqué ;
   - le fichier de réponse est supprimé de la VM à la première ouverture de session ;
-  - la date de création, le compte et son mot de passe sont écrits dans les notes Hyper-V de la VM.
+  - la date de création, le compte, son mot de passe et l'IP sont écrits dans les notes Hyper-V de la VM ;
+  - réglages de labo (aucun point de contrôle automatique, arrêt avec l'hôte, Interface de services d'invité activée), un nom déjà utilisé est refusé, et une création échouée ou annulée est nettoyée.
 - **Images de base** : construction de `BASE_*.vhdx` à partir d'un WIM ou ESD, avec choix automatique de l'édition :
   - la construction se fait dans un fichier temporaire, donc une image existante n'est jamais laissée à moitié construite ;
   - remplacer une image existante demande une confirmation ;
-  - la progression s'affiche en direct et la construction peut être annulée.
+  - la progression s'affiche en direct et la construction peut être annulée ;
+  - chaque base affiche les VM construites dessus, et une base encore utilisée ne peut pas être supprimée.
 - **Bases Linux** : une VM Linux préparée (cloud-init) devient une base, et chaque clone reçoit au premier démarrage son nom d'hôte, son utilisateur, son mot de passe et son IP fixe.
 - **Commutateurs & NAT** :
   - une vue **topologie** : chaque commutateur avec sa sortie (carte, NAT, partage de connexion, hôte, isolé) et ses VM avec état, IP et VLAN ;
@@ -47,10 +54,17 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - fond Mica, thème clair/sombre et volet de navigation adaptatif ;
   - la taille et la position de la fenêtre sont mémorisées ;
   - états vides et bandeaux d'erreur ;
-  - noms accessibles sur les boutons, F5 pour actualiser, Suppr pour supprimer la sélection.
+  - noms accessibles sur les boutons, Ctrl+F pour rechercher, F5 pour actualiser, Suppr pour supprimer la sélection.
 - **Interface français / anglais**, changement de langue instantané.
 
 Toutes les opérations longues sont annulables. Les saisies sont validées avant d'atteindre PowerShell, et aucun script n'est écrit dans `%TEMP%`.
+
+Sécurité dans un labo :
+- le mot de passe des notes de la VM peut rester chiffré avec DPAPI (Paramètres > Sécurité, désactivé par défaut) ;
+- un mot de passe copié est exclu de l'historique du presse-papiers et effacé au bout de 30 s ;
+- le disque cloud-init d'un clone Linux contient une empreinte SHA-512 du mot de passe, pas le mot de passe ;
+- SSH et Bureau à distance démarrent avec l'utilisateur connecté, pas en administrateur ;
+- seuls les administrateurs peuvent écrire dans le dossier des images de base.
 
 ---
 
@@ -64,8 +78,8 @@ Toutes les opérations longues sont annulables. Les saisies sont validées avant
    Unblock-File .\Install.ps1
    .\Install.ps1                 # options : -DesktopShortcut  -EnableHyperV
    ```
-   L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer.
-3. Pour désinstaller :
+   L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer, et apparaît dans Paramètres > Applications. Une mise à jour est préparée dans `HV-LAB.new`, puis échangée : une copie qui échoue laisse la version installée intacte.
+3. Pour désinstaller, passez par Paramètres > Applications, ou :
    ```powershell
    & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
    ```

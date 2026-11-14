@@ -14,6 +14,8 @@ public sealed partial class CreateVmPage : Page
 
     public CreateVmPage() => InitializeComponent();
 
+    private async void OpenCreatedVm_Click(object sender, RoutedEventArgs e) => await VmWindow.ShowByNameAsync(ViewModel.CreatedVmName);
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);

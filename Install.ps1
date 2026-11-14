@@ -140,13 +140,37 @@ function Set-ExeSignature ([string]$Path) {
 }
 
 function Stop-RunningApp {
-    $running = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($ExeName)) -ErrorAction SilentlyContinue |
-               Where-Object { $_.Path -and $_.Path.StartsWith($Destination, [StringComparison]::OrdinalIgnoreCase) }
-    if ($running) {
-        Write-Warn "$AppName est en cours d'exécution : fermeture..."
-        $running | Stop-Process -Force
-        Start-Sleep -Seconds 1
+    $running = @(Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($ExeName)) -ErrorAction SilentlyContinue |
+               Where-Object { $_.Path -and $_.Path.StartsWith($Destination, [StringComparison]::OrdinalIgnoreCase) })
+    if (-not $running) { return }
+    Write-Warn "$AppName est en cours d'exécution : fermeture..."
+    # Asked to close first (settings saved, PowerShell workers stopped), killed only if it does not within 10 s
+    foreach ($p in $running) { [void]$p.CloseMainWindow() }
+    foreach ($p in $running) { if (-not $p.WaitForExit(10000)) { $p | Stop-Process -Force } }
+    Start-Sleep -Seconds 1
+}
+
+# "Installed apps" entry (Settings > Apps): name, version, publisher, and an uninstall that calls this script
+$UninstallKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\HV-LAB'
+
+function Register-Uninstall ([string]$Exe) {
+    $script  = Join-Path $Destination 'Install.ps1'
+    $version = (Get-Item -LiteralPath $Exe).VersionInfo.ProductVersion -replace '\+.*$', ''
+    $sizeKB  = [int]((Get-ChildItem $Destination -Recurse -File | Measure-Object Length -Sum).Sum / 1KB)
+    New-Item -Path $UninstallKey -Force | Out-Null
+    $values = [ordered]@{
+        DisplayName     = $AppName
+        DisplayVersion  = $version
+        Publisher       = $Publisher
+        DisplayIcon     = "$Exe,0"
+        InstallLocation = $Destination
+        UninstallString = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$script`" -Uninstall -Destination `"$Destination`""
+        URLInfoAbout    = 'https://jm2k69.github.io/HV-LAB/'
     }
+    foreach ($v in $values.GetEnumerator()) { Set-ItemProperty -Path $UninstallKey -Name $v.Key -Value $v.Value }
+    foreach ($flag in 'NoModify', 'NoRepair') { New-ItemProperty -Path $UninstallKey -Name $flag -Value 1 -PropertyType DWord -Force | Out-Null }
+    New-ItemProperty -Path $UninstallKey -Name EstimatedSize -Value $sizeKB -PropertyType DWord -Force | Out-Null
+    Write-OK "Entrée « Applications installées » : $AppName $version"
 }
 
 # True when the shortcut targets an exe inside $Destination (so -Uninstall of one copy
@@ -189,6 +213,7 @@ if ($Uninstall) {
         Write-Warn "Aucune installation trouvée dans $Destination"
     }
     Remove-SigningCertificate
+    if (Test-Path $UninstallKey) { Remove-Item $UninstallKey -Recurse -Force; Write-OK 'Entrée « Applications installées » supprimée.' }
     Write-Host ''
     Write-Host '  Les paramètres utilisateur (%LocalAppData%\HV-LAB) sont conservés.' -ForegroundColor Gray
     exit 0
@@ -235,28 +260,51 @@ if ($legacy) {
 }
 
 # ── 4. Copie ─────────────────────────────────────────────────────────────────
+# The new version is prepared next to the installed one (HV-LAB.new) while the app may still run, then the
+# folders are swapped: a failed copy never leaves a half-updated installation behind.
 Write-Step "Copie vers $Destination..."
 Assert-SafeDestination
-Stop-RunningApp
-New-Item -Path $Destination -ItemType Directory -Force | Out-Null
-# /MIR : miroir exact (supprime les fichiers d'une version précédente qui n'existent plus)
-& robocopy.exe $Source $Destination /MIR /NFL /NDL /NJH /NJS /NP /R:2 /W:1 | Out-Null
+$full     = [IO.Path]::GetFullPath($Destination).TrimEnd('\')
+$staging  = "$full.new"
+$previous = "$full.old"
+foreach ($leftover in $staging, $previous) {
+    # Left by an interrupted update: only ever an HV-LAB folder (marker or exe), never anything else
+    if ((Test-Path $leftover) -and (Test-HvLabFolder $leftover)) { Remove-Item $leftover -Recurse -Force }
+}
+& robocopy.exe $Source $staging /MIR /NFL /NDL /NJH /NJS /NP /R:2 /W:1 | Out-Null
 if ($LASTEXITCODE -ge 8) {
-    Write-Fail "La copie a échoué (robocopy code $LASTEXITCODE)."
+    Write-Fail "La copie a échoué (robocopy code $LASTEXITCODE) : l'installation actuelle n'a pas été modifiée."
+    if (Test-Path $staging) { Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue }
     exit 1
 }
 $global:LASTEXITCODE = 0
 # Marker of an HV-LAB folder, and the script itself, so that -Uninstall works from the installation folder
-Set-Content -Path (Join-Path $Destination $MarkerName) -Value $AppName -Encoding UTF8
-if ($PSCommandPath -and -not (Test-Path (Join-Path $Destination 'Install.ps1'))) {
-    Copy-Item $PSCommandPath (Join-Path $Destination 'Install.ps1')
+Set-Content -Path (Join-Path $staging $MarkerName) -Value $AppName -Encoding UTF8
+if ($PSCommandPath -and -not (Test-Path (Join-Path $staging 'Install.ps1'))) {
+    Copy-Item $PSCommandPath (Join-Path $staging 'Install.ps1')
 }
 # Files extracted from a downloaded release zip carry the "from the Internet" mark: clear it
-Get-ChildItem $Destination -Recurse -File | Unblock-File
+Get-ChildItem $staging -Recurse -File | Unblock-File
+# Signed when -SelfSign was given once on this machine (the certificate is then reused)
+Set-ExeSignature (Join-Path $staging $ExeName)
+
+Stop-RunningApp
+try {
+    if (Test-Path $full) { Rename-Item -LiteralPath $full -NewName (Split-Path $previous -Leaf) -ErrorAction Stop }
+    Rename-Item -LiteralPath $staging -NewName (Split-Path $full -Leaf) -ErrorAction Stop
+    if (Test-Path $previous) { Remove-Item $previous -Recurse -Force -ErrorAction SilentlyContinue }
+} catch {
+    # A process still holds the folder (an Explorer window, a console in it): mirror in place instead
+    Write-Warn "Échange des dossiers impossible ($($_.Exception.Message)) : copie en place."
+    if ((Test-Path $previous) -and -not (Test-Path $full)) { Rename-Item -LiteralPath $previous -NewName (Split-Path $full -Leaf) }
+    & robocopy.exe $staging $full /MIR /NFL /NDL /NJH /NJS /NP /R:2 /W:1 | Out-Null
+    if ($LASTEXITCODE -ge 8) { Write-Fail "La copie a échoué (robocopy code $LASTEXITCODE)."; exit 1 }
+    $global:LASTEXITCODE = 0
+    Remove-Item $staging -Recurse -Force -ErrorAction SilentlyContinue
+}
 $exe = Join-Path $Destination $ExeName
 Write-OK "$((Get-ChildItem $Destination -Recurse -File).Count) fichiers installés."
-# Signed when -SelfSign was given once on this machine (the certificate is then reused)
-Set-ExeSignature $exe
+Register-Uninstall $exe
 
 # ── 5. Raccourcis ────────────────────────────────────────────────────────────
 Write-Step 'Création des raccourcis...'

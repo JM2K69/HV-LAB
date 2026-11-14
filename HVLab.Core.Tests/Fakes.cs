@@ -25,6 +25,11 @@ internal sealed class FakeDialogService(bool answer = true) : IDialogService
     public string LastContent { get; private set; } = "";
     public string? LastOptionLabel { get; private set; }
 
+    public string? TextAnswer { get; set; }
+    public string LastShownText { get; private set; } = "";
+    public Task<string?> PromptTextAsync(string title, string label, string initialValue) => Task.FromResult(TextAnswer);
+    public Task ShowTextAsync(string title, string text) { LastShownText = text; return Task.CompletedTask; }
+
     public Task<bool> ConfirmAsync(string title, string content, string primaryButtonText)
     {
         Calls++;
@@ -72,6 +77,8 @@ internal sealed class FakeHyperVService : IHyperVService
     public VmSettings Settings { get; set; } = new();
 
     public Task<HyperVEnvironment> GetEnvironmentStatusAsync() => Task.FromResult(HyperVEnvironment.Ok);
+    public HostCapacity Capacity { get; set; } = new(32768, 16384, 16, [new DriveSpace("C:", 200, 1000)]);
+    public Task<HostCapacity> GetHostCapacityAsync() => Task.FromResult(Capacity);
     public Task StartHyperVServiceAsync() => Task.CompletedTask;
     /// <summary>When set, power actions fail with it.</summary>
     public Exception? PowerError { get; set; }
@@ -92,8 +99,15 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task TypeTextAsync(string vmId, string text, string language, bool pressEnter)
     { Calls.Add($"type {vmId} {text} {language} {pressEnter}"); return Task.CompletedTask; }
     public Task SendCtrlAltDelAsync(string vmId) { Calls.Add($"cad {vmId}"); return Task.CompletedTask; }
+    public string GuestOutput { get; set; } = "";
+    public Task<string> InvokeInGuestAsync(string vmId, string account, string password, string script)
+    { Calls.Add($"guest {vmId} {account} {script}"); return Task.FromResult(GuestOutput); }
+    public Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder)
+    { Calls.Add($"copy {vmId} {sourcePath} {guestFolder}"); return Task.CompletedTask; }
+    /// <summary>When set, keystrokes wait for it (to test that keys typed meanwhile are batched).</summary>
+    public TaskCompletionSource? KeyGate { get; set; }
     public Task SendScancodesAsync(string vmId, byte[] scancodes)
-    { Calls.Add($"keys {vmId} {Convert.ToHexString(scancodes)}"); return Task.CompletedTask; }
+    { Calls.Add($"keys {vmId} {Convert.ToHexString(scancodes)}"); return KeyGate?.Task ?? Task.CompletedTask; }
     /// <summary>When set, mouse moves wait for it (to test that moves are coalesced).</summary>
     public TaskCompletionSource? MoveGate { get; set; }
     public Task MouseMoveAsync(string vmId, int x, int y) { Calls.Add($"move {vmId} {x},{y}"); return MoveGate?.Task ?? Task.CompletedTask; }
@@ -136,12 +150,14 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task DisableIcsAsync() { Calls.Add("ics-off"); Ics = null; return Task.CompletedTask; }
     public Task<List<VirtualSwitch>> GetVirtualSwitchesAsync() => Task.FromResult(Switches.ToList());
     public Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0) => Task.CompletedTask;
-    public Task CreateInternalSwitchAsync(string name, int vlanId = 0) => Task.CompletedTask;
+    public Task CreateInternalSwitchAsync(string name, int vlanId = 0) { Calls.Add($"internal-switch {name}"); return Task.CompletedTask; }
     public Task CreatePrivateSwitchAsync(string name) => Task.CompletedTask;
     public Task RemoveVSwitchAsync(string name) => Task.CompletedTask;
     public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(PhysicalAdapters.ToList());
     /// <summary>Notes passed to each created VM, by VM name.</summary>
     public Dictionary<string, string?> CreatedNotes { get; } = [];
+    public Dictionary<string, string?> CreatedAnswers { get; } = [];
+    public Dictionary<string, string?> CreatedMacs { get; } = [];
     /// <summary>Secure Boot template and cloud-init seed of each differencing VM, by VM name.</summary>
     public Dictionary<string, (string Template, CloudInitSeed? Seed)> CreatedFirmware { get; } = [];
 
@@ -157,9 +173,11 @@ internal sealed class FakeHyperVService : IHyperVService
         long memoryMB, int cpuCount, int generation, string vmFolder, string? answerFileContent = null,
         bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
-        IProgress<string>? progress = null, CancellationToken ct = default)
+        IProgress<string>? progress = null, CancellationToken ct = default, string? staticMac = null)
     {
         CreatedNotes[vmName] = notes;
+        CreatedAnswers[vmName] = answerFileContent;
+        CreatedMacs[vmName] = staticMac;
         CreatedFirmware[vmName] = (secureBootTemplate, cloudInit);
         return Task.CompletedTask;
     }

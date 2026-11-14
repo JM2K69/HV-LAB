@@ -36,5 +36,14 @@ Création en lot
 
 Les [notes](create-vm.md#notes-de-la-vm) Hyper-V de la VM indiquent sa date de création. Elles ne contiennent aucun compte, puisque les comptes sont créés pendant l'installation de Windows.
 
+## Créer
+
+Cliquez sur **Créer la VM**. Un nom déjà utilisé par une VM de l'hôte est refusé. En cas de problème, un bandeau rouge à côté du bouton en donne la raison. Quand la VM est prête, un bandeau vert propose **Ouvrir la VM**, qui ouvre sa [fenêtre](virtual-machines.md#fenetre-de-la-vm).
+
+Comme pour [Créer une VM](create-vm.md#deroulement-de-la-creation) :
+
+- la VM reçoit les réglages de labo : aucun point de contrôle automatique, action d'arrêt automatique **Arrêter**, *Interface de services d'invité* activée ;
+- une création qui échoue, dépasse son délai ou est annulée est nettoyée : HV-LAB supprime seulement ce qu'elle a produit.
+
 !!! tip "Installation automatisée"
     Pour une VM qui se configure seule (nom d'ordinateur, mot de passe, langue), utilisez plutôt [Créer une VM](create-vm.md).

@@ -71,7 +71,16 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
 
     public bool ShowWindowsOptions => UseAnswerFile && !IsLinuxBase;
     public bool ShowLinuxOptions   => UseAnswerFile && IsLinuxBase;
-    public bool ShowStaticIpFields => ShowLinuxOptions && UseStaticIp;
+    /// <summary>Static IP for both families: cloud-init on Linux, unattend.xml (TCPIP, DNS) on Windows.</summary>
+    public bool ShowStaticIpFields => UseAnswerFile && UseStaticIp;
+
+    // ─── Windows: Active Directory join during setup ─────────────────────────
+
+    [ObservableProperty] private bool   joinDomainEnabled;
+    [ObservableProperty] private string domainName     = "";
+    [ObservableProperty] private string domainUser     = "Administrator";
+    [ObservableProperty] private string domainPassword = "";
+    [ObservableProperty] private string domainOu       = "";
 
     public string AnswerSectionTitle => T(IsLinuxBase ? "CVM_CloudInit" : "CVM_AnswerFile");
     public string AnswerSectionInfo  => T(IsLinuxBase ? "CVM_CloudInitInfo" : "CVM_AnswerInfo");
@@ -144,6 +153,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         nameof(BuildCbsCache), nameof(DisableWindowsUpdate),
         nameof(LinuxUser), nameof(SshPublicKey), nameof(UseStaticIp), nameof(IpAddress),
         nameof(PrefixLength), nameof(Gateway), nameof(DnsServers),
+        nameof(JoinDomainEnabled), nameof(DomainName), nameof(DomainUser), nameof(DomainPassword), nameof(DomainOu),
     ];
 
     private CancellationTokenSource? _previewCts;
@@ -177,9 +187,12 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
             AnswerFilePreview = CloudInitGenerator.Preview(CloudInitGenerator.Generate(linux));
             return;
         }
-        var config = BuildConfig();
-        // Never show the password in the preview unless the user asked to see it
+        // First VM of the series; its MAC is only known at creation
+        var winIp  = !UseStaticIp ? null : InputValidator.ParseIpv4(IpAddress) is not null ? IpFor(0) : IpAddress;
+        var config = BuildConfig(null, winIp, winIp is null ? "" : "00-15-5D-XX-XX-XX");
+        // Never show the passwords in the preview unless the user asked to see them
         if (!ShowPassword && !string.IsNullOrEmpty(config.AdminPassword)) config.AdminPassword = "********";
+        if (!ShowPassword && !string.IsNullOrEmpty(config.DomainPassword)) config.DomainPassword = "********";
         AnswerFilePreview = AnswerFileGenerator.Generate(config);
     }
 
@@ -189,18 +202,23 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         if (!UseAnswerFile) return null;
         if (string.IsNullOrEmpty(AdminPassword)) return T("Val_PasswordEmpty");
         if (!BulkMode && InputValidator.CheckComputerName(ComputerName) is { } c) return T(c);
+        if (UseStaticIp)
+        {
+            if (InputValidator.CheckStaticIpPlan(IpAddress, PrefixLength, Gateway, vmCount) is { } ip) return T(ip);
+            if (InputValidator.ParseDnsServers(DnsServers) is null) return T("Val_Dns");
+        }
         if (IsLinuxBase)
         {
             if (InputValidator.CheckLinuxUser(LinuxUser) is { } u)       return T(u);
             if (InputValidator.CheckSshPublicKey(SshPublicKey) is { } k) return T(k);
-            if (UseStaticIp)
-            {
-                if (InputValidator.CheckStaticIpPlan(IpAddress, PrefixLength, Gateway, vmCount) is { } ip) return T(ip);
-                if (InputValidator.ParseDnsServers(DnsServers) is null) return T("Val_Dns");
-            }
             return null;
         }
         if (InputValidator.CheckProductKey(ProductKey) is { } p) return T(p);
+        if (JoinDomainEnabled)
+        {
+            if (InputValidator.CheckDomainName(DomainName) is { } d) return T(d);
+            if (string.IsNullOrWhiteSpace(DomainUser) || string.IsNullOrEmpty(DomainPassword)) return T("Val_DomainCredentials");
+        }
         return null;
     }
 
@@ -223,11 +241,11 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
     public async Task CreateVmAsync()
     {
         if (string.IsNullOrWhiteSpace(SelectedBaseVhdx) || !File.Exists(SelectedBaseVhdx))
-            { Status = T("St_SelectBaseVhdx"); return; }
+            { Fail(T("St_SelectBaseVhdx")); return; }
         if (string.IsNullOrWhiteSpace(SelectedSwitch))
-            { Status = T("St_SelectSwitch"); return; }
+            { Fail(T("St_SelectSwitch")); return; }
         if (GetNamesToCreate() is not { } names) return;
-        if (ValidateAnswerFile(names.Count) is { } err) { Status = err; return; }
+        if (ValidateAnswerFile(names.Count) is { } err) { Fail(err); return; }
 
         string parent = SelectedBaseVhdx, sw = SelectedSwitch;
         var linuxBase = IsLinuxBase ? _base ?? BaseVhdx.FromFile(parent) : null;
@@ -251,21 +269,31 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
                         linuxBase.SecureBootTemplate, seed, progress, ct);
                 }
 
+                // Static IP on Windows: the adapter gets a static MAC, which identifies it in unattend.xml
+                var winIp = UseAnswerFile && UseStaticIp ? IpFor(order.IndexOf(name)) : null;
+                var mac   = winIp is null ? null : InputValidator.NewHyperVMac();
                 string? answerXml = UseAnswerFile
-                    ? AnswerFileGenerator.Generate(BuildConfig(BulkMode ? InputValidator.ToComputerName(name) : null))
+                    ? AnswerFileGenerator.Generate(BuildConfig(BulkMode ? InputValidator.ToComputerName(name) : null, winIp, mac ?? ""))
                     : null;
                 var notes = UseAnswerFile
-                    ? VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, AdminPassword)
+                    ? VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, AdminPassword, winIp)
                     : VmNotes.Build(DateTime.Now);
                 return HvService.CreateVMWithDifferencingDiskAsync(
                     name, parent, sw, MemoryMB, CpuCount, Generation, VmFolder,
-                    answerXml, secureBoot: true, pxeBoot: false, notes, progress: progress, ct: ct);
+                    answerXml, secureBoot: true, pxeBoot: false, notes, progress: progress, ct: ct, staticMac: mac);
             },
             onSingleSuccess: () => { VmName = ""; ComputerName = "LAB-VM"; });
     }
 
-    private AnswerFileConfig BuildConfig(string? computerNameOverride = null) => new()
+    private AnswerFileConfig BuildConfig(string? computerNameOverride = null, string? ip = null, string mac = "") => new()
     {
+        StaticIp       = ip is null ? null
+            : new StaticIpConfig(ip, PrefixLength, Gateway.Trim(), InputValidator.ParseDnsServers(DnsServers) ?? []),
+        MacAddress     = mac,
+        JoinDomain     = JoinDomainEnabled ? DomainName.Trim() : "",
+        DomainUser     = DomainUser.Trim(),
+        DomainPassword = DomainPassword,
+        DomainOu       = DomainOu.Trim(),
         ComputerName  = computerNameOverride ?? (string.IsNullOrWhiteSpace(ComputerName) ? VmName : ComputerName),
         AdminPassword = AdminPassword,
         AutoLogon     = AutoLogon,

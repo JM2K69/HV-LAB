@@ -41,6 +41,8 @@ public partial class VirtualMachine : ObservableObject
 
     // ── Derived display props
     public bool   IsRunning     => State == "Running";
+    /// <summary>A usable IPv4 address: SSH, Remote Desktop and Copy IP are enabled only then.</summary>
+    public bool   HasIp         => InputValidator.ParseIpv4(IpAddress) is not null;
     /// <summary>How the services address this VM: its Hyper-V GUID (unique even with namesakes), else its name.</summary>
     public string Target        => Id.Length > 0 ? Id : Name;
     public bool   IsPaused      => State == "Paused";
@@ -89,6 +91,7 @@ public partial class VirtualMachine : ObservableObject
     }
 
     partial void OnMemoryMBChanged(long value) => OnPropertyChanged(nameof(MemoryDisplay));
+    partial void OnIpAddressChanged(string value) => OnPropertyChanged(nameof(HasIp));
     partial void OnCpuUsageChanged(int value) => OnPropertyChanged(nameof(CpuDisplay));
     partial void OnProcessorCountChanged(int value) => OnPropertyChanged(nameof(CpuDisplay));
     partial void OnNotesChanged(string value)
@@ -96,6 +99,14 @@ public partial class VirtualMachine : ObservableObject
         OnPropertyChanged(nameof(Credentials));
         OnPropertyChanged(nameof(HasCredentials));
         OnPropertyChanged(nameof(AccountLine));
+    }
+
+    /// <summary>Independent copy: every view gets its own rows from one shared WMI snapshot.</summary>
+    public VirtualMachine Copy()
+    {
+        var copy = new VirtualMachine { Id = Id, Generation = Generation };
+        copy.UpdateFrom(this);
+        return copy;
     }
 
     /// <summary>Copies the refreshed values of <paramref name="fresh"/> (same VM) into this row.</summary>

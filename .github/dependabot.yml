@@ -1,0 +1,18 @@
+# Keeps the SHA-pinned GitHub Actions and the NuGet packages current (one grouped pull request per week each).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: [ '*' ]
+
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      nuget:
+        patterns: [ '*' ]

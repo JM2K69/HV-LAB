@@ -23,7 +23,8 @@ public class CloudInitTests
         Assert.StartsWith("#cloud-config\n", seed.UserData);
         Assert.Contains("hostname: alma-01", seed.UserData);
         Assert.Contains("  - name: labadmin", seed.UserData);
-        Assert.Contains("password: \"p\\\"a\\\\ss\"", seed.UserData);   // quote and backslash escaped
+        Assert.Contains("hashed_passwd: \"$6$", seed.UserData);        // a SHA-512 crypt hash, never the password
+        Assert.DoesNotContain("p\\\"a\\\\ss", seed.UserData);
         Assert.Contains("timezone: Europe/Paris", seed.UserData);
         Assert.Contains("layout: fr", seed.UserData);
         Assert.DoesNotContain("ssh_authorized_keys", seed.UserData);

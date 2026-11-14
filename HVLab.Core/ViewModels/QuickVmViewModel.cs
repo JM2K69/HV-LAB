@@ -98,14 +98,14 @@ public partial class QuickVmViewModel : VmCreationViewModelBase
     public async Task CreateVmAsync()
     {
         if (SelectedSize is null)
-            { Status = T("St_SelectSize"); return; }
+            { Fail(T("St_SelectSize")); return; }
         if (string.IsNullOrWhiteSpace(SelectedSwitch))
-            { Status = T("St_SelectSwitch"); return; }
+            { Fail(T("St_SelectSwitch")); return; }
 
         // Differencing mode needs a valid parent image
         if (UseDifferencingDisk &&
             (string.IsNullOrWhiteSpace(SelectedBaseVhdx) || !File.Exists(SelectedBaseVhdx)))
-            { Status = T("St_SelectBaseVhdx"); return; }
+            { Fail(T("St_SelectBaseVhdx")); return; }
         if (GetNamesToCreate() is not { } names) return;
 
         long   memMB    = SelectedSize.Profile.MemoryMB;

@@ -5,7 +5,7 @@ A base image is a generalized Windows installation in a `BASE_*.vhdx` file. VMs 
 !!! tip "Linux, or a customized Windows VM"
     A base can also be copied from an existing VM. See [Linux bases](linux.md).
 
-The **Base VHDX Images** page lists the images found in the base images folder (see [Settings](settings.md)). The list shows the OS, version, edition, size and date of each image. Below the list is the form that builds a new image.
+The **Base VHDX Images** page lists the images found in the base images folder (see [Settings](settings.md)). The list shows the OS, version, edition, size and date of each image, and **Used by N VM(s)**: the number of VMs built on it. Hover over it to see their names. Below the list is the form that builds a new image.
 
 ## Build an image
 
@@ -67,6 +67,8 @@ An existing image is never left half-built. If a file with the same name already
 !!! danger "Never modify a base image used by VMs"
     Differencing disks depend on their parent's exact content. If you start a VM directly on a base image, or replace it, every VM built on it breaks. HV-LAB warns you before replacing an image.
 
+At startup, HV-LAB makes the base images folder writable by administrators only. Everyone keeps read access, but a standard user can no longer replace a base.
+
 ## If the build fails
 
 The error banner gives the reason and the path of the build log, which has the full details. Common causes:
@@ -77,4 +79,4 @@ The error banner gives the reason and the path of the build log, which has the f
 
 ## Delete an image
 
-Use the delete button on the image's row and confirm. Delete the VMs that depend on the image first.
+Use the delete button on the image's row and confirm. An image still used by a VM cannot be deleted: HV-LAB refuses and lists those VMs. Delete them first, otherwise they would no longer start.

@@ -6,7 +6,7 @@ The **Create VM** page creates one or more VMs on a differencing disk of a [base
 
 ### Identity
 
-- **VM name**: the name shown in Hyper-V.
+- **VM name**: the name shown in Hyper-V. A name already used by a VM of the host is refused.
 - **Bulk creation**: creates several numbered VMs at once. Set a **prefix** and a **number of VMs**:
     - prefix `SRV` with 3 VMs gives `SRV-01`, `SRV-02` and `SRV-03`;
     - the **preview** shows the names before creation;
@@ -38,6 +38,32 @@ Leave **Use an answer file** checked to get an unattended setup.
 | Time zone | For example `Romance Standard Time` (Paris) or `Pacific Standard Time`. |
 | KMS key (GVLK) | Microsoft's public KMS client keys. The key that matches the base image is suggested and copied into **Product key**. |
 | Product key (optional) | Any key, set during the *specialize* pass. Leave it empty to skip it. |
+
+### Static IP address
+
+**Static IP address (DHCP otherwise)** gives the VM a fixed address, on a Windows base as on a [Linux](linux.md) one. Turned on, it asks for:
+
+- the **IP address (1st VM)** and the **Prefix (/)**;
+- the **Gateway**;
+- the **DNS servers**, comma-separated.
+
+On a Windows base, the VM's network adapter gets a static MAC address (`00-15-5D-…`), and `unattend.xml` sets the IP, prefix, gateway and DNS on that adapter. In bulk mode, each VM gets the next address: `SRV-01` gets `192.168.100.10`, `SRV-02` gets `192.168.100.11`, and so on. The address is written in the [notes](#vm-notes).
+
+!!! info "NAT networks"
+    The [NAT networks](networking.md#nat-networks) of HV-LAB have no DHCP. Use a static IP, with the NAT gateway as the gateway.
+
+### Join an Active Directory domain
+
+On a Windows base, **Join an Active Directory domain** joins the VM to a domain during setup, in the *specialize* pass.
+
+| Field | Notes |
+|---|---|
+| Domain | For example `lab.local`. |
+| Organizational unit (optional) | For example `OU=Servers,DC=lab,DC=local`. Leave it empty for the default container. |
+| Account allowed to join | `DOMAIN\user`, `user@domain`, or a user of the domain such as `Administrator`. |
+| Account password | The password of that account. |
+
+The VM must reach a domain controller during setup. With a static IP, put the address of the domain controller as the DNS server.
 
 ### Options
 
@@ -73,9 +99,10 @@ HV-LAB writes the creation date and the credentials into the VM's Hyper-V **Note
 Created by HV-LAB on 2026-11-02 14:35
 Account: Administrator
 Password: Lab#2026
+IP: 192.168.100.10
 ```
 
-To read them:
+The `IP` line only appears with a [static IP](#static-ip-address). To read the notes:
 
 - in Hyper-V Manager: the **Summary** tab of the VM, or **Settings > Name**;
 - in PowerShell:
@@ -87,14 +114,24 @@ To read them:
 Without an answer file, the notes only hold the creation date.
 
 !!! warning "Lab use"
-    The password is stored in clear text in the notes, and any administrator of the host can read it. Never reuse a production password in a lab.
+    By default, the password is stored in clear text in the notes, and any administrator of the host can read it. Never reuse a production password in a lab. To keep it encrypted, turn on **Protect the password in the notes (DPAPI)** in [Settings](settings.md#security).
 
 ## What happens on creation
 
+Click **Create VM**. If something goes wrong, a red banner next to the button gives the reason. When the VM is ready, a green banner offers **Open the VM**, which opens its [window](virtual-machines.md#vm-window).
+
 1. The differencing disk is created on the base image.
 2. Its Windows volume is mounted on a private folder, without a drive letter, and `unattend.xml` is copied into `Windows\Panther`.
-3. The VM is created, attached to the switch, and its [notes](#vm-notes) are written.
-4. On first boot, Windows Setup runs the *specialize* and *oobeSystem* passes, then shows the logon screen.
+3. The VM is created with the lab settings below, attached to the switch, and its [notes](#vm-notes) are written. With a static IP, its adapter gets the static MAC address that `unattend.xml` names.
+4. On first boot, Windows Setup runs the *specialize* pass (computer name, static IP, domain join) and the *oobeSystem* pass, then shows the logon screen.
+
+Every VM that HV-LAB creates, here or with [Quick VM](quick-vm.md), gets lab settings:
+
+- no automatic checkpoints;
+- the automatic stop action **Shut down**: the VM shuts down with the host instead of saving its memory to disk;
+- the *Guest Service Interface* integration service turned on, for [Copy a file to the VM…](virtual-machines.md#automation-windows-guests).
+
+If the creation fails, times out or is cancelled, HV-LAB removes only what it made: the disks are dismounted, then the VM and its folder are deleted.
 
 !!! note "The answer file is deleted"
     `unattend.xml` contains the password in plain text. A first-logon command deletes `%WINDIR%\Panther\unattend.xml` from the VM.

@@ -96,6 +96,20 @@ public class ConsoleViewModelTests
     }
 
     [Fact]
+    public async Task Keys_typed_during_a_call_leave_together_in_order()
+    {
+        var hv = new FakeHyperVService { KeyGate = new TaskCompletionSource() };
+        var c = Console(hv);
+        _ = c.SendKeyAsync(0x1E, false, false);   // A down: in flight
+        _ = c.SendKeyAsync(0x1E, false, true);    // A up  ┐
+        _ = c.SendKeyAsync(0x30, false, false);   // B down├ one batch
+        _ = c.SendKeyAsync(0x30, false, true);    // B up  ┘
+        hv.KeyGate.SetResult();
+        for (var i = 0; i < 100 && hv.Calls.Count < 2; i++) await Task.Delay(10);
+        Assert.Equal(["keys VM-1 1E", "keys VM-1 9E30B0"], hv.Calls);
+    }
+
+    [Fact]
     public async Task Mouse_moves_buttons_and_wheel_go_to_the_vm()
     {
         var hv = new FakeHyperVService();

@@ -17,5 +17,11 @@ public sealed record CheckpointRow(string Id, string Name, DateTime? Created, in
 /// <summary>Screen of a running VM, converted to BGRA8 pixels.</summary>
 public sealed record VmThumbnail(int Width, int Height, byte[] Bgra);
 
+/// <summary>Free space of the drive holding an HV-LAB folder.</summary>
+public sealed record DriveSpace(string Drive, long FreeGB, long TotalGB);
+
+/// <summary>What the host has: memory, logical processors, and the drives of the VMs and base images folders.</summary>
+public sealed record HostCapacity(long TotalMemoryMB, long FreeMemoryMB, int LogicalProcessors, IReadOnlyList<DriveSpace> Drives);
+
 /// <summary>Files removed with a VM: its own disks, checkpoint disks and cloud-init seed, never a shared parent.</summary>
 public sealed record VmDeletePlan(string VmFolder, IReadOnlyList<string> Files, IReadOnlyList<string> KeptParents);

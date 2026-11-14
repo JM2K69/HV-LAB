@@ -101,7 +101,7 @@ En mode lot, l'adresse augmente de 1 à chaque clone : `ALMA-01` reçoit `192.16
 1. Le disque différentiel est créé sur la base.
 2. Un disque de 64 Mo, `<VM>-cidata.vhdx`, est créé à côté, avec un volume FAT nommé `CIDATA` qui contient :
     - `meta-data` : un identifiant d'instance unique et le nom d'hôte ;
-    - `user-data` : l'utilisateur, son mot de passe, la clé SSH, le fuseau horaire et le clavier ;
+    - `user-data` : l'utilisateur, une empreinte SHA-512 crypt de son mot de passe (`hashed_passwd`), la clé SSH, le fuseau horaire et le clavier ;
     - `network-config` : l'IP fixe, si elle est définie.
 3. Le clone reprend la génération et le modèle Secure Boot de la VM modèle.
 4. Ses [notes Hyper-V](create-vm.md#notes-de-la-vm) contiennent la date de création, l'utilisateur, son mot de passe et l'IP.
@@ -116,7 +116,7 @@ ssh labadmin@192.168.100.10
     L'IP fixe est configurée sur `eth0`, le nom que prend la carte réseau Hyper-V sur la plupart des distributions.
 
 !!! warning "Usage en labo"
-    Le mot de passe est stocké en clair sur le disque `CIDATA` et dans les notes de la VM.
+    Le disque `CIDATA` ne contient qu'une empreinte du mot de passe, jamais le mot de passe lui-même. Les notes de la VM le gardent pour HV-LAB, en clair sauf si **Protéger le mot de passe dans les notes (DPAPI)** est activé dans les [Paramètres](settings.md#securite).
 
 ## Quick VM
 

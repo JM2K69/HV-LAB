@@ -16,27 +16,34 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
 
 ## Features
 
-- **Dashboard**: running and stopped VMs, switches and base images at a glance, with a check of the Hyper-V environment (module, `vmms` service) at startup.
+- **Dashboard**: running and stopped VMs, switches and base images at a glance, host capacity (memory and vCPUs of the running VMs, free disk space), with a check of the Hyper-V environment (module, `vmms` service) at startup.
 - **Virtual machines**, read through WMI (a few tens of milliseconds, refreshed every 3 s):
+  - search (Ctrl+F: name, IP, OS, group), state and group filters;
   - live CPU load, memory, uptime, heartbeat and IP address;
-  - start, clean shutdown, turn off, save, pause/resume, restart, reset, console (`vmconnect`, one window per VM);
+  - start, clean shutdown, turn off, save, pause/resume, restart, reset, `vmconnect` (one window per VM), from the row or its right-click menu;
   - a window per VM (double-click) with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop, an enhanced-session badge, and tabs for the console, checkpoints and settings;
+  - guest automation for Windows VMs: run a PowerShell command (PowerShell Direct, no network needed) or copy a file into the VM;
   - built-in console: the VM screen at its real resolution, zoom (fit, 50–200 %, Ctrl + wheel), keyboard and mouse sent to the VM, type the clipboard, full screen;
   - checkpoint tree (create, apply, rename, delete), settings after creation (CPU, nested virtualization, memory, ISO, switch, VLAN);
   - multi-select, Hyper-V VM groups, delete with the VM's own disks (never the base image);
-  - each VM runs one action at a time, so a double click does nothing.
+  - lab operations on a selection: start in sequence (by name, each VM waiting for the previous one's heartbeat), one checkpoint for the whole lab;
+  - VMs addressed by their Hyper-V GUID, so VMs with the same name are never confused; each VM runs one action at a time.
+- **Labs page**: compose a whole lab in a form (switch, NAT, domain, VMs with their base image, size, static IP and domain join); HV-LAB generates the JSON blueprint, shows the plan, and deploys only what is missing, then groups the VMs. Existing VMs export to a blueprint.
 - **Quick VM**: size presets, blank disk or differencing disk, Gen 1/2, Secure Boot, PXE, bulk creation (`PREFIX-01…nn`).
 - **Create VM**: differencing disk from a base image with an injected `unattend.xml`:
   - computer name, administrator password (required) and optional auto-logon;
   - language, time zone and a KMS key suggested for the OS;
+  - static IP (on a static MAC) and Active Directory domain join during setup;
   - optional CBS cache warm-up and Windows Update disabling;
   - live preview of the answer file, with the password masked;
   - the answer file is removed from the VM at first logon;
-  - the creation date, the account and its password are written into the VM's Hyper-V notes.
+  - the creation date, the account, its password and the IP are written into the VM's Hyper-V notes;
+  - lab defaults (no automatic checkpoints, shut down with the host, Guest Service Interface on), a name already used is refused, and a failed or cancelled creation is cleaned up.
 - **Base images**: build `BASE_*.vhdx` from a WIM/ESD file, with automatic edition matching:
   - the image is built in a temporary file, so an existing image is never left half-built;
   - overwriting an existing image asks for confirmation;
-  - progress is shown live and the build can be cancelled.
+  - progress is shown live and the build can be cancelled;
+  - each base shows the VMs built on it, and a base still in use cannot be deleted.
 - **Linux bases**: a prepared Linux VM (cloud-init) becomes a base, and each clone gets its own host name, user, password and static IP on first boot.
 - **Switches & NAT**:
   - a **topology** view: each switch with its uplink (adapter, NAT, connection sharing, host, isolated) and its VMs with state, IP and VLAN;
@@ -47,10 +54,17 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - Mica backdrop, light/dark theme and an adaptive navigation pane;
   - the window position and size are remembered;
   - empty states and error banners;
-  - accessible names on buttons, F5 to refresh, Del to delete the selection.
+  - accessible names on buttons, Ctrl+F to search, F5 to refresh, Del to delete the selection.
 - **French / English** interface, switchable live.
 
 All long operations can be cancelled, all inputs are validated before reaching PowerShell, and scripts are never written to `%TEMP%`.
+
+Security in a lab:
+- the password in the VM notes can be kept encrypted with DPAPI (Settings > Security, off by default);
+- a copied password is kept out of the clipboard history and cleared after 30 s;
+- the cloud-init seed of a Linux clone holds a SHA-512 hash of the password, not the password;
+- SSH and Remote Desktop start as the signed-in user, not as administrator;
+- the base images folder is writable by administrators only.
 
 ---
 
@@ -64,8 +78,8 @@ All long operations can be cancelled, all inputs are validated before reaching P
    Unblock-File .\Install.ps1
    .\Install.ps1                 # options: -DesktopShortcut  -EnableHyperV
    ```
-   The app is copied to `C:\Program Files\HV-LAB` and gets a Start menu shortcut.
-3. Uninstall:
+   The app is copied to `C:\Program Files\HV-LAB`, gets a Start menu shortcut and appears in Settings > Apps. An update is prepared in `HV-LAB.new`, then swapped in, so a failed copy leaves the installed version intact.
+3. Uninstall from Settings > Apps, or:
    ```powershell
    & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
    ```

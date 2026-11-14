@@ -17,6 +17,27 @@ dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release   # -> HVLab\p
 !!! note
     Dans `HVLab\`, un `dotnet build` sans argument prend la solution `HVLab.slnx`. Avec `-p:Platform=x64`, indiquez explicitement `HVLab.csproj`.
 
+### Tests
+
+| Niveau | Comment | Ce qui est vérifié |
+|---|---|---|
+| Unitaires | `dotnet test HVLab.Core.Tests` | View models, générateurs, validation, et chaque script PowerShell généré, passé au parseur de Windows PowerShell 5.1 avec des valeurs hostiles (apostrophes, `$()`, accents graves). |
+| Live, lecture seule | `HVLAB_LIVE=1`, en admin | Résultats WMI comparés aux cmdlets Hyper-V sur l'hôte. Rien n'est modifié. |
+| Live, modifie l'hôte | `HVLAB_LIVE=2`, en admin | Allers-retours sur de vrais objets : alimentation, paramètres, points de contrôle et suppression par GUID, homonyme refusé, NAT hors /24, changement de type de commutateur. Il ne crée et ne supprime que ses propres VM, commutateurs et NAT `HVLT-*`, même si un test échoue. |
+
+```powershell
+# Dans un PowerShell administrateur
+$env:HVLAB_LIVE = '2'; dotnet test HVLab.Core.Tests --filter "FullyQualifiedName~HyperVLive"
+```
+
+### Intégration continue
+
+- **CI** (chaque push sur `master` et chaque pull request) : build x64 avec les avertissements en erreurs, tests unitaires, et chaque `*.ps1` passé au parseur de Windows PowerShell 5.1.
+- **Docs** : construit et publie ce site.
+- **Release** (tags) : voir ci-dessous.
+
+Les actions sont épinglées par SHA de commit et tenues à jour par Dependabot (`.github/dependabot.yml`), avec les paquets NuGet.
+
 ## Structure du projet
 
 ```text
@@ -66,7 +87,9 @@ Le workflow **Release** se charge ensuite de :
 - publier la version autonome ;
 - créer la release GitHub avec `HV-LAB-X.Y.Z-win-x64.zip` et son SHA256.
 
-Il refuse un tag qui ne correspond pas à `VersionPrefix`.
+Il refuse un tag qui ne correspond pas à `VersionPrefix`. Le job de build est en lecture seule ; seul le job de release peut écrire dans le dépôt.
+
+Le zip de la release n'est pas signé : sur une autre machine, l'invite UAC affiche *Éditeur inconnu*. Sur votre machine, `Install.ps1 -SelfSign` signe l'exe installé (voir [Installation](install.md)).
 
 ## Documentation
 

@@ -18,6 +18,10 @@ public partial class SettingsViewModel : ObservableObject
     private readonly IThemeService _theme;
     private readonly IHyperVService? _hvService;
 
+    /// <summary>DPAPI-protect the password written into the notes of new VMs (off by default).</summary>
+    [ObservableProperty] private bool protectNotesPassword = AppSettings.Current.ProtectNotesPassword;
+    partial void OnProtectNotesPasswordChanged(bool value) => AppSettings.Current.ProtectNotesPassword = value;
+
     // Enhanced session mode of the host: read when the page opens, written when the user toggles it
     [ObservableProperty] private bool enhancedSession;
     [ObservableProperty] private bool enhancedSessionLoaded;

@@ -54,7 +54,20 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             CrashLogger.Operation(operation, watch.Elapsed, ex);
             throw;
         }
+        finally { InvalidateSnapshot(); }   // a script may have changed VMs (cheap when it did not)
     }
+
+    /// <summary>
+    /// Settings of every VM HV-LAB creates, chosen for labs (one line, inserted after New-VM / Set-VM):
+    /// no automatic checkpoint (Windows client hosts add one at each start, an .avhdx layer nobody asked for),
+    /// shut down with the host instead of saving a memory-sized state file, and the Guest Service Interface on
+    /// (Copy-VMFile). Older hosts without one of these settings keep their default (SilentlyContinue).
+    /// The integration service is found by its ID: its display name is translated on non-English hosts.
+    /// </summary>
+    internal const string LabDefaults =
+        "Set-VM -VM $vm -AutomaticCheckpointsEnabled $false -AutomaticStopAction ShutDown -ErrorAction SilentlyContinue; " +
+        "Get-VMIntegrationService -VM $vm | Where-Object { $_.Id -match '6C09BB55-D683-4DA0-8931-C9BF705F6480' } | " +
+        "Enable-VMIntegrationService -ErrorAction SilentlyContinue";
 
     /// <summary>
     /// Runs a creation script; when it fails, times out or is cancelled (a cancel kills the worker, so the script's own
@@ -131,7 +144,70 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     // ─── Virtual Machines ───────────────────────────────────────────────────
 
-    public Task<List<VirtualMachine>> GetVirtualMachinesAsync() => Wmi(_wmi.GetVirtualMachines);
+    // ─── VM list shared by every view ───────────────────────────────────────
+    // The VM list page and each VM window poll every 3 s: they share one WMI enumeration instead of one each.
+    // A snapshot younger than SnapshotMaxAge is reused, concurrent callers wait for the same query, every caller
+    // gets its own copies (the views change their rows), and any change made through this service drops it.
+
+    internal static readonly TimeSpan SnapshotMaxAge = TimeSpan.FromSeconds(2.5);
+    private readonly object _snapshotLock = new();
+    private Task<List<VirtualMachine>>? _snapshot;
+    private DateTime _snapshotAt;
+
+    public async Task<List<VirtualMachine>> GetVirtualMachinesAsync()
+    {
+        Task<List<VirtualMachine>> query;
+        lock (_snapshotLock)
+        {
+            if (_snapshot is null || _snapshot.IsFaulted || _snapshot.IsCanceled || DateTime.UtcNow - _snapshotAt > SnapshotMaxAge)
+            {
+                _snapshot   = Wmi(_wmi.GetVirtualMachines);
+                _snapshotAt = DateTime.UtcNow;
+            }
+            query = _snapshot;
+        }
+        return (await query).Select(v => v.Copy()).ToList();
+    }
+
+    // ─── Guest automation (PowerShell Direct, Copy-VMFile) ──────────────────
+
+    /// <summary>
+    /// Runs a script in a Windows guest through PowerShell Direct (VMBus: no network, no firewall rule needed).
+    /// The account, the password and the script reach PowerShell as base64 literals: no quoting issue, nothing on disk.
+    /// </summary>
+    public async Task<string> InvokeInGuestAsync(string vmId, string account, string password, string script)
+    {
+        var output = await RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $vm   = {{VmExpr(vmId)}}
+            $pass = ConvertTo-SecureString ({{PsLiteral(password)}}) -AsPlainText -Force
+            $cred = New-Object System.Management.Automation.PSCredential (({{PsLiteral(account)}}), $pass)
+            $code = [scriptblock]::Create(({{PsLiteral(script)}}))
+            Invoke-Command -VMId $vm.Id -Credential $cred -ScriptBlock $code -ErrorAction Stop | Out-String -Width 200
+            """, timeout: TimeSpan.FromMinutes(10));
+        return output.Trim();
+    }
+
+    /// <summary>Copies a host file into the guest folder (needs the Guest Service Interface, on for HV-LAB VMs).</summary>
+    public Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder)
+        => RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $vm = {{VmExpr(vmId)}}
+            Get-VMIntegrationService -VM $vm | Where-Object { $_.Id -match '6C09BB55-D683-4DA0-8931-C9BF705F6480' } |
+                Enable-VMIntegrationService -ErrorAction SilentlyContinue
+            $source = '{{Esc(sourcePath)}}'
+            $target = Join-Path '{{Esc(guestFolder)}}' (Split-Path $source -Leaf)
+            Copy-VMFile -VM $vm -SourcePath $source -DestinationPath $target -FileSource Host -CreateFullPath -Force -ErrorAction Stop
+            """, timeout: TimeSpan.FromMinutes(30));
+
+    public Task<HostCapacity> GetHostCapacityAsync()
+        => Wmi(() => _wmi.GetHostCapacity([AppSettings.Current.VmsFolder, AppSettings.Current.BaseImagesFolder]));
+
+    /// <summary>The next list read goes to WMI again (called after any change: power, script, creation…).</summary>
+    private void InvalidateSnapshot()
+    {
+        lock (_snapshotLock) _snapshot = null;
+    }
 
     // A power action can wait minutes for its job (shutdown, save): at most 4 at once, so a bulk action
     // on 20 VMs never ties up 20 pool threads. The others wait asynchronously for a slot.
@@ -151,7 +227,11 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             CrashLogger.Operation($"Power {action}", watch.Elapsed, ex);
             throw;
         }
-        finally { PowerSlots.Release(); }
+        finally
+        {
+            PowerSlots.Release();
+            InvalidateSnapshot();
+        }
     }
 
     /// <summary>
@@ -222,6 +302,17 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             $vm     = {{VmExpr(name)}}
             $vmPath = "$($vm.Path)"
             $files  = {{fileList}}
+            # The elevated delete must never follow a junction or link that someone put in the path (it would delete
+            # files elsewhere): every listed file, and each folder from it up to the VM folder, must be a plain one.
+            $vmRoot = (Split-Path "$vmPath".TrimEnd('\') -Parent)
+            foreach ($f in $files) {
+                $item = Get-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue
+                while ($item) {
+                    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "##Err_ReparsePoint|$($item.FullName)" }
+                    $item = if ($item -is [IO.DirectoryInfo]) { $item.Parent } else { $item.Directory }
+                    if ($item -and $vmRoot -and $item.FullName.TrimEnd('\') -ieq $vmRoot.TrimEnd('\')) { break }
+                }
+            }
             if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force -ErrorAction Stop }
             Remove-VM -VM $vm -Force -ErrorAction Stop
             foreach ($f in $files) {
@@ -685,6 +776,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                    -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop
 
             Set-VM -VM $vm -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
+            {{LabDefaults}}
             Add-VMHardDiskDrive -VM $vm -Path $vhdPath -ErrorAction Stop
 
             if ($generation -eq 2) {
@@ -729,9 +821,11 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
         long memoryMB, int cpuCount, int generation, string vmFolder,
         string? answerFileContent = null, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
         string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
-        IProgress<string>? progress = null, CancellationToken ct = default)
+        IProgress<string>? progress = null, CancellationToken ct = default, string? staticMac = null)
     {
         InputValidator.EnsureVmName(vmName);
+        // A Windows VM with a static IP: its adapter keeps this MAC, the interface identifier of unattend.xml
+        var mac = staticMac is null ? "''" : $"'{Esc(staticMac.Replace("-", ""))}'";
         // Seed files as an ordered hashtable of literals (they hold the password: embedded like the answer file)
         var seedFiles = cloudInit is null ? "$null"
             : "[ordered]@{ " + string.Join("; ", cloudInit.Files().Select(f => $"'{Esc(f.Key)}' = {PsLiteral(f.Value)}")) + " }";
@@ -757,6 +851,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                 $isGen2       = {{isGen2}}
                 $secureBoot   = {{secureBootPs}}
                 $pxeBoot      = {{pxeBootPs}}
+                $staticMac    = {{mac}}
 
                 # A namesake would share the folder and disk names, and later actions by name would hit both
                 if (@(Get-VM | Where-Object Name -eq $vmName).Count -gt 0) { throw "##Err_VmExists|$vmName" }
@@ -811,6 +906,10 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                        -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop
 
                 Set-VM -VM $vm -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
+                {{LabDefaults}}
+                if ($staticMac) {
+                    Get-VMNetworkAdapter -VM $vm | Select-Object -First 1 | Set-VMNetworkAdapter -StaticMacAddress $staticMac -ErrorAction Stop
+                }
                 Add-VMHardDiskDrive -VM $vm -Path $diffVhd -ErrorAction Stop
 
                 if ($generation -eq 2) {

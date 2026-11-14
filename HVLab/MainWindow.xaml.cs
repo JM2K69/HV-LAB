@@ -80,6 +80,7 @@ public sealed partial class MainWindow : Window
             "basevhdx"  => typeof(BaseVhdxPage),
             "createvm"  => typeof(CreateVmPage),
             "quickvm"   => typeof(QuickVmPage),
+            "labs"      => typeof(LabsPage),
             "settings"  => typeof(SettingsPage),
             _           => (Type?)null
         };

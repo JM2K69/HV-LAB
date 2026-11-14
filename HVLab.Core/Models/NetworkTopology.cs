@@ -25,7 +25,14 @@ public sealed class TopologySwitch
     public bool HasVms    => Vms.Count > 0;
     public bool HasNoVms  => Vms.Count == 0;
     /// <summary>"Internal · VLAN 10" under the switch name.</summary>
-    public string TypeLine => VlanText.Length > 0 ? $"{SwitchType} · {VlanText}" : SwitchType;
+    public string TypeLine
+    {
+        get
+        {
+            var type = Services.LocalizationService.Instance.Display("SwType_", SwitchType);
+            return VlanText.Length > 0 ? $"{type} · {VlanText}" : type;
+        }
+    }
     public string UplinkGlyph => Uplink switch
     {
         UplinkKind.PhysicalAdapter   => "",   // Ethernet

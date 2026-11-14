@@ -35,6 +35,7 @@ C'est une application WinUI 3 / .NET 10 qui n'a besoin de rien d'autre sur la ma
 
     - nom d'ordinateur et mot de passe Administrateur ;
     - langue, fuseau horaire et clé KMS ;
+    - IP fixe et jonction à un domaine Active Directory en option ;
     - ouverture de session automatique en option.
 
     Le mode en lot crée `SRV-01…nn` d'un coup.
@@ -57,13 +58,21 @@ C'est une application WinUI 3 / .NET 10 qui n'a besoin de rien d'autre sur la ma
 
     [:octicons-arrow-right-24: Commutateurs & NAT](guide/networking.md)
 
+-   **Blueprints de lab**
+
+    ---
+
+    Composez un lab entier dans un formulaire : commutateur, NAT, domaine, VM avec leur image de base, IP fixe et jonction au domaine. HV-LAB génère le JSON, crée seulement ce qui manque, et exporte des VM existantes en blueprint.
+
+    [:octicons-arrow-right-24: Blueprints de lab](guide/labs.md)
+
 </div>
 
 L'interface suit le design Fluent :
 
 - fond Mica et thème clair ou sombre ;
 - français ou anglais, avec un changement de langue instantané ;
-- raccourcis clavier : ++f5++ actualise et ++del++ supprime la sélection.
+- raccourcis clavier : ++ctrl+f++ recherche les VM, ++f5++ actualise et ++del++ supprime la sélection.
 
 Toutes les opérations longues sont annulables, et toutes les saisies sont validées avant d'atteindre PowerShell.
 

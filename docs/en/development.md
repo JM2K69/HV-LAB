@@ -17,6 +17,27 @@ dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release   # -> HVLab\p
 !!! note
     In `HVLab\`, a bare `dotnet build` picks up `HVLab.slnx`. Pass `HVLab.csproj` explicitly together with `-p:Platform=x64`.
 
+### Tests
+
+| Level | How | What it checks |
+|---|---|---|
+| Unit | `dotnet test HVLab.Core.Tests` | View models, generators, validation, and every generated PowerShell script parsed by Windows PowerShell 5.1 with hostile values (quotes, `$()`, backticks). |
+| Live, read-only | `HVLAB_LIVE=1`, elevated | WMI results compared with the Hyper-V cmdlets on the host. Nothing is changed. |
+| Live, changes the host | `HVLAB_LIVE=2`, elevated | Round trips on real objects: power, settings, checkpoints and delete by GUID, a refused namesake, a NAT outside a /24, a switch type change. It creates and deletes only its own `HVLT-*` VMs, switches and NAT, even when a test fails. |
+
+```powershell
+# In an elevated PowerShell
+$env:HVLAB_LIVE = '2'; dotnet test HVLab.Core.Tests --filter "FullyQualifiedName~HyperVLive"
+```
+
+### Continuous integration
+
+- **CI** (every push to `master` and every pull request): x64 build with warnings as errors, unit tests, and every `*.ps1` parsed by Windows PowerShell 5.1.
+- **Docs**: builds and publishes this site.
+- **Release** (tags): see below.
+
+The actions are pinned by commit SHA and kept current by Dependabot (`.github/dependabot.yml`), together with the NuGet packages.
+
 ## Project structure
 
 ```text
@@ -66,7 +87,9 @@ The **Release** workflow then:
 - publishes the self-contained folder;
 - creates the GitHub release with `HV-LAB-X.Y.Z-win-x64.zip` and its SHA256.
 
-It refuses a tag that does not match `VersionPrefix`.
+It refuses a tag that does not match `VersionPrefix`. The build job is read-only; only the release job may write to the repository.
+
+The release zip is not signed: on another machine the UAC prompt shows *Unknown publisher*. On your own machine, `Install.ps1 -SelfSign` signs the installed exe (see [Installation](install.md)).
 
 ## Documentation
 

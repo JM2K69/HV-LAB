@@ -172,6 +172,44 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
     }
 
     /// <summary>Dismounts (if needed) and deletes a partially built VHDX.</summary>
+    /// <summary>
+    /// Every VHDX that is a parent somewhere in a VM's disk chains (checkpoints included), with the VMs that depend
+    /// on it, keyed by its lower-case path: a base image found here must not be deleted.
+    /// </summary>
+    public async Task<Dictionary<string, List<string>>> GetBaseDependentsAsync()
+    {
+        const string script = """
+            Import-Module Hyper-V -ErrorAction Stop
+            $map = @{}
+            foreach ($vm in @(Get-VM)) {
+                $disks = @(@(Get-VMHardDiskDrive -VM $vm) + @(Get-VMSnapshot -VM $vm | Get-VMHardDiskDrive) |
+                           Where-Object Path | ForEach-Object Path | Select-Object -Unique)
+                foreach ($disk in $disks) {
+                    $parent = (Get-VHD -Path $disk -ErrorAction SilentlyContinue).ParentPath
+                    while ($parent) {
+                        $key = $parent.ToLowerInvariant()
+                        if (-not $map.ContainsKey($key)) { $map[$key] = [System.Collections.Generic.List[string]]::new() }
+                        if (-not $map[$key].Contains($vm.Name)) { $map[$key].Add($vm.Name) }
+                        $parent = (Get-VHD -Path $parent -ErrorAction SilentlyContinue).ParentPath
+                    }
+                }
+            }
+            @($map.GetEnumerator() | ForEach-Object { [PSCustomObject]@{ Path = $_.Key; Vms = @($_.Value) } }) | ConvertTo-Json -Depth 3 -Compress
+            """;
+        var json = HyperVService.ExtractJson(await ps.RunAsync(script, timeout: TimeSpan.FromMinutes(5)));
+        var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(json)) return map;
+        using var doc = System.Text.Json.JsonDocument.Parse(json.TrimStart().StartsWith('{') ? $"[{json}]" : json);
+        foreach (var item in doc.RootElement.EnumerateArray())
+        {
+            var vms = item.GetProperty("Vms");
+            map[item.GetProperty("Path").GetString() ?? ""] = vms.ValueKind == System.Text.Json.JsonValueKind.Array
+                ? vms.EnumerateArray().Select(v => v.GetString() ?? "").Where(v => v.Length > 0).ToList()
+                : [vms.GetString() ?? ""];
+        }
+        return map;
+    }
+
     public async Task DiscardPartialVhdxAsync(string vhdxPath)
     {
         var script = $$"""

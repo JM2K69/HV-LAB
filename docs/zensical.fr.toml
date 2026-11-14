@@ -24,6 +24,7 @@ nav = [
     { "Créer une VM" = "guide/create-vm.md" },
     { "Quick VM" = "guide/quick-vm.md" },
     { "Tableau de bord & VM" = "guide/virtual-machines.md" },
+    { "Blueprints de lab" = "guide/labs.md" },
     { "Paramètres" = "guide/settings.md" },
   ] },
   { "Résolution de problèmes" = "troubleshooting.md" },

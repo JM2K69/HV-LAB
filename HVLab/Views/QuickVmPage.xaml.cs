@@ -10,6 +10,9 @@ public sealed partial class QuickVmPage : Page
 
     public QuickVmPage() => InitializeComponent();
 
+    private async void OpenCreatedVm_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        => await VmWindow.ShowByNameAsync(ViewModel.CreatedVmName);
+
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);

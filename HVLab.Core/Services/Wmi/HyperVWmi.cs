@@ -26,10 +26,18 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         return scope;
     });
 
+    /// <summary>
+    /// A stuck WMI provider (vmms busy, KVP exchange hanging) must not block a refresh forever: every query gives up
+    /// after 30 s. Results are read once (not rewindable: less memory).
+    /// </summary>
+    private static System.Management.EnumerationOptions QueryOptions() => new() { Timeout = TimeSpan.FromSeconds(30), Rewindable = false };
+
+    private ManagementObjectSearcher Searcher(string ns, string wql) => new(Scope(ns), new ObjectQuery(wql), QueryOptions());
+
     /// <summary>Runs a WQL query and copies each object's properties (the COM objects are released at once).</summary>
     private List<Dictionary<string, object?>> Rows(string ns, string wql)
     {
-        using var searcher = new ManagementObjectSearcher(Scope(ns), new ObjectQuery(wql));
+        using var searcher = Searcher(ns, wql);
         using var results  = searcher.Get();
         var rows = new List<Dictionary<string, object?>>();
         foreach (ManagementBaseObject o in results)
@@ -44,7 +52,7 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
 
     private ManagementObject? First(string ns, string wql)
     {
-        using var searcher = new ManagementObjectSearcher(Scope(ns), new ObjectQuery(wql));
+        using var searcher = Searcher(ns, wql);
         using var results  = searcher.Get();
         return results.Cast<ManagementObject>().FirstOrDefault();
     }
@@ -68,6 +76,27 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         var service = Rows(Cimv2, "SELECT State FROM Win32_Service WHERE Name = 'vmms'");
         if (!Directory.Exists(module) || service.Count == 0) return HyperVEnvironment.FeatureMissing;
         return S(service[0], "State") == "Running" ? HyperVEnvironment.Ok : HyperVEnvironment.ServiceStopped;
+    }
+
+    // ─── Host capacity ──────────────────────────────────────────────────────
+
+    public HostCapacity GetHostCapacity(IEnumerable<string> folders)
+    {
+        var os = Rows(Cimv2, "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem").FirstOrDefault();
+        var cs = Rows(Cimv2, "SELECT NumberOfLogicalProcessors FROM Win32_ComputerSystem").FirstOrDefault();
+        var drives = new List<DriveSpace>();
+        foreach (var root in folders.Select(f => Path.GetPathRoot(Path.GetFullPath(f))?.TrimEnd('\\'))
+                                    .Where(r => r is { Length: 2 }).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            // The drive letter comes from Path.GetPathRoot ("D:"): no quote can reach the WQL
+            var disk = Rows(Cimv2, $"SELECT FreeSpace, Size FROM Win32_LogicalDisk WHERE DeviceID = '{root}'").FirstOrDefault();
+            if (disk is not null) drives.Add(new DriveSpace(root!, L(disk, "FreeSpace") >> 30, L(disk, "Size") >> 30));
+        }
+        return new HostCapacity(
+            os is null ? 0 : L(os, "TotalVisibleMemorySize") / 1024,
+            os is null ? 0 : L(os, "FreePhysicalMemory") / 1024,
+            cs is null ? 0 : (int)L(cs, "NumberOfLogicalProcessors"),
+            drives);
     }
 
     // ─── VM list ────────────────────────────────────────────────────────────
@@ -165,7 +194,7 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
     {
         try
         {
-            using var searcher = new ManagementObjectSearcher(Scope(V2), new ObjectQuery("SELECT * FROM Msvm_VirtualSystemCollection"));
+            using var searcher = Searcher(V2, "SELECT * FROM Msvm_VirtualSystemCollection");
             using var groups   = searcher.Get();
             foreach (ManagementObject group in groups)
                 using (group)
@@ -259,25 +288,78 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
 
     // ─── Screen and keyboard ────────────────────────────────────────────────
 
+    // The console asks for a frame several times a second. Per VM, the settings path is looked up once and the screen
+    // resolution every 2 s (not 2 extra queries per frame); the management service is shared. An unchanged screen
+    // returns the previous frame instance, which the view skips: no RGB565 → BGRA conversion, no copy, no redraw.
+    private sealed class ScreenState
+    {
+        public required string SettingsPath { get; init; }
+        public int Width, Height;
+        public DateTime ResolutionAt;
+        public byte[]? LastRaw;
+        public VmThumbnail? LastFrame;
+    }
+
+    private static readonly TimeSpan ResolutionMaxAge = TimeSpan.FromSeconds(2);
+    private readonly ConcurrentDictionary<string, ScreenState> _screens = new();
+    private ManagementObject? _managementService;
+
     public VmThumbnail? GetThumbnail(string vmId, int maxWidth, int maxHeight)
     {
         var id = Id(vmId);
-        var head = Rows(V2, $"SELECT CurrentHorizontalResolution, CurrentVerticalResolution FROM Msvm_VideoHead WHERE SystemName = '{id}'")
-            .FirstOrDefault(r => L(r, "CurrentHorizontalResolution") > 0 && L(r, "CurrentVerticalResolution") > 0);
-        var (w, h) = head is null ? (maxWidth, maxHeight)
-            : WmiMap.FitThumbnail((int)L(head, "CurrentHorizontalResolution"), (int)L(head, "CurrentVerticalResolution"), maxWidth, maxHeight);
+        if (!_screens.TryGetValue(id, out var screen))
+        {
+            using var settings = First(V2, $"SELECT * FROM Msvm_VirtualSystemSettingData WHERE InstanceID = 'Microsoft:{id}'");
+            if (settings is null) return null;
+            screen = _screens.GetOrAdd(id, new ScreenState { SettingsPath = settings.Path.Path });
+        }
 
-        using var settings = First(V2, $"SELECT * FROM Msvm_VirtualSystemSettingData WHERE InstanceID = 'Microsoft:{id}'");
-        using var service  = First(V2, "SELECT * FROM Msvm_VirtualSystemManagementService");
-        if (settings is null || service is null) return null;
-        using var args = service.GetMethodParameters("GetVirtualSystemThumbnailImage");
-        args["TargetSystem"] = settings.Path.Path;
-        args["WidthPixels"]  = (ushort)w;
-        args["HeightPixels"] = (ushort)h;
-        using var result = service.InvokeMethod("GetVirtualSystemThumbnailImage", args, null);
-        if (Convert.ToUInt32(result["ReturnValue"]) != 0 || result["ImageData"] is not byte[] data || data.Length < w * h * 2)
-            return null;
-        return new VmThumbnail(w, h, WmiMap.Rgb565ToBgra(data, w, h));
+        lock (screen)
+        {
+            if (DateTime.UtcNow - screen.ResolutionAt > ResolutionMaxAge)
+            {
+                var head = Rows(V2, $"SELECT CurrentHorizontalResolution, CurrentVerticalResolution FROM Msvm_VideoHead WHERE SystemName = '{id}'")
+                    .FirstOrDefault(r => L(r, "CurrentHorizontalResolution") > 0 && L(r, "CurrentVerticalResolution") > 0);
+                (screen.Width, screen.Height) = head is null ? (0, 0)
+                    : ((int)L(head, "CurrentHorizontalResolution"), (int)L(head, "CurrentVerticalResolution"));
+                screen.ResolutionAt = DateTime.UtcNow;
+            }
+            var (w, h) = screen.Width == 0 ? (maxWidth, maxHeight) : WmiMap.FitThumbnail(screen.Width, screen.Height, maxWidth, maxHeight);
+
+            byte[] data;
+            try
+            {
+                var service = _managementService ??= First(V2, "SELECT * FROM Msvm_VirtualSystemManagementService");
+                if (service is null) return null;
+                using var args = service.GetMethodParameters("GetVirtualSystemThumbnailImage");
+                args["TargetSystem"] = screen.SettingsPath;
+                args["WidthPixels"]  = (ushort)w;
+                args["HeightPixels"] = (ushort)h;
+                using var result = service.InvokeMethod("GetVirtualSystemThumbnailImage", args, null);
+                if (Convert.ToUInt32(result["ReturnValue"]) != 0 || result["ImageData"] is not byte[] image || image.Length < w * h * 2)
+                {
+                    screen.ResolutionAt = default;   // the resolution may have just changed: read it again next time
+                    return null;
+                }
+                data = image;
+            }
+            catch (ManagementException)
+            {
+                // vmms restarted or the VM was re-registered: look everything up again on the next frame
+                _managementService = null;
+                _screens.TryRemove(id, out _);
+                throw;
+            }
+
+            if (screen.LastFrame is { } last && last.Width == w && last.Height == h
+                && screen.LastRaw is { } previous && previous.AsSpan().SequenceEqual(data))
+                return last;
+
+            var frame = new VmThumbnail(w, h, WmiMap.Rgb565ToBgra(data, w, h));
+            screen.LastRaw   = data;
+            screen.LastFrame = frame;
+            return frame;
+        }
     }
 
     /// <summary>Raw scancodes (make and break codes): every key of the console goes through here.</summary>
@@ -300,6 +382,7 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
     // Console input sends many small calls: the device objects are cached per VM (dropped on failure)
     private readonly ConcurrentDictionary<string, ManagementObject?> _devices = new();
     private readonly ConcurrentDictionary<string, (int X, int Y)> _ps2Positions = new();
+    private readonly ConcurrentDictionary<string, ManagementBaseObject> _inParams = new();
 
     /// <summary>Device of a running VM; a missing device is not cached (it appears once the guest has booted).</summary>
     private ManagementObject? Device(string cls, string vmId)
@@ -318,16 +401,20 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         {
             var device = Device(cls, vmId)
                 ?? throw new InvalidOperationException(T(cls == "Msvm_Keyboard" ? "Err_NoKeyboard" : "Err_NoMouse"));
+            var deviceKey = $"{cls}|{Id(vmId)}";
             try
             {
-                using var inArgs = device.GetMethodParameters(method);
+                // GetMethodParameters fetches the class definition from WMI each time: once per device and method
+                var inArgs = _inParams.GetOrAdd($"{deviceKey}|{method}", _ => device.GetMethodParameters(method));
                 foreach (var (name, value) in args) inArgs[name] = value;
                 using var result = device.InvokeMethod(method, inArgs, null);
                 return;
             }
             catch (ManagementException) when (attempt == 0)
             {
-                if (_devices.TryRemove($"{cls}|{Id(vmId)}", out var stale)) stale?.Dispose();
+                if (_devices.TryRemove(deviceKey, out var stale)) stale?.Dispose();
+                foreach (var key in _inParams.Keys.Where(k => k.StartsWith(deviceKey + "|", StringComparison.Ordinal)))
+                    if (_inParams.TryRemove(key, out var p)) p.Dispose();
             }
         }
     }
@@ -337,6 +424,11 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
     {
         foreach (var device in _devices.Values) device?.Dispose();
         _devices.Clear();
+        foreach (var p in _inParams.Values) p.Dispose();
+        _inParams.Clear();
+        _managementService?.Dispose();
+        _managementService = null;
+        _screens.Clear();
     }
 
     /// <summary>Synthetic mouse (absolute pixels) when the guest has one, else PS/2 relative moves.</summary>

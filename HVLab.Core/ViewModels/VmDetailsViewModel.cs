@@ -33,8 +33,12 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         Vm.UpdateFrom(source);
     }
 
+    private bool _refreshing;
+
     public async Task RefreshAsync()
     {
+        if (_refreshing) return;   // a slow WMI answer: the next tick does not start a second query
+        _refreshing = true;
         try
         {
             var fresh = (await _hvService.GetVirtualMachinesAsync()).FirstOrDefault(v => v.Id == Vm.Id);
@@ -43,6 +47,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
             MarkLoaded();   // clears a refresh error once WMI answers again
         }
         catch (Exception ex) { ShowError(ex); }
+        finally { _refreshing = false; }
     }
 
     // ─── Power actions ──────────────────────────────────────────────────────
@@ -120,6 +125,33 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     [RelayCommand]
     private Task SendCtrlAltDelAsync() => RunAsync(T("VM_CtrlAltDel", Vm.Name), () => Queued(() => _hvService.SendCtrlAltDelAsync(Vm.Id)));
 
+    // ─── Guest automation (Windows guests, account of the notes) ────────────
+
+    /// <summary>Guest folder the copied files go to.</summary>
+    public const string GuestCopyFolder = @"C:\HV-LAB";
+
+    /// <summary>The last script run in this window: offered again next time.</summary>
+    private string _lastGuestScript = "Get-ComputerInfo | Select-Object CsName, OsName, OsVersion";
+
+    [RelayCommand]
+    private async Task RunInGuestAsync()
+    {
+        if (!Vm.Credentials.HasPassword) { Status = T("VM_NoPassword"); return; }
+        var script = await _dialogs.PromptTextAsync(T("GUEST_RunTitle", Vm.Name), T("GUEST_RunLabel", Vm.Credentials.Account), _lastGuestScript);
+        if (string.IsNullOrWhiteSpace(script)) return;
+        _lastGuestScript = script;
+        string? output = null;
+        await RunAsync(T("GUEST_Running", Vm.Name),
+            async () => output = await _hvService.InvokeInGuestAsync(Vm.Target, Vm.Credentials.Account, Vm.Credentials.Password, script));
+        if (output is not null)
+            await _dialogs.ShowTextAsync(T("GUEST_ResultTitle", Vm.Name), output.Length > 0 ? output : T("GUEST_NoOutput"));
+    }
+
+    /// <summary>Copies a host file into <see cref="GuestCopyFolder"/> of the running VM (picked by the window).</summary>
+    public Task CopyToGuestAsync(string sourcePath)
+        => RunAsync(T("GUEST_Copying", Path.GetFileName(sourcePath), Vm.Name),
+                    () => _hvService.CopyToGuestAsync(Vm.Target, sourcePath, GuestCopyFolder));
+
     /// <summary>
     /// Everything typed into the VM (password, clipboard, Ctrl+Alt+Del, console keys and mouse) goes through one
     /// queue, so a password being typed never interleaves with console keys. Errors reach the caller.
@@ -171,11 +203,34 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         finally { _input.Release(); }
     }
 
+    // Keys typed while a WMI call is in flight are batched into the next one (TypeScancodes takes a sequence):
+    // fast typing costs one call per batch instead of two per key, and keys never queue up behind each other.
+    private readonly List<byte> _pendingKeys = [];
+    private bool _sendingKeys;
+
     /// <summary>A physical key pressed or released in the console (scancode of the host keyboard).</summary>
     public Task SendKeyAsync(uint scanCode, bool extended, bool keyUp)
     {
         var codes = ConsoleInput.Scancodes(scanCode, extended, keyUp);
-        return codes.Length == 0 ? Task.CompletedTask : SendAsync(() => _hvService.SendScancodesAsync(Vm.Id, codes));
+        if (codes.Length == 0) return Task.CompletedTask;
+        _pendingKeys.AddRange(codes);
+        if (_sendingKeys) return Task.CompletedTask;   // leaves with the next batch, in order
+        _sendingKeys = true;
+        return PumpKeysAsync();
+    }
+
+    private async Task PumpKeysAsync()
+    {
+        try
+        {
+            while (_pendingKeys.Count > 0)
+            {
+                var batch = _pendingKeys.ToArray();
+                _pendingKeys.Clear();
+                await SendAsync(() => _hvService.SendScancodesAsync(Vm.Id, batch));
+            }
+        }
+        finally { _sendingKeys = false; }
     }
 
     public void MoveMouse(int x, int y)

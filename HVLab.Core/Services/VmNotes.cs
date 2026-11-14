@@ -11,11 +11,21 @@ namespace HVLab.Services;
 public static class VmNotes
 {
     /// <param name="account">Account set by the answer file or cloud-init, or null when the VM has none.</param>
-    public static string Build(DateTime created, string? account = null, string? password = null, string? ipAddress = null)
+    /// <param name="protect">
+    /// DPAPI-protect the password (readable back by this Windows account on this host only); null = the Settings choice.
+    /// </param>
+    public static string Build(DateTime created, string? account = null, string? password = null, string? ipAddress = null,
+                               bool? protect = null)
     {
         var lines = new List<string> { T("Notes_Created", created) };
         if (string.IsNullOrEmpty(account)) lines.Add(T("Notes_NoAnswerFile"));
-        else { lines.Add(T("Notes_Account", account)); lines.Add(T("Notes_Password", password ?? "")); }
+        else
+        {
+            lines.Add(T("Notes_Account", account));
+            lines.Add((protect ?? AppSettings.Current.ProtectNotesPassword) && !string.IsNullOrEmpty(password)
+                ? T("Notes_PasswordProtected", Dpapi.Protect(password))
+                : T("Notes_Password", password ?? ""));
+        }
         if (!string.IsNullOrEmpty(ipAddress)) lines.Add(T("Notes_Ip", ipAddress));
         return string.Join(Environment.NewLine, lines);
     }
@@ -23,6 +33,7 @@ public static class VmNotes
     // Line labels in both UI languages: the notes keep the language of the VM's creation
     private static readonly string[] AccountLabels  = ["Compte :", "Account:"];
     private static readonly string[] PasswordLabels = ["Mot de passe :", "Password:"];
+    private static readonly string[] ProtectedLabels = ["Mot de passe (DPAPI) :", "Password (DPAPI):"];
     private static readonly string[] IpLabels       = ["IP :", "IP:"];
 
     /// <summary>Reads back the credentials written by <see cref="Build"/>; other notes give empty values.</summary>
@@ -34,6 +45,8 @@ public static class VmNotes
             var line = raw.TrimEnd('\r');
             account  = account.Length  > 0 ? account  : After(line, AccountLabels);
             password = password.Length > 0 ? password : After(line, PasswordLabels);
+            if (password.Length == 0 && After(line, ProtectedLabels) is { Length: > 0 } sealedPassword)
+                password = Dpapi.TryUnprotect(sealedPassword) ?? "";   // another account or host: no password
             ip       = ip.Length       > 0 ? ip       : After(line, IpLabels);
         }
         return new VmCredentials(account, password, ip);

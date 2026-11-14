@@ -5,6 +5,10 @@
 The dashboard gives an overview of the lab:
 
 - **Overview**: number of running and stopped VMs, switches and base images.
+- **Host capacity**:
+    - the memory used by the running VMs, against the free and total memory of the host;
+    - the vCPUs of the running VMs, against the logical processors of the host;
+    - the free space of the drives that hold the VMs folder and the base images folder.
 - **Quick start**: the [recommended workflow](../index.md#recommended-workflow), from the internal switch to the VMs.
 - **System configuration**:
     - the base images folder;
@@ -17,6 +21,13 @@ When Hyper-V is unavailable, a banner explains why and, if the `vmms` service is
 
 The **Virtual Machines** page lists every VM on the host. It reads Hyper-V directly through WMI, which takes a few tens of milliseconds, and refreshes every 3 seconds.
 
+The header has two rows:
+
+- the title, the **Labs** button, which opens the lab editor (see [Lab blueprints](labs.md)), and **Refresh** (++f5++);
+- the search box **Search (Ctrl+F): name, IP, OS, group**, the state filter and the **Group** filter.
+
+++ctrl+f++ puts the cursor in the search box. The search matches the name, the IP address, the guest OS and the group of each VM. The state filter shows **All**, **Running**, **Stopped** or **Saved or paused** VMs. The automatic refresh keeps the search, the filters and the selection.
+
 | Column | Content |
 |---|---|
 | Name | The VM, with its Hyper-V group underneath |
@@ -26,55 +37,81 @@ The **Virtual Machines** page lists every VM on the host. It reads Hyper-V direc
 | IP address | Reported by the guest, else found in the host's neighbour cache, else the static IP from the notes |
 | Switch, VLAN | Network of the first adapter |
 
+States, heartbeat and switch types are shown in the interface language.
+
 ### Actions
 
 Each row has three buttons:
 
 - **Start**;
 - **Shut down**, a clean shutdown through the guest;
-- **Console**, which opens *Virtual Machine Connection* (`vmconnect`). One window per VM: a second click brings the open window to the front.
+- **Connect (vmconnect)**, which opens *Virtual Machine Connection* (`vmconnect`). One window per VM: a second click brings the open window to the front. Do not mix it up with the [built-in console](#built-in-console), a tab of the VM window.
 
-The **⋯** menu holds the other actions:
+The **⋯** menu holds the other actions. A right-click on the row, or the menu key, opens the same menu.
 
 | Action | Effect |
 |---|---|
+| Open the VM window | See [VM window](#vm-window) |
 | Turn off (forced) | Cuts the power, for a VM that is stuck or still in setup |
 | Restart | Clean restart through the guest |
 | Reset | Hard reset |
 | Save state / Pause / Resume | Hyper-V saved and paused states |
 | Built-in console | Opens the VM window on its **Console** tab |
+| Export as blueprint | Writes this VM, or the selected VMs when the row is part of a multi-selection, to a [blueprint](labs.md#export-vms-as-a-blueprint) |
 | Settings… | Opens the VM window on its **Settings** tab |
 | Delete | See [Delete a VM](#delete-a-vm) |
 
+At most 4 power actions run at the same time. A shutdown that has not finished after 2 minutes is reported as an error: the guest refused it or is still busy, so use **Turn off (forced)**.
+
+When an action fails, the red banner gives the reason. It stays until you close it or start another action. **Copy details** copies PowerShell's own output, useful to [report a problem](../troubleshooting.md#report-a-problem).
+
+!!! note "VMs with the same name"
+    HV-LAB addresses each VM by its Hyper-V GUID: delete, settings, checkpoints, groups and `vmconnect -G`. Two VMs with the same name, created outside HV-LAB, are never confused.
+
 ### VM window
 
-Double-click a VM, press ++enter++ or use its **Details** button to open the VM in **its own window**, one window per VM. The window stays live, whatever page the main window shows. Its **Overview** tab holds:
+Double-click a VM, press ++enter++ or choose **Open the VM window** in its menu to open the VM in **its own window**, one window per VM. The window stays live, whatever page the main window shows. It has a minimum size, and polls nothing while it is minimized. Its **Overview** tab holds:
 
 - the **live screen** of the running VM, refreshed every 2 seconds;
 - the **Enhanced session** badge when the VM integration services accept it: `vmconnect` then offers clipboard, sound and any resolution;
-- the power actions at the top: Start, Shut down, Console, and in **⋯** Turn off, Restart, Reset, Save state, Pause and Resume.
+- the power actions at the top: Start, Shut down, **Connect (vmconnect)**, and in **⋯** Turn off, Restart, Reset, Save state, Pause and Resume.
 - **Guest OS**, IP address, uptime and heartbeat.
-- **Console**, **SSH** and **Remote Desktop** buttons:
-    - SSH opens Windows Terminal with `ssh <account>@<IP>`, using the account from the notes;
+- **SSH**, **Remote Desktop** and **Copy IP address** buttons, enabled once the VM has an IPv4 address. SSH and Remote Desktop start as the signed-in user, not as administrator:
+    - SSH runs `ssh <account>@<IP>` in Windows Terminal, or in a console without it, using the account from the notes;
     - Remote Desktop opens `mstsc` on the IP address.
 - **Credentials** written by HV-LAB at creation:
-    - **Copy password**;
+    - **Copy password**: the copy is kept out of the clipboard history and the cloud clipboard, and cleared after 30 seconds;
     - **Type the password**: types it into the VM, then presses Enter. Choose the **VM keyboard** (`fr-FR`, `en-US`…) so that an AZERTY guest receives the right characters;
     - **Ctrl+Alt+Del**.
+- the **Automation (Windows guests)** card, described below;
 - the **Console**, **Checkpoints** and **Settings** tabs, described below.
+
+++f5++ refreshes the window and reloads the checkpoint tree.
+
+### Automation (Windows guests)
+
+The **Automation (Windows guests)** card shows when the [notes](create-vm.md#vm-notes) of the VM hold credentials. Its buttons work on a running VM, with the account of the notes:
+
+- **Run a command…** runs a PowerShell script in the guest and shows its output. A script can run for up to 10 minutes;
+- **Copy a file to the VM…** copies a file of the host into `C:\HV-LAB` in the guest.
+
+Both go through Hyper-V, not through the network:
+
+- the command uses **PowerShell Direct**, over the VMBus: the VM needs no network and no firewall rule;
+- the copy uses `Copy-VMFile` and the *Guest Service Interface* integration service, which HV-LAB turns on automatically.
 
 ### Built-in console
 
-The **Console** tab shows the VM screen at its real resolution, about 10 frames per second, and sends it keyboard and mouse through WMI. It works from the BIOS and OS setup on, with no network in the VM and no credentials.
+The **Console** tab shows the VM screen at its real resolution and sends it keyboard and mouse through WMI. It works from the BIOS and OS setup on, with no network in the VM and no credentials.
 
 - **Zoom**: *Fit* (the whole screen in the window) or 50 to 200 %. At 100 %, a VM pixel is a screen pixel, whatever the Windows scaling. ++ctrl++ + wheel changes the level.
 - **Keyboard and mouse**: click the screen; a coloured border shows that keys and mouse go to the VM. ++ctrl+alt+left++ (as in `vmconnect`) or a click outside the screen releases them, and also leaves full screen: keys still held are released in the VM.
-- Keys are sent as **physical codes**: the VM applies its own layout (an AZERTY guest gets AZERTY).
+- Keys are sent as **physical codes**: the VM applies its own layout (an AZERTY guest gets AZERTY). Keys typed while a call to the VM is still running are sent together, in the next call.
 - ++ctrl+alt+del++ and the Windows key stay with the host: use the **Ctrl+Alt+Del** button.
 - **Type the clipboard** types the text copied on the host, with the VM keyboard chosen next to it.
 - **Full screen** shows the console alone; the same button leaves it.
 
-For a shared clipboard, sound or another resolution, use **Console** (`vmconnect`) in enhanced session, turned on in **Settings > Hyper-V host**.
+The screen refreshes about 4 to 5 times per second, the limit of WMI. For fluid typing, a shared clipboard, sound or another resolution, use **Connect (vmconnect)** in enhanced session, turned on in **Settings > Hyper-V host**, or SSH.
 
 ### Checkpoints
 
@@ -86,6 +123,8 @@ The **Checkpoints** tab of the VM window shows the checkpoints as a tree. **Now*
 | Apply | Goes back to the selected checkpoint. A running VM is turned off, then restarted. |
 | Rename | Renames the checkpoint |
 | 🗑 | Deletes the checkpoint: its changes are merged, the VM loses nothing. An option also deletes the checkpoints that depend on it. |
+
+++del++ deletes the selected checkpoint, like 🗑.
 
 ### Settings after creation
 
@@ -114,16 +153,28 @@ The option **Also delete its disks and folder** is checked by default. The base 
 
 ### Several VMs at once
 
-Select several VMs with ++ctrl++ or ++shift++. A bar then offers **Start**, **Shut down**, **Turn off**, **Group…**, **Remove from group** and **Delete** for all of them.
+Select several VMs with ++ctrl++ or ++shift++. A bar then acts on all of them:
+
+| Button | Effect |
+|---|---|
+| Start, Shut down, Turn off | The power action on each VM |
+| Start in sequence | Starts the selected stopped VMs one by one, in name order (`01-DC`, `02-SRV`…). Each VM waits up to 3 minutes for the heartbeat of the previous one. |
+| Export as blueprint | Writes the selected VMs to a [blueprint](labs.md#export-vms-as-a-blueprint) |
+| Lab checkpoint… | Asks for a name, then gives every selected VM a checkpoint with that same name. Running VMs are paused while it is taken, then resume. |
+| Group…, Remove from group | Hyper-V VM groups |
+| Delete | Deletes the stopped VMs, after a confirmation |
 
 **Groups** are Hyper-V VM groups:
 
 - the **Group** list at the top of the page filters the VMs by group;
-- a series created in bulk becomes a group named after its prefix (an option of [Create a VM](create-vm.md#identity) and Quick VM).
+- a series created in bulk becomes a group named after its prefix (an option of [Create a VM](create-vm.md#identity) and Quick VM);
+- a [deployed lab](labs.md) becomes a group named after the lab.
 
 ### Keyboard shortcuts
 
 | Key | Action |
 |---|---|
-| ++f5++ | Refresh the list |
-| ++del++ | Delete the selected VM or VMs, after a confirmation |
+| ++ctrl+f++ | Search the list |
+| ++f5++ | Refresh the list, or the VM window and its checkpoints |
+| ++enter++ | Open the window of the selected VM |
+| ++del++ | Delete the selected VM or VMs, after a confirmation; in the **Checkpoints** tab, the selected checkpoint |

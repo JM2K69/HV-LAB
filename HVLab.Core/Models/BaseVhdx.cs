@@ -1,4 +1,6 @@
 using System.Text.RegularExpressions;
+using CommunityToolkit.Mvvm.ComponentModel;
+using HVLab.Services;
 
 namespace HVLab.Models;
 
@@ -6,7 +8,7 @@ namespace HVLab.Models;
 /// Naming convention: BASE_{OsIdentifier}_{OsVersion}_{SizeGB}.vhdx
 /// Example: BASE_WindowsServer2025Standard(DesktopExperience)_10.0.26100.4652_50.vhdx
 /// </summary>
-public class BaseVhdx
+public partial class BaseVhdx : ObservableObject
 {
     // ─── Stored properties ───────────────────────────────────────────────────
 
@@ -38,6 +40,15 @@ public class BaseVhdx
     public string SizeDisplay      => $"{SizeGB} GB";
     public string CreatedAtDisplay => CreatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "—";
     public string StatusIcon       => IsBuilt ? "✅" : "⚠️";
+
+    // ─── Lineage: VMs whose disk chain ends on this base (loaded after the list) ──
+
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(UsedByText), nameof(UsedByList), nameof(IsUsed))]
+    private IReadOnlyList<string> usedBy = [];
+
+    public bool   IsUsed     => UsedBy.Count > 0;
+    public string UsedByText => IsUsed ? LocalizationService.T("BV_UsedBy", UsedBy.Count) : "";
+    public string UsedByList => string.Join(", ", UsedBy);
 
     /// <summary>Human-friendly OS label stripped of camel-case separators.</summary>
     public string OsLabel => string.IsNullOrEmpty(OsIdentifier)

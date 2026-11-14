@@ -102,7 +102,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
     [RelayCommand]
     public async Task CreateSwitchAsync()
     {
-        if (string.IsNullOrWhiteSpace(NewSwitchName)) { Status = LocalizationService.Instance["SW_ErrNoName"]; return; }
+        if (string.IsNullOrWhiteSpace(NewSwitchName)) { ShowActionError(LocalizationService.Instance["SW_ErrNoName"]); return; }
         IsLoading = true;
         Status = string.Format(LocalizationService.Instance["SW_CreatingSwitch"], NewSwitchName);
         try
@@ -121,7 +121,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = LocalizationService.Instance["SW_CreatedSwitch"];
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); IsLoading = false; }
     }
 
     [RelayCommand]
@@ -139,16 +139,16 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = string.Format(LocalizationService.Instance["SW_DeletedSwitch"], sw.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); IsLoading = false; }
     }
 
     [RelayCommand]
     public async Task CreateNatAsync()
     {
         if (string.IsNullOrWhiteSpace(NewNatName) || string.IsNullOrWhiteSpace(SelectedNatSwitch))
-        { Status = LocalizationService.Instance["SW_ErrNoNat"]; return; }
+        { ShowActionError(LocalizationService.Instance["SW_ErrNoNat"]); return; }
         if (NatService.NormalizeGateway(NatGatewayIP, NatPrefixLength) is null)
-        { Status = LocalizationService.Instance["SW_ErrInvalidGateway"]; return; }
+        { ShowActionError(LocalizationService.Instance["SW_ErrInvalidGateway"]); return; }
         IsLoading = true;
         Status = string.Format(LocalizationService.Instance["SW_CreatingNat"], NewNatName);
         try
@@ -158,7 +158,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = LocalizationService.Instance["SW_CreatedNat"];
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); IsLoading = false; }
     }
 
     // ─── Topology view ──────────────────────────────────────────────────────
@@ -220,7 +220,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = T("SW_TypeChanged", sw.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); IsLoading = false; }
     }
 
     // ─── NAT with DHCP: Windows Internet connection sharing ─────────────────
@@ -246,8 +246,8 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
     [RelayCommand]
     public async Task EnableIcsAsync()
     {
-        if (string.IsNullOrWhiteSpace(IcsSwitch) || IcsPublicAdapter is null) { Status = T("ICS_ErrSelect"); return; }
-        if (NatNetworks.FirstOrDefault(n => n.SwitchName == IcsSwitch) is { } nat) { Status = T("ICS_ErrNatOnSwitch", nat.Name); return; }
+        if (string.IsNullOrWhiteSpace(IcsSwitch) || IcsPublicAdapter is null) { ShowActionError(T("ICS_ErrSelect")); return; }
+        if (NatNetworks.FirstOrDefault(n => n.SwitchName == IcsSwitch) is { } nat) { ShowActionError(T("ICS_ErrNatOnSwitch", nat.Name)); return; }
         if (!await _dialogs.ConfirmAsync(T("ICS_ConfirmTitle"), T("ICS_ConfirmEnable", IcsPublicAdapter.Name, IcsSwitch), T("ICS_Enable")))
             return;
         await RunIcsAsync(T("ICS_Enabling"), () => _hvService.EnableIcsAsync(IcsPublicAdapter.Name, IcsSwitch));
@@ -270,7 +270,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             await LoadIcsAsync();
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); IsLoading = false; }
     }
 
     private static string T(string key, params object?[] args) => LocalizationService.T(key, args);
@@ -290,6 +290,6 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
             Status = string.Format(LocalizationService.Instance["SW_DeletedNat"], nat.Name);
             await RefreshAsync();
         }
-        catch (Exception ex) { Status = string.Empty; ShowError(ex); IsLoading = false; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); IsLoading = false; }
     }
 }

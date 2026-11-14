@@ -1,6 +1,8 @@
 # Builds, tests and publishes HV-LAB Manager.
 #  - Push a tag "vX.Y.Z" (or "vX.Y.Z-beta.1")  -> GitHub release with the zip + SHA256
 #  - Run manually (Actions > Release > Run workflow) -> zip as a build artifact only (no release)
+# Hardening: actions pinned by commit SHA (Dependabot keeps them current), the build job is read-only and only
+# the release job may write; the tag name reaches scripts through the environment, never inside the script text.
 name: Release
 
 on:
@@ -9,42 +11,51 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # create the release and upload its assets
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
+  build:
     runs-on: windows-latest
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
+    outputs:
+      version:    ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+      name:       ${{ steps.package.outputs.name }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6
         with:
           dotnet-version: '10.0.x'
 
       - name: Compute version
         id: version
         shell: pwsh
+        env:
+          REF_NAME:   ${{ github.ref_name }}
+          REF_TYPE:   ${{ github.ref_type }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           # Single source: VersionPrefix in Directory.Build.props. The tag must match it:
           # v1.2.3 -> release 1.2.3 ; v1.2.3-beta.1 -> pre-release 1.2.3-beta.1 (suffix "beta.1")
           $prefix = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.VersionPrefix.Trim()
-          $ref = '${{ github.ref_name }}'
-          if ('${{ github.ref_type }}' -eq 'tag') {
-              if ($ref -notmatch '^v(?<num>\d+\.\d+\.\d+)(-(?<suffix>[0-9A-Za-z.-]+))?$') { throw "Tag '$ref' is not vX.Y.Z[-suffix]" }
+          if ($env:REF_TYPE -eq 'tag') {
+              if ($env:REF_NAME -notmatch '^v(?<num>\d+\.\d+\.\d+)(-(?<suffix>[0-9A-Za-z.-]+))?$') { throw "Tag '$env:REF_NAME' is not vX.Y.Z[-suffix]" }
               if ($Matches.num -ne $prefix) {
-                  throw "Tag $ref does not match VersionPrefix $prefix in Directory.Build.props: update it first."
+                  throw "Tag $env:REF_NAME does not match VersionPrefix $prefix in Directory.Build.props: update it first."
               }
               $suffix = $Matches.suffix
           } else {
-              $suffix = "ci.${{ github.run_number }}"   # manual run: artifact only
+              $suffix = "ci.$env:RUN_NUMBER"   # manual run: artifact only
           }
           $ver = if ($suffix) { "$prefix-$suffix" } else { $prefix }
           "version=$ver"   >> $env:GITHUB_OUTPUT
@@ -56,16 +67,18 @@ jobs:
         run: dotnet test HVLab.Core.Tests/HVLab.Core.Tests.csproj -c Release
 
       - name: Publish (self-contained folder)
-        run: >
-          dotnet publish HVLab/HVLab.csproj -p:PublishProfile=HVLab-Release
-          -p:VersionSuffix=${{ steps.version.outputs.suffix }}
+        shell: pwsh
+        env:
+          SUFFIX: ${{ steps.version.outputs.suffix }}
+        run: dotnet publish HVLab/HVLab.csproj -p:PublishProfile=HVLab-Release "-p:VersionSuffix=$env:SUFFIX"
 
       - name: Package
         id: package
         shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          $ver  = '${{ steps.version.outputs.version }}'
-          $name = "HV-LAB-$ver-win-x64"
+          $name = "HV-LAB-$env:VERSION-win-x64"
           $stage = Join-Path $env:RUNNER_TEMP $name
           New-Item $stage -ItemType Directory | Out-Null
           Copy-Item HVLab/publish/* $stage -Recurse
@@ -84,35 +97,47 @@ jobs:
           "name=$name" >> $env:GITHUB_OUTPUT
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ steps.package.outputs.name }}
           path: |
             ${{ steps.package.outputs.zip }}
             ${{ steps.package.outputs.zip }}.sha256
 
-      - name: GitHub release
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v3
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release and upload its assets: this job only
+    steps:
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
-          name: HV-LAB Manager ${{ steps.version.outputs.version }}
-          prerelease: ${{ steps.version.outputs.prerelease }}
+          name: ${{ needs.build.outputs.name }}
+          path: dist
+
+      - name: GitHub release
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3 # v3
+        with:
+          name: HV-LAB Manager ${{ needs.build.outputs.version }}
+          prerelease: ${{ needs.build.outputs.prerelease }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           files: |
-            ${{ steps.package.outputs.zip }}
-            ${{ steps.package.outputs.zip }}.sha256
+            dist/${{ needs.build.outputs.name }}.zip
+            dist/${{ needs.build.outputs.name }}.zip.sha256
           body: |
             ## Installation
 
-            1. Téléchargez `${{ steps.package.outputs.name }}.zip` et extrayez-le.
+            1. Téléchargez `${{ needs.build.outputs.name }}.zip` et extrayez-le.
             2. Dans un PowerShell **administrateur**, depuis le dossier extrait :
                ```powershell
                Unblock-File .\Install.ps1
-               .\Install.ps1            # options : -DesktopShortcut  -EnableHyperV
+               .\Install.ps1            # options : -DesktopShortcut  -EnableHyperV  -SelfSign
                ```
-               L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer.
-            3. Désinstallation : `& "C:\Program Files\HV-LAB\Install.ps1" -Uninstall`
+               L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer
+               et une entrée dans Paramètres > Applications.
+            3. Désinstallation : Paramètres > Applications, ou `& "C:\Program Files\HV-LAB\Install.ps1" -Uninstall`
 
             Version autonome : rien d'autre à installer (.NET 10 et Windows App SDK sont inclus).
             Prérequis : Windows 10/11 Pro, Enterprise ou Education (ou Windows Server) avec Hyper-V.

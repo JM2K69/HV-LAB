@@ -22,9 +22,6 @@
                          Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-            <!-- Status InfoBar -->
-            <InfoBar x:Name="StatusBar" IsOpen="False" Severity="Success"/>
-
             <!-- VM Identity -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -36,7 +33,7 @@
                                 Visibility="{x:Bind ViewModel.BulkMode, Mode=OneWay,
                                               Converter={StaticResource BoolToVisibilityInverseConverter}}">
                         <TextBlock Text="{Binding [CVM_VmName], Source={StaticResource Loc}}" FontSize="12"/>
-                        <TextBox Text="{x:Bind ViewModel.VmName, Mode=TwoWay}"
+                        <TextBox AutomationProperties.Name="{Binding [CVM_VmName], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.VmName, Mode=TwoWay}"
                                  PlaceholderText="Ex. : WIN11-LAB-01"/>
                     </StackPanel>
 
@@ -47,7 +44,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [CVM_BaseImage], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
+                            <ComboBox AutomationProperties.Name="{Binding [CVM_BaseImage], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.BaseVhdxList, Mode=OneWay}"
                                       SelectedItem="{x:Bind ViewModel.SelectedBaseVhdx, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
                                       PlaceholderText="{Binding [CVM_PhSelectImage], Source={StaticResource Loc}}"
@@ -55,7 +52,7 @@
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding [CVM_Generation], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.Generations}"
+                            <ComboBox AutomationProperties.Name="{Binding [CVM_Generation], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.Generations}"
                                       SelectedItem="{x:Bind ViewModel.Generation, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
                         </StackPanel>
@@ -77,13 +74,13 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [CVM_RAM], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.MemoryOptions}"
+                            <ComboBox AutomationProperties.Name="{Binding [CVM_RAM], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.MemoryOptions}"
                                       SelectedItem="{x:Bind ViewModel.MemoryMB, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding [CVM_CPU], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.CpuOptions}"
+                            <ComboBox AutomationProperties.Name="{Binding [CVM_CPU], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.CpuOptions}"
                                       SelectedItem="{x:Bind ViewModel.CpuCount, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"/>
                         </StackPanel>
@@ -100,7 +97,7 @@
 
                     <StackPanel Spacing="4">
                         <TextBlock Text="{Binding [CVM_Switch], Source={StaticResource Loc}}" FontSize="12"/>
-                        <ComboBox ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
+                        <ComboBox AutomationProperties.Name="{Binding [CVM_Switch], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.VirtualSwitches, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedSwitch, Mode=TwoWay}"
                                   HorizontalAlignment="Stretch"
                                   PlaceholderText="{Binding [CVM_PhSelectSwitch], Source={StaticResource Loc}}"/>
@@ -124,7 +121,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [CVM_VmFolder], Source={StaticResource Loc}}" FontSize="12"/>
-                            <TextBox Text="{x:Bind ViewModel.VmFolder, Mode=TwoWay}"
+                            <TextBox AutomationProperties.Name="{Binding [CVM_VmFolder], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.VmFolder, Mode=TwoWay}"
                                      PlaceholderText="C:\HV-LAB\VMs"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
@@ -139,7 +136,7 @@
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [SET_BaseImages], Source={StaticResource Loc}}" FontSize="12"/>
-                            <TextBox Text="{x:Bind ViewModel.BaseVhdxFolder, Mode=TwoWay}"
+                            <TextBox AutomationProperties.Name="{Binding [SET_BaseImages], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.BaseVhdxFolder, Mode=TwoWay}"
                                      PlaceholderText="C:\HV-LAB\BaseImages"/>
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
@@ -192,18 +189,18 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{Binding [CVM_CompName], Source={StaticResource Loc}}" FontSize="12"/>
-                                <TextBox Text="{x:Bind ViewModel.ComputerName, Mode=TwoWay}"
+                                <TextBox AutomationProperties.Name="{Binding [CVM_CompName], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.ComputerName, Mode=TwoWay}"
                                          MaxLength="15" PlaceholderText="LAB-VM"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="{x:Bind ViewModel.PasswordLabel, Mode=OneWay}" FontSize="12"/>
                                 <Grid>
-                                    <PasswordBox x:Name="PwdBox"
+                                    <PasswordBox x:Name="PwdBox" AutomationProperties.Name="{x:Bind ViewModel.PasswordLabel, Mode=OneWay}"
                                                  Password="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
                                                  PlaceholderText="{Binding [CVM_PwdRequired], Source={StaticResource Loc}}"
                                                  Visibility="{x:Bind ViewModel.ShowPassword, Mode=OneWay,
                                                               Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
-                                    <TextBox x:Name="PwdTextBox"
+                                    <TextBox x:Name="PwdTextBox" AutomationProperties.Name="{x:Bind ViewModel.PasswordLabel, Mode=OneWay}"
                                              Text="{x:Bind ViewModel.AdminPassword, Mode=TwoWay}"
                                              PlaceholderText="{Binding [CVM_PwdRequired], Source={StaticResource Loc}}"
                                              Visibility="{x:Bind ViewModel.ShowPassword, Mode=OneWay,
@@ -231,13 +228,13 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Spacing="4">
                                 <TextBlock Text="{Binding [CVM_Locale], Source={StaticResource Loc}}" FontSize="12"/>
-                                <ComboBox ItemsSource="{x:Bind ViewModel.Languages}"
+                                <ComboBox AutomationProperties.Name="{Binding [CVM_Locale], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.Languages}"
                                           SelectedItem="{x:Bind ViewModel.UiLanguage, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
                             <StackPanel Grid.Column="1" Spacing="4">
                                 <TextBlock Text="{Binding [CVM_Timezone], Source={StaticResource Loc}}" FontSize="12"/>
-                                <ComboBox ItemsSource="{x:Bind ViewModel.TimeZones}"
+                                <ComboBox AutomationProperties.Name="{Binding [CVM_Timezone], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.TimeZones}"
                                           SelectedItem="{x:Bind ViewModel.TimeZone, Mode=TwoWay}"
                                           HorizontalAlignment="Stretch"/>
                             </StackPanel>
@@ -253,16 +250,22 @@
                                 </Grid.ColumnDefinitions>
                                 <StackPanel Grid.Column="0" Spacing="4">
                                     <TextBlock Text="{Binding [CVM_LinuxUser], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.LinuxUser, Mode=TwoWay}" PlaceholderText="labadmin"
+                                    <TextBox AutomationProperties.Name="{Binding [CVM_LinuxUser], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.LinuxUser, Mode=TwoWay}" PlaceholderText="labadmin"
                                              FontFamily="Consolas"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Spacing="4">
                                     <TextBlock Text="{Binding [CVM_SshKey], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.SshPublicKey, Mode=TwoWay}" PlaceholderText="ssh-ed25519 AAAA… user@host"
+                                    <TextBox AutomationProperties.Name="{Binding [CVM_SshKey], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.SshPublicKey, Mode=TwoWay}" PlaceholderText="ssh-ed25519 AAAA… user@host"
                                              FontFamily="Consolas" FontSize="11"/>
                                 </StackPanel>
                             </Grid>
+                        </StackPanel>
 
+                        <!-- Static IP for both: Linux through cloud-init, Windows through unattend.xml on a static MAC.
+                             HV-LAB NAT networks have no DHCP: without it, a Windows VM boots with no network. -->
+                        <StackPanel Spacing="12"
+                                    Visibility="{x:Bind ViewModel.UseAnswerFile, Mode=OneWay,
+                                                  Converter={StaticResource BoolToVisibilityConverter}}">
                             <ToggleSwitch Header="{Binding [CVM_StaticIp], Source={StaticResource Loc}}"
                                           IsOn="{x:Bind ViewModel.UseStaticIp, Mode=TwoWay}"/>
 
@@ -277,23 +280,23 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" Spacing="4">
                                         <TextBlock Text="{Binding [CVM_IpAddress], Source={StaticResource Loc}}" FontSize="12"/>
-                                        <TextBox Text="{x:Bind ViewModel.IpAddress, Mode=TwoWay}" PlaceholderText="192.168.100.10"
+                                        <TextBox AutomationProperties.Name="{Binding [CVM_IpAddress], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.IpAddress, Mode=TwoWay}" PlaceholderText="192.168.100.10"
                                                  FontFamily="Consolas"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Spacing="4">
                                         <TextBlock Text="{Binding [CVM_Prefix], Source={StaticResource Loc}}" FontSize="12"/>
-                                        <NumberBox Value="{x:Bind ViewModel.PrefixLength, Mode=TwoWay}"
+                                        <NumberBox AutomationProperties.Name="{Binding [CVM_Prefix], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.PrefixLength, Mode=TwoWay}"
                                                    Minimum="8" Maximum="30" SpinButtonPlacementMode="Compact"/>
                                     </StackPanel>
                                     <StackPanel Grid.Column="2" Spacing="4">
                                         <TextBlock Text="{Binding [CVM_Gateway], Source={StaticResource Loc}}" FontSize="12"/>
-                                        <TextBox Text="{x:Bind ViewModel.Gateway, Mode=TwoWay}" PlaceholderText="192.168.100.1"
+                                        <TextBox AutomationProperties.Name="{Binding [CVM_Gateway], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.Gateway, Mode=TwoWay}" PlaceholderText="192.168.100.1"
                                                  FontFamily="Consolas"/>
                                     </StackPanel>
                                 </Grid>
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="{Binding [CVM_Dns], Source={StaticResource Loc}}" FontSize="12"/>
-                                    <TextBox Text="{x:Bind ViewModel.DnsServers, Mode=TwoWay}" PlaceholderText="1.1.1.1, 8.8.8.8"
+                                    <TextBox AutomationProperties.Name="{Binding [CVM_Dns], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.DnsServers, Mode=TwoWay}" PlaceholderText="1.1.1.1, 8.8.8.8"
                                              FontFamily="Consolas"/>
                                 </StackPanel>
                                 <TextBlock Text="{Binding [CVM_IpBulkInfo], Source={StaticResource Loc}}" FontSize="12"
@@ -301,12 +304,43 @@
                             </StackPanel>
                         </StackPanel>
 
+                        <!-- Windows: join an Active Directory domain during setup (specialize pass) -->
+                        <StackPanel Spacing="8"
+                                    Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
+                                                  Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ToggleSwitch Header="{Binding [CVM_JoinDomain], Source={StaticResource Loc}}"
+                                          IsOn="{x:Bind ViewModel.JoinDomainEnabled, Mode=TwoWay}"/>
+                            <Grid ColumnSpacing="12" RowSpacing="8"
+                                  Visibility="{x:Bind ViewModel.JoinDomainEnabled, Mode=OneWay,
+                                                Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition/><RowDefinition/><RowDefinition/>
+                                </Grid.RowDefinitions>
+                                <TextBox Header="{Binding [CVM_Domain], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.DomainName, Mode=TwoWay}" PlaceholderText="lab.local" FontFamily="Consolas"/>
+                                <TextBox Grid.Column="1" Header="{Binding [CVM_DomainOu], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.DomainOu, Mode=TwoWay}" PlaceholderText="OU=Servers,DC=lab,DC=local"
+                                         FontFamily="Consolas"/>
+                                <TextBox Grid.Row="1" Header="{Binding [CVM_DomainUser], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.DomainUser, Mode=TwoWay}" PlaceholderText="Administrator" FontFamily="Consolas"/>
+                                <PasswordBox Grid.Row="1" Grid.Column="1" Header="{Binding [CVM_DomainPassword], Source={StaticResource Loc}}"
+                                             Password="{x:Bind ViewModel.DomainPassword, Mode=TwoWay}"/>
+                                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding [CVM_JoinInfo], Source={StaticResource Loc}}"
+                                           FontSize="12" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </Grid>
+                        </StackPanel>
+
                         <!-- KMS / Product Key (Windows only) -->
                         <StackPanel Spacing="4"
                                     Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
                                                   Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Text="{Binding [CVM_KmsKey], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.KmsKeys}"
+                            <ComboBox AutomationProperties.Name="{Binding [CVM_KmsKey], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.KmsKeys}"
                                       SelectedItem="{x:Bind ViewModel.SelectedKmsKey, Mode=TwoWay}"
                                       PlaceholderText="{Binding [CVM_KmsPlaceholder], Source={StaticResource Loc}}"
                                       HorizontalAlignment="Stretch">
@@ -327,7 +361,7 @@
                                     Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
                                                   Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Text="{Binding [CVM_ProductKey], Source={StaticResource Loc}}" FontSize="12"/>
-                            <TextBox Text="{x:Bind ViewModel.ProductKey, Mode=TwoWay}"
+                            <TextBox AutomationProperties.Name="{Binding [CVM_ProductKey], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.ProductKey, Mode=TwoWay}"
                                      PlaceholderText="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX"
                                      FontFamily="Consolas"/>
                         </StackPanel>
@@ -358,7 +392,7 @@
                     <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
                              Message="{Binding [CVM_BulkModeDesc], Source={StaticResource Loc}}"/>
 
-                    <ToggleSwitch IsOn="{x:Bind ViewModel.BulkMode, Mode=TwoWay}"/>
+                    <ToggleSwitch AutomationProperties.Name="{Binding [CVM_BulkMode], Source={StaticResource Loc}}" IsOn="{x:Bind ViewModel.BulkMode, Mode=TwoWay}"/>
 
                     <!-- The series becomes a Hyper-V VM group named after the prefix -->
                     <ToggleSwitch Header="{Binding [CVM_BulkGroup], Source={StaticResource Loc}}"
@@ -376,14 +410,14 @@
 
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="{Binding [CVM_BulkPrefix], Source={StaticResource Loc}}" FontSize="12"/>
-                            <TextBox Text="{x:Bind ViewModel.BulkPrefix, Mode=TwoWay}"
+                            <TextBox AutomationProperties.Name="{Binding [CVM_BulkPrefix], Source={StaticResource Loc}}" Text="{x:Bind ViewModel.BulkPrefix, Mode=TwoWay}"
                                      PlaceholderText="Ex. : SRV"
                                      FontFamily="Consolas"/>
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Spacing="4">
                             <TextBlock Text="{Binding [CVM_BulkCount], Source={StaticResource Loc}}" FontSize="12"/>
-                            <NumberBox Value="{x:Bind ViewModel.BulkCount, Mode=TwoWay}"
+                            <NumberBox AutomationProperties.Name="{Binding [CVM_BulkCount], Source={StaticResource Loc}}" Value="{x:Bind ViewModel.BulkCount, Mode=TwoWay}"
                                        Minimum="1" Maximum="99" SpinButtonPlacementMode="Inline"
                                        SmallChange="1"/>
                         </StackPanel>
@@ -425,6 +459,20 @@
                     <TextBlock Text="{Binding [Btn_Cancel], Source={StaticResource Loc}}"/>
                 </StackPanel>
             </Button>
+
+            <!-- Result of the creation, next to the button that started it -->
+            <InfoBar Severity="Error" IsClosable="True" CloseButtonCommand="{x:Bind ViewModel.DismissErrorCommand}"
+                     IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     Title="{Binding [Err_Title], Source={StaticResource Loc}}"
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+            <InfoBar Severity="Success" IsClosable="True" CloseButtonCommand="{x:Bind ViewModel.DismissSuccessCommand}"
+                     IsOpen="{x:Bind ViewModel.HasSuccess, Mode=OneWay}"
+                     Message="{x:Bind ViewModel.SuccessMessage, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button Click="OpenCreatedVm_Click" Content="{Binding [St_OpenVm], Source={StaticResource Loc}}"
+                            Visibility="{x:Bind ViewModel.CanOpenCreatedVm, Mode=OneWay}"/>
+                </InfoBar.ActionButton>
+            </InfoBar>
 
             <!-- Status -->
             <TextBlock Text="{x:Bind ViewModel.Status, Mode=OneWay}"

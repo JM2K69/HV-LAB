@@ -310,9 +310,22 @@ public partial class BaseVhdxViewModel : PageViewModelBase
             Status = T("BV_ImagesIn", images.Count, BaseFolder);
             MarkLoaded();
             await LoadSourceVmsAsync();
+            _ = LoadDependentsAsync();   // a few seconds (Get-VHD on every chain): the list shows first
         }
         catch (Exception ex) { Status = string.Empty; ShowError(ex); }
         finally { IsLoading = false; }
+    }
+
+    /// <summary>Fills "used by N VMs" on each base; silent when Hyper-V cannot be read (the list stays usable).</summary>
+    private async Task LoadDependentsAsync()
+    {
+        try
+        {
+            var map = await _vhdxService.GetBaseDependentsAsync();
+            foreach (var image in BaseVhdxList)
+                image.UsedBy = map.TryGetValue(image.FilePath, out var vms) ? vms : [];
+        }
+        catch (Exception ex) { CrashLogger.Log("Base image dependents", ex); }
     }
 
     /// <summary>
@@ -458,6 +471,19 @@ public partial class BaseVhdxViewModel : PageViewModelBase
     [RelayCommand]
     public async Task DeleteBaseVhdxAsync(BaseVhdx vhdx)
     {
+        // Deleting a base breaks every VM built on it: refused while one still uses it (read fresh, not the list's copy)
+        try
+        {
+            var map = await _vhdxService.GetBaseDependentsAsync();
+            if (map.TryGetValue(vhdx.FilePath, out var users) && users.Count > 0)
+            {
+                vhdx.UsedBy = users;
+                ShowActionError(T("BV_InUse", vhdx.Name, users.Count, string.Join(", ", users)));
+                return;
+            }
+        }
+        catch (Exception ex) { ShowActionError(ex); return; }   // cannot tell: never delete blindly
+
         if (!await _dialogs.ConfirmAsync(T("BV_DeleteTitle"), $"{T("BV_DeleteConfirm")} « {vhdx.Name}.vhdx » ?", T("Btn_Delete")))
             return;
         IsLoading = true;
