@@ -51,7 +51,143 @@
         <!-- Pivot tabs -->
         <Pivot Grid.Row="2">
 
-            <!-- ═══ Tab 1 : vSwitches ═══ -->
+            <!-- ═══ Tab 1 : topology graph ═══
+                 Each switch: uplink node ── switch node ── a vertical bus with one branch per VM adapter.
+                 Lines are plain borders (theme brushes), so the drawing follows light/dark themes and needs no
+                 coordinates: the bus spans the VM list from the first to the last row centre. -->
+            <PivotItem Header="{Binding [SW_TabTopology], Source={StaticResource Loc}}">
+                <StackPanel Spacing="16" Margin="0,12,0,0">
+                    <TextBlock Text="{Binding [TOPO_Empty], Source={StaticResource Loc}}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="{x:Bind ViewModel.IsSwitchListEmpty, Mode=OneWay,
+                                            Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Topology}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="16"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:TopologySwitch">
+                                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="8" Padding="20,16">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="230"/>
+                                            <ColumnDefinition Width="48"/>
+                                            <ColumnDefinition Width="210"/>
+                                            <ColumnDefinition Width="36"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Uplink: physical adapter, NAT, connection sharing, host or isolated -->
+                                        <Border Grid.Column="0" VerticalAlignment="Center" Padding="12,10" CornerRadius="8"
+                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                            <Grid ColumnSpacing="10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <FontIcon Glyph="{x:Bind UplinkGlyph}" FontSize="20" VerticalAlignment="Center"
+                                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind UplinkTitle}" FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind UplinkTitle}"/>
+                                                    <TextBlock Text="{x:Bind UplinkDetail}" FontSize="11" TextWrapping="Wrap"
+                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <Border Grid.Column="1" Height="2" VerticalAlignment="Center"
+                                                Background="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                                                Visibility="{x:Bind HasUplink}"/>
+
+                                        <!-- Switch -->
+                                        <Border Grid.Column="2" VerticalAlignment="Center" Padding="12,10" CornerRadius="8"
+                                                Background="{ThemeResource AccentFillColorDefaultBrush}">
+                                            <Grid ColumnSpacing="10">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <FontIcon Glyph="&#xE968;" FontSize="20" VerticalAlignment="Center"
+                                                          Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
+                                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                               Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                                               ToolTipService.ToolTip="{x:Bind Name}"/>
+                                                    <TextBlock Text="{x:Bind TypeLine}" FontSize="11"
+                                                               Foreground="{ThemeResource TextOnAccentFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+
+                                        <Border Grid.Column="3" Height="2" VerticalAlignment="Center"
+                                                Background="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                                                Visibility="{x:Bind HasVms}"/>
+
+                                        <!-- Bus and VM adapters -->
+                                        <Grid Grid.Column="4" VerticalAlignment="Center">
+                                            <Border Width="2" HorizontalAlignment="Left" Margin="0,20,0,20"
+                                                    Background="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                                                    Visibility="{x:Bind HasVms}"/>
+                                            <ItemsControl ItemsSource="{x:Bind Vms}">
+                                                <ItemsControl.ItemsPanel>
+                                                    <ItemsPanelTemplate>
+                                                        <StackPanel Spacing="8"/>
+                                                    </ItemsPanelTemplate>
+                                                </ItemsControl.ItemsPanel>
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate x:DataType="models:TopologyVm">
+                                                        <Grid Height="40">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="22"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border Height="2" VerticalAlignment="Center"
+                                                                    Background="{ThemeResource ControlStrongStrokeColorDefaultBrush}"/>
+                                                            <Border Grid.Column="1" HorizontalAlignment="Left" Padding="12,0" CornerRadius="6"
+                                                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                                                <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                                                    <Ellipse Width="10" Height="10" VerticalAlignment="Center"
+                                                                             Fill="{x:Bind State, Converter={StaticResource StateToColorConverter}}"
+                                                                             ToolTipService.ToolTip="{x:Bind State}"/>
+                                                                    <TextBlock Text="{x:Bind VmName}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                                    <TextBlock Text="{x:Bind AdapterName}" FontSize="11" VerticalAlignment="Center"
+                                                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                                    <TextBlock Text="{x:Bind IpAddress}" FontFamily="Consolas" FontSize="12"
+                                                                               VerticalAlignment="Center" IsTextSelectionEnabled="True"
+                                                                               Visibility="{x:Bind HasIp}"/>
+                                                                    <Border CornerRadius="4" Padding="6,1" VerticalAlignment="Center"
+                                                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                            Visibility="{x:Bind HasVlan}">
+                                                                        <TextBlock Text="{x:Bind VlanLabel}" FontSize="10" FontWeight="SemiBold"
+                                                                                   Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
+                                                                    </Border>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock Text="{Binding [TOPO_NoVm], Source={StaticResource Loc}}" Margin="12,0,0,0"
+                                                       VerticalAlignment="Center" FontStyle="Italic"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                       Visibility="{x:Bind HasNoVms}"/>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </PivotItem>
+
+            <!-- ═══ Tab 2 : vSwitches ═══ -->
             <PivotItem Header="{Binding [SW_TabSwitches], Source={StaticResource Loc}}">
                 <Grid RowSpacing="12" Margin="0,12,0,0">
                     <!-- Auto, not *: inside the page ScrollViewer a * row takes all the free height and the list
@@ -71,7 +207,7 @@
                             <ColumnDefinition Width="100"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="70"/>
-                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="90"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
                         <TextBlock Grid.Column="1" Text="{Binding [SW_ColType], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
@@ -101,7 +237,7 @@
                                         <ColumnDefinition Width="100"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="70"/>
-                                        <ColumnDefinition Width="80"/>
+                                        <ColumnDefinition Width="90"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{x:Bind Name}"
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
@@ -113,12 +249,20 @@
                                     <TextBlock Grid.Column="3" Text="{x:Bind VlanDisplay}"
                                                VerticalAlignment="Center" FontFamily="Consolas" FontSize="12"
                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
-                                    <Button Grid.Column="4" Command="{Binding ViewModel.RemoveSwitchCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
-                                            Width="32" Height="32" Padding="0"
-                                            AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', Name)}"
-                                            ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
-                                        <FontIcon Glyph="&#xE74D;" FontSize="12"/>
-                                    </Button>
+                                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4">
+                                        <Button Click="ChangeType_Click" Tag="{x:Bind}"
+                                                Width="32" Height="32" Padding="0"
+                                                AutomationProperties.Name="{x:Bind helpers:A11y.Action('SW_ChangeType', Name)}"
+                                                ToolTipService.ToolTip="{Binding [SW_ChangeType], Source={StaticResource Loc}}">
+                                            <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                                        </Button>
+                                        <Button Command="{Binding ViewModel.RemoveSwitchCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                                Width="32" Height="32" Padding="0"
+                                                AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', Name)}"
+                                                ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
+                                            <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                                        </Button>
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -216,12 +360,13 @@
                 </Grid>
             </PivotItem>
 
-            <!-- ═══ Tab 2 : NAT ═══ -->
+            <!-- ═══ Tab 3 : NAT ═══ -->
             <PivotItem Header="{Binding [SW_TabNAT], Source={StaticResource Loc}}">
                 <Grid RowSpacing="12" Margin="0,12,0,0">
                     <!-- Auto, not *: inside the page ScrollViewer a * row takes all the free height and the list
                          floats in the middle of it, leaving an empty band under the column headers -->
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -352,10 +497,77 @@
                                     Style="{StaticResource AccentButtonStyle}"/>
                         </StackPanel>
                     </Expander>
+
+                    <!-- NAT with DHCP: Windows Internet connection sharing (read only when opened: COM call) -->
+                    <Expander Grid.Row="3" Header="{Binding [ICS_Title], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch" Expanding="IcsExpander_Expanding">
+                        <StackPanel Spacing="10" Padding="0,8,0,4">
+                            <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                                     Message="{Binding [ICS_Info], Source={StaticResource Loc}}"/>
+                            <TextBlock Text="{x:Bind ViewModel.IcsStatusText, Mode=OneWay}" FontWeight="SemiBold"/>
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="4">
+                                    <TextBlock Text="{Binding [ICS_Switch], Source={StaticResource Loc}}" FontSize="12"/>
+                                    <ComboBox ItemsSource="{x:Bind ViewModel.InternalSwitchNames, Mode=OneWay}"
+                                              SelectedItem="{x:Bind ViewModel.IcsSwitch, Mode=TwoWay}"
+                                              HorizontalAlignment="Stretch"
+                                              PlaceholderText="{Binding [NAT_SelectSwitch], Source={StaticResource Loc}}"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Text="{Binding [ICS_Public], Source={StaticResource Loc}}" FontSize="12"/>
+                                    <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
+                                              SelectedItem="{x:Bind ViewModel.IcsPublicAdapter, Mode=TwoWay}"
+                                              HorizontalAlignment="Stretch"
+                                              PlaceholderText="{Binding [SW_AdapterPlaceholder], Source={StaticResource Loc}}"/>
+                                </StackPanel>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="{Binding [ICS_Enable], Source={StaticResource Loc}}"
+                                        Command="{x:Bind ViewModel.EnableIcsCommand}"
+                                        Style="{StaticResource AccentButtonStyle}"/>
+                                <Button Content="{Binding [ICS_Disable], Source={StaticResource Loc}}"
+                                        Command="{x:Bind ViewModel.DisableIcsCommand}"
+                                        IsEnabled="{x:Bind ViewModel.IsIcsOn, Mode=OneWay}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
                 </Grid>
             </PivotItem>
 
         </Pivot>
+
+        <!-- Change the type of a switch -->
+        <ContentDialog x:Name="ChangeTypeDialog"
+                       Title="{Binding [SW_ChangeTypeTitle], Source={StaticResource Loc}}"
+                       PrimaryButtonText="{Binding [SW_ChangeTypeApply], Source={StaticResource Loc}}"
+                       CloseButtonText="{Binding [Btn_Cancel], Source={StaticResource Loc}}"
+                       DefaultButton="Close"
+                       PrimaryButtonClick="ChangeTypeDialog_PrimaryButtonClick">
+            <StackPanel Spacing="12" MinWidth="440">
+                <TextBlock Text="{x:Bind ViewModel.EditingSwitch.Name, Mode=OneWay, FallbackValue=''}"
+                           Style="{StaticResource SubtitleTextBlockStyle}"/>
+                <InfoBar x:Name="ChangeTypeError" Severity="Error" IsClosable="False"/>
+                <RadioButtons ItemsSource="{x:Bind ViewModel.SwitchTypes}"
+                              SelectedItem="{x:Bind ViewModel.EditSwitchType, Mode=TwoWay}"
+                              MaxColumns="3"/>
+                <StackPanel Spacing="4"
+                            Visibility="{x:Bind ViewModel.EditIsExternal, Mode=OneWay,
+                                          Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="{Binding [SW_AdapterLabel], Source={StaticResource Loc}}" FontSize="12"/>
+                    <ComboBox ItemsSource="{x:Bind ViewModel.NetworkAdapters, Mode=OneWay}"
+                              SelectedItem="{x:Bind ViewModel.EditSwitchAdapter, Mode=TwoWay}"
+                              HorizontalAlignment="Stretch"
+                              PlaceholderText="{Binding [SW_AdapterPlaceholder], Source={StaticResource Loc}}"/>
+                </StackPanel>
+                <InfoBar Severity="Warning" IsClosable="False"
+                         IsOpen="{x:Bind ViewModel.HasChangeTypeWarning, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.ChangeTypeWarning, Mode=OneWay}"/>
+            </StackPanel>
+        </ContentDialog>
         </Grid>
     </ScrollViewer>
 </Page>

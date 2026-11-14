@@ -15,13 +15,14 @@
         <GridLength x:Key="ColState">96</GridLength>
         <GridLength x:Key="ColRam">80</GridLength>
         <GridLength x:Key="ColIp">118</GridLength>
-        <GridLength x:Key="ColActions">150</GridLength>
+        <GridLength x:Key="ColActions">186</GridLength>
         <x:Double x:Key="ColGen">50</x:Double>
         <x:Double x:Key="ColCpu">70</x:Double>
         <x:Double x:Key="ColVlan">60</x:Double>
     </Page.Resources>
 
-    <!-- No outer ScrollViewer: the ListView scrolls itself (keeps virtualization and a fixed header) -->
+    <!-- No outer ScrollViewer: the ListView scrolls itself (keeps virtualization and a fixed header).
+         The details of a VM open in their own window (VmWindow): double-click or the details button. -->
     <Grid Padding="36,24,36,20" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -107,11 +108,9 @@
         </StackPanel>
 
         <!-- Column headers -->
-        <!-- Right margin = width of the detail pane, so the headers stay above their columns -->
         <Grid Grid.Row="2"
               Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-              Padding="16,8" CornerRadius="8" ColumnSpacing="8"
-              Margin="{Binding HeaderMargin, ElementName=PageRoot}">
+              Padding="16,8" CornerRadius="8" ColumnSpacing="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="{StaticResource ColName}"/>
                 <ColumnDefinition Width="{StaticResource ColState}"/>
@@ -134,331 +133,179 @@
             <TextBlock Grid.Column="8" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}" FontWeight="SemiBold" FontSize="12"/>
         </Grid>
 
-        <!-- List and detail pane -->
-        <Grid Grid.Row="3" ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <!-- VM list: double-click (or Enter) opens the VM's window -->
+        <ListView x:Name="VmList" Grid.Row="3"
+                  ItemsSource="{x:Bind ViewModel.VisibleMachines}"
+                  SelectionMode="Extended"
+                  SelectionChanged="VmList_SelectionChanged"
+                  DoubleTapped="VmList_DoubleTapped">
+            <ListView.KeyboardAccelerators>
+                <KeyboardAccelerator Key="Delete" Invoked="DeleteSelected_Invoked"/>
+                <KeyboardAccelerator Key="Enter" Invoked="OpenSelected_Invoked"/>
+            </ListView.KeyboardAccelerators>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Padding"                    Value="16,0"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                    <Setter Property="MinHeight"                  Value="48"/>
+                    <Setter Property="CornerRadius"               Value="6"/>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="models:VirtualMachine">
+                    <Grid ColumnSpacing="8" VerticalAlignment="Center" Background="Transparent">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="{StaticResource ColName}"/>
+                            <ColumnDefinition Width="{StaticResource ColState}"/>
+                            <ColumnDefinition Width="Auto"/>  <!-- Gen  (hidden when narrow) -->
+                            <ColumnDefinition Width="{StaticResource ColRam}"/>
+                            <ColumnDefinition Width="Auto"/>  <!-- CPU  (hidden when narrow) -->
+                            <ColumnDefinition Width="{StaticResource ColIp}"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>  <!-- VLAN (hidden when narrow) -->
+                            <ColumnDefinition Width="{StaticResource ColActions}"/>
+                        </Grid.ColumnDefinitions>
 
-            <ListView x:Name="VmList"
-                      ItemsSource="{x:Bind ViewModel.VisibleMachines}"
-                      SelectionMode="Extended"
-                      SelectionChanged="VmList_SelectionChanged">
-                <ListView.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Delete" Invoked="DeleteSelected_Invoked"/>
-                </ListView.KeyboardAccelerators>
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                        <Setter Property="Padding"                    Value="16,0"/>
-                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                        <Setter Property="MinHeight"                  Value="48"/>
-                        <Setter Property="CornerRadius"               Value="6"/>
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="models:VirtualMachine">
-                        <Grid ColumnSpacing="8" VerticalAlignment="Center">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="{StaticResource ColName}"/>
-                                <ColumnDefinition Width="{StaticResource ColState}"/>
-                                <ColumnDefinition Width="Auto"/>  <!-- Gen  (hidden when narrow) -->
-                                <ColumnDefinition Width="{StaticResource ColRam}"/>
-                                <ColumnDefinition Width="Auto"/>  <!-- CPU  (hidden when narrow) -->
-                                <ColumnDefinition Width="{StaticResource ColIp}"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>  <!-- VLAN (hidden when narrow) -->
-                                <ColumnDefinition Width="{StaticResource ColActions}"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Name (and its group) -->
-                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <FontIcon Glyph="&#xE7F8;" FontSize="14"
-                                          Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}"
-                                               TextTrimming="CharacterEllipsis" FontWeight="Medium"
-                                               ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}"/>
-                                    <TextBlock Text="{x:Bind GroupName, Mode=OneWay}" FontSize="11"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                               TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
+                        <!-- Name (and its group) -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE7F8;" FontSize="14"
+                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{x:Bind Name, Mode=OneWay}"
+                                           TextTrimming="CharacterEllipsis" FontWeight="Medium"
+                                           ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}"/>
+                                <TextBlock Text="{x:Bind GroupName, Mode=OneWay}" FontSize="11"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
-
-                            <!-- State badge -->
-                            <Border Grid.Column="1" CornerRadius="12"
-                                    HorizontalAlignment="Left" Padding="10,3"
-                                    VerticalAlignment="Center"
-                                    Background="{x:Bind State, Mode=OneWay, Converter={StaticResource StateToColorConverter}}">
-                                <TextBlock Text="{x:Bind State, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"
-                                           Foreground="White"/>
-                            </Border>
-
-                            <TextBlock Grid.Column="2" Text="{x:Bind GenDisplay}"
-                                       VerticalAlignment="Center" FontSize="13"
-                                       Width="{StaticResource ColGen}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
-                            <TextBlock Grid.Column="3" Text="{x:Bind MemoryDisplay, Mode=OneWay}"
-                                       VerticalAlignment="Center" FontSize="13"/>
-                            <TextBlock Grid.Column="4" Text="{x:Bind CpuDisplay, Mode=OneWay}"
-                                       VerticalAlignment="Center" FontSize="13"
-                                       Width="{StaticResource ColCpu}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
-                            <TextBlock Grid.Column="5" Text="{x:Bind IpAddress, Mode=OneWay}"
-                                       VerticalAlignment="Center" FontSize="13" FontFamily="Consolas"
-                                       IsTextSelectionEnabled="True" TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Grid.Column="6" Text="{x:Bind SwitchName, Mode=OneWay}"
-                                       VerticalAlignment="Center" FontSize="13"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Grid.Column="7" Text="{x:Bind VlanInfo, Mode=OneWay}"
-                                       VerticalAlignment="Center" FontSize="13"
-                                       TextTrimming="CharacterEllipsis"
-                                       Width="{StaticResource ColVlan}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"
-                                       ToolTipService.ToolTip="{x:Bind VlanInfo, Mode=OneWay}"/>
-
-                            <!-- Actions: start, clean shutdown, console, and the other actions in a menu -->
-                            <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="4"
-                                        VerticalAlignment="Center">
-                                <Button Command="{Binding ViewModel.StartVmCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
-                                        Width="32" Height="32" Padding="0"
-                                        IsEnabled="{x:Bind CanStart, Mode=OneWay}"
-                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_TipStart', Name)}"
-                                        ToolTipService.ToolTip="{Binding [VM_TipStart], Source={StaticResource Loc}}">
-                                    <FontIcon Glyph="&#xE768;" FontSize="12"/>
-                                </Button>
-                                <Button Command="{Binding ViewModel.StopVmCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
-                                        Width="32" Height="32" Padding="0"
-                                        IsEnabled="{x:Bind CanStop, Mode=OneWay}"
-                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_Shutdown', Name)}"
-                                        ToolTipService.ToolTip="{Binding [VM_Shutdown], Source={StaticResource Loc}}">
-                                    <FontIcon Glyph="&#xE71A;" FontSize="12"/>
-                                </Button>
-                                <Button Command="{Binding ViewModel.ConnectVmCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
-                                        Width="32" Height="32" Padding="0"
-                                        IsEnabled="{x:Bind CanConnect, Mode=OneWay}"
-                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_TipConsole', Name)}"
-                                        ToolTipService.ToolTip="{Binding [VM_TipConsole], Source={StaticResource Loc}}">
-                                    <FontIcon Glyph="&#xE8A7;" FontSize="12"/>
-                                </Button>
-                                <Button Width="32" Height="32" Padding="0" Tag="{x:Bind}"
-                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_MoreActions', Name)}"
-                                        ToolTipService.ToolTip="{Binding [VM_MoreActions], Source={StaticResource Loc}}">
-                                    <FontIcon Glyph="&#xE712;" FontSize="12"/>
-                                    <Button.Flyout>
-                                        <MenuFlyout>
-                                            <MenuFlyoutItem Text="{Binding [VM_TurnOff], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanTurnOff, Mode=OneWay}" Click="TurnOff_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7E8;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutItem Text="{Binding [VM_Restart], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanStop, Mode=OneWay}" Click="Restart_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE777;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutItem Text="{Binding [VM_Reset], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanReset, Mode=OneWay}" Click="Reset_Click"/>
-                                            <MenuFlyoutItem Text="{Binding [VM_Save], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanSave, Mode=OneWay}" Click="Save_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74E;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutItem Text="{Binding [VM_Pause], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanPause, Mode=OneWay}" Click="Pause_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE769;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutItem Text="{Binding [VM_Resume], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanResume, Mode=OneWay}" Click="Resume_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE768;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutSeparator/>
-                                            <MenuFlyoutItem Text="{Binding [VM_Settings], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            Click="Settings_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE713;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                            <MenuFlyoutSeparator/>
-                                            <MenuFlyoutItem Text="{Binding [Btn_Delete], Source={StaticResource Loc}}" Tag="{x:Bind}"
-                                                            IsEnabled="{x:Bind CanRemove, Mode=OneWay}" Click="Delete_Click">
-                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                        </MenuFlyout>
-                                    </Button.Flyout>
-                                </Button>
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-
-            <!-- Empty state -->
-            <StackPanel Spacing="12" MaxWidth="360"
-                        HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay,
-                                     Converter={StaticResource BoolToVisibilityConverter}}">
-                <FontIcon Glyph="&#xE7F8;" FontSize="48"
-                          Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
-                <TextBlock Text="{Binding [VM_EmptyTitle], Source={StaticResource Loc}}"
-                           FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-                <TextBlock Text="{Binding [VM_EmptyText], Source={StaticResource Loc}}"
-                           TextAlignment="Center" TextWrapping="Wrap"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center"
-                        Click="CreateVm_Click">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE945;" FontSize="14"/>
-                        <TextBlock Text="{Binding [VM_EmptyButton], Source={StaticResource Loc}}"/>
-                    </StackPanel>
-                </Button>
-            </StackPanel>
-
-            <!-- Detail pane of the selected VM -->
-            <ScrollViewer Grid.Column="1" Width="340"
-                          Visibility="{x:Bind ViewModel.HasSingleSelection, Mode=OneWay,
-                                        Converter={StaticResource BoolToVisibilityConverter}}">
-                <StackPanel Spacing="12" Padding="0,0,12,12">
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1" CornerRadius="8" Padding="16,12">
-                        <StackPanel Spacing="10">
-                            <TextBlock Text="{x:Bind ViewModel.SelectedVm.Name, Mode=OneWay, FallbackValue=''}"
-                                       Style="{StaticResource SubtitleTextBlockStyle}" TextTrimming="CharacterEllipsis"/>
-
-                            <!-- Live screen -->
-                            <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4"
-                                    Width="308" Height="231">
-                                <Grid>
-                                    <Image x:Name="ScreenImage" Stretch="Uniform"
-                                           AutomationProperties.Name="{Binding [VM_Details], Source={StaticResource Loc}}"/>
-                                    <TextBlock x:Name="NoScreenText" Text="{Binding [VM_NoScreen], Source={StaticResource Loc}}"
-                                               TextWrapping="Wrap" TextAlignment="Center" Margin="16"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                </Grid>
-                            </Border>
-
-                            <Grid ColumnSpacing="8" RowSpacing="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
-                                </Grid.RowDefinitions>
-                                <TextBlock Text="{Binding [VM_GuestOs], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.SelectedVm.GuestOs, Mode=OneWay, FallbackValue=''}" TextWrapping="Wrap"/>
-                                <TextBlock Grid.Row="1" Text="{Binding [VM_ColIp], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Grid.Row="1" Grid.Column="1" Text="{x:Bind ViewModel.SelectedVm.IpAddress, Mode=OneWay, FallbackValue=''}"
-                                           FontFamily="Consolas" IsTextSelectionEnabled="True"/>
-                                <TextBlock Grid.Row="2" Text="{Binding [VM_Uptime], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Grid.Row="2" Grid.Column="1" Text="{x:Bind ViewModel.SelectedVm.Uptime, Mode=OneWay, FallbackValue=''}"/>
-                                <TextBlock Grid.Row="3" Text="{Binding [VM_Heartbeat], Source={StaticResource Loc}}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                <TextBlock Grid.Row="3" Grid.Column="1" Text="{x:Bind ViewModel.SelectedVm.Heartbeat, Mode=OneWay, FallbackValue=''}"/>
-                            </Grid>
-
-                            <!-- Connections -->
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Click="Console_Click" ToolTipService.ToolTip="{Binding [VM_TipConsole], Source={StaticResource Loc}}">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <FontIcon Glyph="&#xE8A7;" FontSize="12"/>
-                                        <TextBlock Text="{Binding [VM_TipConsole], Source={StaticResource Loc}}"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Click="Ssh_Click" Content="{Binding [VM_Ssh], Source={StaticResource Loc}}"/>
-                                <Button Click="Rdp_Click" Content="{Binding [VM_Rdp], Source={StaticResource Loc}}"/>
-                            </StackPanel>
-                            <Button Click="CopyIp_Click" Content="{Binding [VM_CopyIp], Source={StaticResource Loc}}"/>
                         </StackPanel>
-                    </Border>
 
-                    <!-- Credentials written by HV-LAB at creation -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1" CornerRadius="8" Padding="16,12">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="{Binding [VM_Credentials], Source={StaticResource Loc}}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <!-- VM created outside HV-LAB (or without answer file): nothing to copy or type -->
-                            <TextBlock Text="{Binding [VM_NoCredentials], Source={StaticResource Loc}}" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
-                                                     Converter={StaticResource BoolToVisibilityInverseConverter}}"/>
-                            <TextBlock Text="{x:Bind ViewModel.SelectedVm.AccountLine, Mode=OneWay, FallbackValue=''}"
-                                       IsTextSelectionEnabled="True" TextWrapping="Wrap"
-                                       Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
-                                                     Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <Button Click="CopyPassword_Click"
-                                    Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
-                                                  Converter={StaticResource BoolToVisibilityConverter}}">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE8C8;" FontSize="12"/>
-                                    <TextBlock Text="{Binding [VM_CopyPassword], Source={StaticResource Loc}}"/>
-                                </StackPanel>
+                        <!-- State badge -->
+                        <Border Grid.Column="1" CornerRadius="12"
+                                HorizontalAlignment="Left" Padding="10,3"
+                                VerticalAlignment="Center"
+                                Background="{x:Bind State, Mode=OneWay, Converter={StaticResource StateToColorConverter}}">
+                            <TextBlock Text="{x:Bind State, Mode=OneWay}" FontSize="11" FontWeight="SemiBold"
+                                       Foreground="White"/>
+                        </Border>
+
+                        <TextBlock Grid.Column="2" Text="{x:Bind GenDisplay}"
+                                   VerticalAlignment="Center" FontSize="13"
+                                   Width="{StaticResource ColGen}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
+                        <TextBlock Grid.Column="3" Text="{x:Bind MemoryDisplay, Mode=OneWay}"
+                                   VerticalAlignment="Center" FontSize="13"/>
+                        <TextBlock Grid.Column="4" Text="{x:Bind CpuDisplay, Mode=OneWay}"
+                                   VerticalAlignment="Center" FontSize="13"
+                                   Width="{StaticResource ColCpu}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"/>
+                        <TextBlock Grid.Column="5" Text="{x:Bind IpAddress, Mode=OneWay}"
+                                   VerticalAlignment="Center" FontSize="13" FontFamily="Consolas"
+                                   IsTextSelectionEnabled="True" TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="6" Text="{x:Bind SwitchName, Mode=OneWay}"
+                                   VerticalAlignment="Center" FontSize="13"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock Grid.Column="7" Text="{x:Bind VlanInfo, Mode=OneWay}"
+                                   VerticalAlignment="Center" FontSize="13"
+                                   TextTrimming="CharacterEllipsis"
+                                   Width="{StaticResource ColVlan}" Visibility="{Binding DetailColumnsVisibility, ElementName=PageRoot}"
+                                   ToolTipService.ToolTip="{x:Bind VlanInfo, Mode=OneWay}"/>
+
+                        <!-- Actions: start, clean shutdown, console, details window, and the other actions in a menu -->
+                        <StackPanel Grid.Column="8" Orientation="Horizontal" Spacing="4"
+                                    VerticalAlignment="Center">
+                            <Button Command="{Binding ViewModel.StartVmCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                    Width="32" Height="32" Padding="0"
+                                    IsEnabled="{x:Bind CanStart, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_TipStart', Name)}"
+                                    ToolTipService.ToolTip="{Binding [VM_TipStart], Source={StaticResource Loc}}">
+                                <FontIcon Glyph="&#xE768;" FontSize="12"/>
                             </Button>
-                            <Grid ColumnSpacing="8"
-                                  Visibility="{x:Bind ViewModel.SelectedVm.HasCredentials, Mode=OneWay, FallbackValue=Collapsed,
-                                                Converter={StaticResource BoolToVisibilityConverter}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Button Command="{x:Bind ViewModel.TypePasswordCommand}" HorizontalAlignment="Stretch">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <FontIcon Glyph="&#xE92E;" FontSize="12"/>
-                                        <TextBlock Text="{Binding [VM_TypePassword], Source={StaticResource Loc}}"/>
-                                    </StackPanel>
-                                </Button>
-                                <ComboBox Grid.Column="1" ItemsSource="{x:Bind ViewModel.TypingLanguages}"
-                                          SelectedItem="{x:Bind ViewModel.TypingLanguage, Mode=TwoWay}"
-                                          AutomationProperties.Name="{Binding [VM_TypeLayout], Source={StaticResource Loc}}"
-                                          ToolTipService.ToolTip="{Binding [VM_TypeLayout], Source={StaticResource Loc}}"/>
-                            </Grid>
-                            <Button Command="{x:Bind ViewModel.SendCtrlAltDelCommand}"
-                                    Content="{Binding [VM_SendCtrlAltDel], Source={StaticResource Loc}}"/>
+                            <Button Command="{Binding ViewModel.StopVmCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                    Width="32" Height="32" Padding="0"
+                                    IsEnabled="{x:Bind CanStop, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_Shutdown', Name)}"
+                                    ToolTipService.ToolTip="{Binding [VM_Shutdown], Source={StaticResource Loc}}">
+                                <FontIcon Glyph="&#xE71A;" FontSize="12"/>
+                            </Button>
+                            <Button Command="{Binding ViewModel.ConnectVmCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                    Width="32" Height="32" Padding="0"
+                                    IsEnabled="{x:Bind CanConnect, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_TipConsole', Name)}"
+                                    ToolTipService.ToolTip="{Binding [VM_TipConsole], Source={StaticResource Loc}}">
+                                <FontIcon Glyph="&#xE8A7;" FontSize="12"/>
+                            </Button>
+                            <Button Click="Details_Click" Tag="{x:Bind}"
+                                    Width="32" Height="32" Padding="0"
+                                    AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_Details', Name)}"
+                                    ToolTipService.ToolTip="{Binding [VM_Details], Source={StaticResource Loc}}">
+                                <FontIcon Glyph="&#xE8A0;" FontSize="12"/>
+                            </Button>
+                            <Button Width="32" Height="32" Padding="0"
+                                    AutomationProperties.Name="{x:Bind helpers:A11y.Action('VM_MoreActions', Name)}"
+                                    ToolTipService.ToolTip="{Binding [VM_MoreActions], Source={StaticResource Loc}}">
+                                <FontIcon Glyph="&#xE712;" FontSize="12"/>
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuFlyoutItem Text="{Binding [VM_TurnOff], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanTurnOff, Mode=OneWay}" Click="TurnOff_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7E8;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{Binding [VM_Restart], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanStop, Mode=OneWay}" Click="Restart_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE777;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{Binding [VM_Reset], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanReset, Mode=OneWay}" Click="Reset_Click"/>
+                                        <MenuFlyoutItem Text="{Binding [VM_Save], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanSave, Mode=OneWay}" Click="Save_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74E;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{Binding [VM_Pause], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanPause, Mode=OneWay}" Click="Pause_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE769;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{Binding [VM_Resume], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanResume, Mode=OneWay}" Click="Resume_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE768;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator/>
+                                        <MenuFlyoutItem Text="{Binding [VM_Settings], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        Click="Settings_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE713;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutSeparator/>
+                                        <MenuFlyoutItem Text="{Binding [Btn_Delete], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        IsEnabled="{x:Bind CanRemove, Mode=OneWay}" Click="Delete_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
                         </StackPanel>
-                    </Border>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
 
-                    <!-- Checkpoints -->
-                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1" CornerRadius="8" Padding="16,12">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="{Binding [VM_Checkpoints], Source={StaticResource Loc}}" Style="{StaticResource BodyStrongTextBlockStyle}"/>
-                            <ListView ItemsSource="{x:Bind ViewModel.Checkpoints}"
-                                      SelectedItem="{x:Bind ViewModel.SelectedCheckpoint, Mode=TwoWay}"
-                                      SelectionMode="Single" MaxHeight="220">
-                                <ListView.ItemTemplate>
-                                    <DataTemplate x:DataType="models:CheckpointRow">
-                                        <StackPanel Orientation="Horizontal" Spacing="6" Padding="{x:Bind helpers:CheckpointDisplay.Indent(Indent)}">
-                                            <FontIcon Glyph="{x:Bind helpers:CheckpointDisplay.Glyph(IsNow)}" FontSize="12"
-                                                      Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                            <StackPanel>
-                                                <TextBlock Text="{x:Bind helpers:CheckpointDisplay.Name(Name, IsNow)}" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{x:Bind CreatedDisplay}" FontSize="11"
-                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ListView.ItemTemplate>
-                            </ListView>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Button Command="{x:Bind ViewModel.CreateCheckpointCommand}" Content="{Binding [CP_Create], Source={StaticResource Loc}}"/>
-                                <Button Command="{x:Bind ViewModel.ApplyCheckpointCommand}" Content="{Binding [CP_Apply], Source={StaticResource Loc}}"
-                                        IsEnabled="{x:Bind ViewModel.HasCheckpointSelection, Mode=OneWay}"/>
-                                <Button Command="{x:Bind ViewModel.RenameCheckpointCommand}" Content="{Binding [CP_Rename], Source={StaticResource Loc}}"
-                                        IsEnabled="{x:Bind ViewModel.HasCheckpointSelection, Mode=OneWay}"/>
-                                <Button Command="{x:Bind ViewModel.RemoveCheckpointCommand}" Padding="8,5"
-                                        IsEnabled="{x:Bind ViewModel.HasCheckpointSelection, Mode=OneWay}"
-                                        AutomationProperties.Name="{Binding [Btn_Delete], Source={StaticResource Loc}}"
-                                        ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
-                                    <FontIcon Glyph="&#xE74D;" FontSize="12"/>
-                                </Button>
-                            </StackPanel>
-                        </StackPanel>
-                    </Border>
-
-                    <Button Click="PaneSettings_Click" HorizontalAlignment="Stretch">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE713;" FontSize="14"/>
-                            <TextBlock Text="{Binding [VM_Settings], Source={StaticResource Loc}}"/>
-                        </StackPanel>
-                    </Button>
+        <!-- Empty state -->
+        <StackPanel Grid.Row="3" Spacing="12" MaxWidth="360"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay,
+                                 Converter={StaticResource BoolToVisibilityConverter}}">
+            <FontIcon Glyph="&#xE7F8;" FontSize="48"
+                      Foreground="{ThemeResource TextFillColorTertiaryBrush}"/>
+            <TextBlock Text="{Binding [VM_EmptyTitle], Source={StaticResource Loc}}"
+                       FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <TextBlock Text="{Binding [VM_EmptyText], Source={StaticResource Loc}}"
+                       TextAlignment="Center" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <Button Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center"
+                    Click="CreateVm_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE945;" FontSize="14"/>
+                    <TextBlock Text="{Binding [VM_EmptyButton], Source={StaticResource Loc}}"/>
                 </StackPanel>
-            </ScrollViewer>
-        </Grid>
+            </Button>
+        </StackPanel>
 
         <!-- Status bar -->
         <TextBlock Grid.Row="4"
@@ -466,113 +313,5 @@
                    FontSize="12"
                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    Margin="0,4,0,0"/>
-
-        <!-- Settings after creation. Two columns so it fits without scrolling. Labels are TextBlocks, not control
-             headers: a NumberBox header stays grey after the box is re-enabled, and a TextBox header takes the
-             box's Consolas font. -->
-        <ContentDialog x:Name="SettingsDialog"
-                       Title="{Binding [SETVM_Title], Source={StaticResource Loc}}"
-                       PrimaryButtonText="{Binding [SETVM_Apply], Source={StaticResource Loc}}"
-                       CloseButtonText="{Binding [Btn_Cancel], Source={StaticResource Loc}}"
-                       DefaultButton="Primary"
-                       PrimaryButtonClick="SettingsDialog_PrimaryButtonClick">
-            <!-- Wider than the 548 px default of ContentDialog -->
-            <ContentDialog.Resources>
-                <x:Double x:Key="ContentDialogMaxWidth">720</x:Double>
-            </ContentDialog.Resources>
-            <ScrollViewer MaxHeight="600" Padding="0,0,16,0">
-                <Grid Width="640" ColumnSpacing="20" RowSpacing="14">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition/>
-                        <ColumnDefinition/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <InfoBar Grid.ColumnSpan="2"
-                             IsOpen="{x:Bind ViewModel.EditingSettings.IsRunning, Mode=OneWay, FallbackValue=False}"
-                             Severity="Informational" IsClosable="False"
-                             Message="{Binding [SETVM_Running], Source={StaticResource Loc}}"/>
-                    <InfoBar x:Name="SettingsError" Grid.Row="1" Grid.ColumnSpan="2" Severity="Error" IsClosable="False"/>
-
-                    <!-- Processor -->
-                    <StackPanel Grid.Row="2" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Cpu], Source={StaticResource Loc}}" FontSize="12"/>
-                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.ProcessorCount, Mode=TwoWay, FallbackValue=1}"
-                                   Minimum="1" Maximum="64" SpinButtonPlacementMode="Inline"
-                                   IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Nested], Source={StaticResource Loc}}" FontSize="12" TextWrapping="Wrap"/>
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.EditingSettings.Nested, Mode=TwoWay, FallbackValue=False}"
-                                      IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
-                    </StackPanel>
-
-                    <!-- Memory -->
-                    <StackPanel Grid.Row="3" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Startup], Source={StaticResource Loc}}" FontSize="12"/>
-                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.StartupMB, Mode=TwoWay, FallbackValue=0}"
-                                   Minimum="32" Maximum="1048576" SmallChange="512" LargeChange="1024" SpinButtonPlacementMode="Inline"
-                                   IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="3" Grid.Column="1" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Dynamic], Source={StaticResource Loc}}" FontSize="12"/>
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=TwoWay, FallbackValue=False}"
-                                      IsEnabled="{x:Bind ViewModel.EditingSettings.CanEditOffline, Mode=OneWay, FallbackValue=True}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="4" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Min], Source={StaticResource Loc}}" FontSize="12"/>
-                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.MinimumMB, Mode=TwoWay, FallbackValue=0}"
-                                   Minimum="32" Maximum="1048576" SmallChange="256" SpinButtonPlacementMode="Inline"
-                                   IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=True}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="4" Grid.Column="1" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Max], Source={StaticResource Loc}}" FontSize="12"/>
-                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.MaximumMB, Mode=TwoWay, FallbackValue=0}"
-                                   Minimum="32" Maximum="1048576" SmallChange="1024" SpinButtonPlacementMode="Inline"
-                                   IsEnabled="{x:Bind ViewModel.EditingSettings.DynamicMemory, Mode=OneWay, FallbackValue=True}"/>
-                    </StackPanel>
-
-                    <!-- DVD drive -->
-                    <StackPanel Grid.Row="5" Grid.ColumnSpan="2" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Iso], Source={StaticResource Loc}}" FontSize="12"/>
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBox Text="{x:Bind ViewModel.EditingSettings.IsoPath, Mode=TwoWay, FallbackValue=''}"
-                                     PlaceholderText="D:\ISO\ubuntu-24.04-live-server-amd64.iso"
-                                     FontFamily="Consolas" FontSize="12"/>
-                            <Button Grid.Column="1" Click="BrowseIso_Click"
-                                    Content="{Binding [Btn_Browse], Source={StaticResource Loc}}"/>
-                            <Button Grid.Column="2" Click="EjectIso_Click"
-                                    Content="{Binding [SETVM_Eject], Source={StaticResource Loc}}"/>
-                        </Grid>
-                    </StackPanel>
-
-                    <!-- Network -->
-                    <StackPanel Grid.Row="6" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Switch], Source={StaticResource Loc}}" FontSize="12"/>
-                        <ComboBox HorizontalAlignment="Stretch"
-                                  ItemsSource="{x:Bind ViewModel.SwitchNames}"
-                                  SelectedItem="{x:Bind ViewModel.EditingSettings.SwitchName, Mode=TwoWay, FallbackValue=''}"/>
-                    </StackPanel>
-                    <StackPanel Grid.Row="6" Grid.Column="1" Spacing="4">
-                        <TextBlock Text="{Binding [SETVM_Vlan], Source={StaticResource Loc}}" FontSize="12"/>
-                        <NumberBox Value="{x:Bind ViewModel.EditingSettings.VlanId, Mode=TwoWay, FallbackValue=0}"
-                                   Minimum="0" Maximum="4094" SpinButtonPlacementMode="Inline"/>
-                    </StackPanel>
-                </Grid>
-            </ScrollViewer>
-        </ContentDialog>
     </Grid>
 </Page>

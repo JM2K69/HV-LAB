@@ -20,7 +20,7 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
 - **Machines virtuelles**, lues via WMI (quelques dizaines de millisecondes, rafraîchies toutes les 3 s) :
   - charge CPU, mémoire, durée de fonctionnement, signal de vie et adresse IP en direct ;
   - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, console (`vmconnect`) ;
-  - volet de détail avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance ;
+  - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, et des onglets pour les points de contrôle et les paramètres ;
   - arbre des points de contrôle (créer, appliquer, renommer, supprimer), paramètres après création (CPU, virtualisation imbriquée, mémoire, ISO, commutateur, VLAN) ;
   - sélection multiple, groupes de VM Hyper-V, suppression avec les disques de la VM (jamais l'image de base) ;
   - une seule action à la fois par VM, donc un double clic n'a aucun effet.
@@ -37,7 +37,11 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - remplacer une image existante demande une confirmation ;
   - la progression s'affiche en direct et la construction peut être annulée.
 - **Bases Linux** : une VM Linux préparée (cloud-init) devient une base, et chaque clone reçoit au premier démarrage son nom d'hôte, son utilisateur, son mot de passe et son IP fixe.
-- **Commutateurs & NAT** : commutateurs externes, internes et privés avec VLAN, et réseaux NAT avec passerelle IPv4.
+- **Commutateurs & NAT** :
+  - une vue **topologie** : chaque commutateur avec sa sortie (carte, NAT, partage de connexion, hôte, isolé) et ses VM avec état, IP et VLAN ;
+  - commutateurs externes, internes et privés avec VLAN, et changement de type sur place avec retour arrière ;
+  - réseaux NAT avec passerelle IPv4, et NAT avec DHCP via le partage de connexion Windows ;
+  - VLAN access ou trunk par VM, protection DHCP, protection routeur et usurpation d'adresse MAC.
 - **Interface Fluent** :
   - fond Mica, thème clair/sombre et volet de navigation adaptatif ;
   - la taille et la position de la fenêtre sont mémorisées ;

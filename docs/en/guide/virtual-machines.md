@@ -42,14 +42,15 @@ The **⋯** menu holds the other actions:
 | Restart | Clean restart through the guest |
 | Reset | Hard reset |
 | Save state / Pause / Resume | Hyper-V saved and paused states |
-| Settings… | See [Settings after creation](#settings-after-creation) |
+| Settings… | Opens the VM window on its **Settings** tab |
 | Delete | See [Delete a VM](#delete-a-vm) |
 
-### Detail pane
+### VM window
 
-Select one VM to open its detail pane on the right:
+Double-click a VM, press ++enter++ or use its **Details** button to open the VM in **its own window**, one window per VM. The window stays live, whatever page the main window shows. Its **Overview** tab holds:
 
-- **Live screen** of the running VM, refreshed every 2 seconds.
+- the **live screen** of the running VM, refreshed every 2 seconds;
+- the power actions at the top: Start, Shut down, Console, and in **⋯** Turn off, Restart, Reset, Save state, Pause and Resume.
 - **Guest OS**, IP address, uptime and heartbeat.
 - **Console**, **SSH** and **Remote Desktop** buttons:
     - SSH opens Windows Terminal with `ssh <account>@<IP>`, using the account from the notes;
@@ -58,11 +59,11 @@ Select one VM to open its detail pane on the right:
     - **Copy password**;
     - **Type the password**: types it into the VM, then presses Enter. Choose the **VM keyboard** (`fr-FR`, `en-US`…) so that an AZERTY guest receives the right characters;
     - **Ctrl+Alt+Del**.
-- **Checkpoints** (see below).
+- the **Checkpoints** and **Settings** tabs, described below.
 
 ### Checkpoints
 
-The detail pane shows the checkpoints as a tree. **Now** marks the point the VM runs from.
+The **Checkpoints** tab of the VM window shows the checkpoints as a tree. **Now** marks the point the VM runs from.
 
 | Button | Effect |
 |---|---|
@@ -73,14 +74,16 @@ The detail pane shows the checkpoints as a tree. **Now** marks the point the VM 
 
 ### Settings after creation
 
-**Settings…**, in the **⋯** menu or the detail pane, changes:
+The **Settings** tab of the VM window, also opened by **Settings…** in the **⋯** menu, changes the settings in place: **Apply** saves them, **Undo changes** goes back to the current ones.
 
 | Setting | When |
 |---|---|
 | Processors, nested virtualization | VM off |
 | Startup memory, dynamic memory (minimum, maximum) | VM off |
 | ISO image of the DVD drive (browse or eject) | Anytime |
-| Switch of the network adapter, VLAN | Anytime |
+| Switch of the first network adapter | Anytime |
+| VLAN of the first adapter: untagged, **Access** (one VLAN) or **Trunk** (native VLAN and allowed list, e.g. `10,20,100-110`) | Anytime |
+| Port guards: **DHCP guard** (drops DHCP offers from the VM), **router guard** (drops its router advertisements), **MAC address spoofing** | Anytime |
 
 **Nested virtualization** lets you run Hyper-V, WSL or containers inside the VM. HV-LAB then sets static memory and turns on MAC spoofing on the adapter, so the inner VMs reach the network.
 

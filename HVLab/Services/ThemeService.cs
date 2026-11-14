@@ -15,6 +15,7 @@ public sealed class WindowThemeService : IThemeService
     {
         if (App.MainAppWindow?.Content is FrameworkElement root)
             ThemeService.Apply(root, theme);
+        Views.VmWindow.ApplyThemeToAll(theme);   // the open VM windows follow too
     }
 }
 

@@ -1,14 +1,20 @@
+﻿using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace HVLab.Services;
 
-/// <summary>ContentDialog-based <see cref="IDialogService"/> hosted by the main window.</summary>
-public sealed class DialogService : IDialogService
+/// <summary>
+/// ContentDialog-based <see cref="IDialogService"/>, shown in the main window by default, or in the window whose
+/// XamlRoot <paramref name="root"/> returns (a VM window shows its own dialogs).
+/// </summary>
+public sealed class DialogService(Func<XamlRoot?>? root = null) : IDialogService
 {
+    private XamlRoot? Root => root is not null ? root() : App.MainAppWindow?.Content?.XamlRoot;
+
     public async Task<bool> ConfirmAsync(string title, string content, string primaryButtonText)
     {
-        var root = App.MainAppWindow?.Content?.XamlRoot;
-        if (root is null) return false;
+        var xamlRoot = Root;
+        if (xamlRoot is null) return false;
 
         var dialog = new ContentDialog
         {
@@ -17,7 +23,7 @@ public sealed class DialogService : IDialogService
             PrimaryButtonText = primaryButtonText,
             CloseButtonText   = LocalizationService.Instance["Btn_Cancel"],
             DefaultButton     = ContentDialogButton.Close,   // destructive actions: Cancel by default
-            XamlRoot          = root,
+            XamlRoot          = xamlRoot,
         };
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
@@ -25,8 +31,8 @@ public sealed class DialogService : IDialogService
     public async Task<(bool Confirmed, bool Option)> ConfirmWithOptionAsync(string title, string content, string primaryButtonText,
                                                                            string? optionLabel, bool optionDefault)
     {
-        var root = App.MainAppWindow?.Content?.XamlRoot;
-        if (root is null) return (false, false);
+        var xamlRoot = Root;
+        if (xamlRoot is null) return (false, false);
 
         var option = new CheckBox { Content = optionLabel, IsChecked = optionDefault, Margin = new(0, 12, 0, 0) };
         var body = new StackPanel();
@@ -39,7 +45,7 @@ public sealed class DialogService : IDialogService
             PrimaryButtonText = primaryButtonText,
             CloseButtonText   = LocalizationService.Instance["Btn_Cancel"],
             DefaultButton     = ContentDialogButton.Close,
-            XamlRoot          = root,
+            XamlRoot          = xamlRoot,
         };
         var confirmed = await dialog.ShowAsync() == ContentDialogResult.Primary;
         return (confirmed, confirmed && optionLabel is not null && option.IsChecked == true);
@@ -47,8 +53,8 @@ public sealed class DialogService : IDialogService
 
     public async Task<string?> PromptAsync(string title, string label, string initialValue)
     {
-        var root = App.MainAppWindow?.Content?.XamlRoot;
-        if (root is null) return null;
+        var xamlRoot = Root;
+        if (xamlRoot is null) return null;
 
         var input = new TextBox { Header = label, Text = initialValue, MinWidth = 320 };
         input.Loaded += (_, _) => { input.Focus(Microsoft.UI.Xaml.FocusState.Programmatic); input.SelectAll(); };
@@ -59,7 +65,7 @@ public sealed class DialogService : IDialogService
             PrimaryButtonText = LocalizationService.Instance["Btn_Ok"],
             CloseButtonText   = LocalizationService.Instance["Btn_Cancel"],
             DefaultButton     = ContentDialogButton.Primary,
-            XamlRoot          = root,
+            XamlRoot          = xamlRoot,
         };
         return await dialog.ShowAsync() == ContentDialogResult.Primary && input.Text.Trim() is { Length: > 0 } text ? text : null;
     }

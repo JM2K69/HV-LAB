@@ -103,12 +103,26 @@ internal sealed class FakeHyperVService : IHyperVService
         return Task.CompletedTask;
     }
     public Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames) { Calls.Add($"ungroup {string.Join(",", vmNames)}"); return Task.CompletedTask; }
-    public Task<List<VirtualSwitch>> GetVirtualSwitchesAsync() => Task.FromResult(new List<VirtualSwitch>());
+
+    public List<VirtualSwitch> Switches { get; set; } = [];
+    public List<VmNetworkAdapter> VmAdapters { get; set; } = [];
+    public Dictionary<string, string> HostAddresses { get; set; } = [];
+    public List<NetworkAdapterInfo> PhysicalAdapters { get; set; } = [];
+    public IcsStatus? Ics { get; set; }
+    public Task<List<VmNetworkAdapter>> GetVmNetworkAdaptersAsync() => Task.FromResult(VmAdapters.ToList());
+    public Task<Dictionary<string, string>> GetHostAddressesAsync() => Task.FromResult(new Dictionary<string, string>(HostAddresses));
+    public Task ChangeSwitchTypeAsync(string name, string newType, string? netAdapter)
+    { Calls.Add($"switch-type {name} {newType} {netAdapter}"); return Task.CompletedTask; }
+    public Task<IcsStatus?> GetIcsStatusAsync() => Task.FromResult(Ics);
+    public Task EnableIcsAsync(string publicAdapter, string switchName)
+    { Calls.Add($"ics-on {publicAdapter} {switchName}"); Ics = new IcsStatus(publicAdapter, $"vEthernet ({switchName})"); return Task.CompletedTask; }
+    public Task DisableIcsAsync() { Calls.Add("ics-off"); Ics = null; return Task.CompletedTask; }
+    public Task<List<VirtualSwitch>> GetVirtualSwitchesAsync() => Task.FromResult(Switches.ToList());
     public Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0) => Task.CompletedTask;
     public Task CreateInternalSwitchAsync(string name, int vlanId = 0) => Task.CompletedTask;
     public Task CreatePrivateSwitchAsync(string name) => Task.CompletedTask;
     public Task RemoveVSwitchAsync(string name) => Task.CompletedTask;
-    public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(new List<NetworkAdapterInfo>());
+    public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(PhysicalAdapters.ToList());
     /// <summary>Notes passed to each created VM, by VM name.</summary>
     public Dictionary<string, string?> CreatedNotes { get; } = [];
     /// <summary>Secure Boot template and cloud-init seed of each differencing VM, by VM name.</summary>

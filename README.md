@@ -20,7 +20,7 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
 - **Virtual machines**, read through WMI (a few tens of milliseconds, refreshed every 3 s):
   - live CPU load, memory, uptime, heartbeat and IP address;
   - start, clean shutdown, turn off, save, pause/resume, restart, reset, console (`vmconnect`);
-  - detail pane with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop;
+  - a window per VM (double-click) with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop, and tabs for checkpoints and settings;
   - checkpoint tree (create, apply, rename, delete), settings after creation (CPU, nested virtualization, memory, ISO, switch, VLAN);
   - multi-select, Hyper-V VM groups, delete with the VM's own disks (never the base image);
   - each VM runs one action at a time, so a double click does nothing.
@@ -37,7 +37,11 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - overwriting an existing image asks for confirmation;
   - progress is shown live and the build can be cancelled.
 - **Linux bases**: a prepared Linux VM (cloud-init) becomes a base, and each clone gets its own host name, user, password and static IP on first boot.
-- **Switches & NAT**: External, Internal and Private switches with VLAN, and NAT networks with an IPv4 gateway.
+- **Switches & NAT**:
+  - a **topology** view: each switch with its uplink (adapter, NAT, connection sharing, host, isolated) and its VMs with state, IP and VLAN;
+  - External, Internal and Private switches with VLAN, and a type change in place with rollback;
+  - NAT networks with an IPv4 gateway, and NAT with DHCP through Windows connection sharing;
+  - per-VM VLAN access or trunk, DHCP guard, router guard and MAC spoofing.
 - **Fluent UI**:
   - Mica backdrop, light/dark theme and an adaptive navigation pane;
   - the window position and size are remembered;

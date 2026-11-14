@@ -3,7 +3,27 @@ using Microsoft.UI.Xaml;
 
 namespace HVLab.Helpers;
 
-/// <summary>x:Bind functions for the checkpoint tree of the VM detail pane.</summary>
+/// <summary>x:Bind functions on strings.</summary>
+public static class Text
+{
+    public static bool IsNotEmpty(string? value) => !string.IsNullOrEmpty(value);
+}
+
+/// <summary>
+/// x:Bind functions standing in for converters in Window XAML, where x:Bind cannot look up a
+/// StaticResource converter (it needs a FrameworkElement root).
+/// </summary>
+public static class Display
+{
+    private static readonly Converters.StateToColorConverter StateColors = new();
+
+    public static Microsoft.UI.Xaml.Media.Brush StateBrush(string state)
+        => (Microsoft.UI.Xaml.Media.Brush)StateColors.Convert(state, typeof(Microsoft.UI.Xaml.Media.Brush), null!, "");
+
+    public static Visibility CollapsedWhen(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
+}
+
+/// <summary>x:Bind functions for the checkpoint tree of the VM window.</summary>
 public static class CheckpointDisplay
 {
     /// <summary>Indent of a tree row.</summary>

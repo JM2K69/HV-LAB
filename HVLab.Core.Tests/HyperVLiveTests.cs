@@ -93,4 +93,40 @@ public class HyperVLiveTests
 
     [LiveFact]
     public void Environment_is_ok() => Assert.Equal(HyperVEnvironment.Ok, Wmi.GetEnvironment());
+
+    [LiveFact]
+    public async Task Vm_adapters_match_get_vmnetworkadapter()
+    {
+        var wmi = Wmi.GetVmNetworkAdapters();
+        var ps = await PsJson("Get-VMNetworkAdapter -VMName * | ForEach-Object { [PSCustomObject]@{ VmId = \"$($_.VMId)\".ToUpper(); " +
+                              "Switch = \"$($_.SwitchName)\"; Vlan = \"$((Get-VMNetworkAdapterVlan -VMNetworkAdapter $_).OperationMode)\" } }");
+        Assert.Equal(ps.Length, wmi.Count);
+        foreach (var vm in ps.GroupBy(p => p.GetProperty("VmId").GetString()!))
+        {
+            Assert.Equal(vm.Select(p => p.GetProperty("Switch").GetString() ?? "").Order(),
+                         wmi.Where(a => a.VmId == vm.Key).Select(a => a.SwitchName).Order());
+            // A tagged adapter (Access or Trunk) must show a VLAN in WMI too
+            Assert.Equal(vm.Count(p => p.GetProperty("Vlan").GetString() is "Access" or "Trunk"),
+                         wmi.Count(a => a.VmId == vm.Key && a.Vlan.Length > 0));
+        }
+    }
+
+    [LiveFact]
+    public async Task Physical_adapters_match_get_netadapter()
+    {
+        var ps = await PsJson("Get-NetAdapter | Where-Object { $_.Status -eq 'Up' -and $_.HardwareInterface } | ForEach-Object { [PSCustomObject]@{ Name = $_.Name; Mac = $_.MacAddress } }");
+        var wmi = Wmi.GetPhysicalAdapters();
+        Assert.Equal(ps.Select(p => p.GetProperty("Name").GetString()).Order(), wmi.Select(a => a.Name).Order());
+        foreach (var p in ps)
+            Assert.Equal(p.GetProperty("Mac").GetString(), wmi.Single(a => a.Name == p.GetProperty("Name").GetString()).MacAddress);
+    }
+
+    [LiveFact]
+    public async Task Host_addresses_match_get_netipaddress()
+    {
+        var ps = await PsJson("Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '169.254.*' } | ForEach-Object { [PSCustomObject]@{ Alias = $_.InterfaceAlias; Ip = $_.IPAddress } }");
+        var wmi = Wmi.GetHostAddresses();
+        foreach (var alias in ps.GroupBy(p => p.GetProperty("Alias").GetString()!))
+            Assert.Contains(wmi[alias.Key], alias.Select(p => p.GetProperty("Ip").GetString()));
+    }
 }

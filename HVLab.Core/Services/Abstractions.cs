@@ -24,6 +24,9 @@ public interface IHyperVWmi
     List<CheckpointRow> GetCheckpoints(string vmId);
     List<VirtualSwitch> GetSwitches();
     List<NatNetwork> GetNatNetworks();
+    List<VmNetworkAdapter> GetVmNetworkAdapters();
+    Dictionary<string, string> GetHostAddresses();
+    List<NetworkAdapterInfo> GetPhysicalAdapters();
 }
 
 /// <summary>Hyper-V host operations: VMs, switches, network adapters, environment.</summary>
@@ -60,6 +63,23 @@ public interface IHyperVService
     // Hyper-V VM groups
     Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames);
     Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames);
+
+    // Network: topology data (WMI), switch type changes and connection sharing (PowerShell)
+    Task<List<VmNetworkAdapter>> GetVmNetworkAdaptersAsync();
+    Task<Dictionary<string, string>> GetHostAddressesAsync();
+    /// <summary>
+    /// Changes the type of a switch in place (External needs <paramref name="netAdapter"/>). On failure the previous
+    /// type and the host adapter's static IPv4 addresses are put back before the error is reported.
+    /// </summary>
+    Task ChangeSwitchTypeAsync(string name, string newType, string? netAdapter);
+    /// <summary>Current Internet connection sharing: public and private connection names, null when off.</summary>
+    Task<IcsStatus?> GetIcsStatusAsync();
+    /// <summary>
+    /// Shares <paramref name="publicAdapter"/> with the internal switch <paramref name="switchName"/>: Windows then gives
+    /// its host adapter 192.168.137.1/24 and hands out DHCP addresses to the VMs. Any other sharing is turned off first.
+    /// </summary>
+    Task EnableIcsAsync(string publicAdapter, string switchName);
+    Task DisableIcsAsync();
 
     Task<List<VirtualSwitch>> GetVirtualSwitchesAsync();
     Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0);

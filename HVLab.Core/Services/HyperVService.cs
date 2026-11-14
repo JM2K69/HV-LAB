@@ -205,7 +205,13 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
                 MaximumMB      = [int]($mem.Maximum / 1MB)
                 IsoPath        = if ($dvd -and $dvd.Path) { "$($dvd.Path)" } else { '' }
                 SwitchName     = if ($nic -and $nic.SwitchName) { "$($nic.SwitchName)" } else { '' }
+                VlanMode       = if ($vlan -and "$($vlan.OperationMode)" -in 'Access', 'Trunk') { "$($vlan.OperationMode)" } else { 'Untagged' }
                 VlanId         = if ($vlan -and "$($vlan.OperationMode)" -eq 'Access') { [int]$vlan.AccessVlanId } else { 0 }
+                NativeVlanId   = if ($vlan -and "$($vlan.OperationMode)" -eq 'Trunk') { [int]$vlan.NativeVlanId } else { 0 }
+                AllowedVlans   = if ($vlan -and "$($vlan.OperationMode)" -eq 'Trunk') { "$($vlan.AllowedVlanIdListString)" } else { '' }
+                DhcpGuard      = $nic -and "$($nic.DhcpGuard)" -eq 'On'
+                RouterGuard    = $nic -and "$($nic.RouterGuard)" -eq 'On'
+                MacSpoofing    = $nic -and "$($nic.MacAddressSpoofing)" -eq 'On'
                 IsRunning      = "$($vm.State)" -ne 'Off'
             } | ConvertTo-Json -Compress
             """;
@@ -225,7 +231,13 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
                 MaximumMB      = GetInt(r, "MaximumMB"),
                 IsoPath        = GetStr(r, "IsoPath"),
                 SwitchName     = GetStr(r, "SwitchName"),
+                VlanMode       = GetStr(r, "VlanMode") is { Length: > 0 } mode ? mode : VmSettings.VlanUntagged,
                 VlanId         = GetInt(r, "VlanId", 0),
+                NativeVlanId   = GetInt(r, "NativeVlanId", 0),
+                AllowedVlans   = GetStr(r, "AllowedVlans"),
+                DhcpGuard      = B(r, "DhcpGuard"),
+                RouterGuard    = B(r, "RouterGuard"),
+                MacSpoofing    = B(r, "MacSpoofing"),
                 IsRunning      = B(r, "IsRunning"),
             };
         }
@@ -250,9 +262,6 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
         {
             if (after.ProcessorCount != before.ProcessorCount || after.Nested != before.Nested)
                 lines.Add($"Set-VMProcessor -VM $vm -Count {after.ProcessorCount} -ExposeVirtualizationExtensions ${(after.Nested ? "true" : "false")} -ErrorAction Stop");
-            // VMs inside the VM reach the network through the outer adapter: MAC spoofing on
-            if (after.Nested && !before.Nested)
-                lines.Add("Get-VMNetworkAdapter -VM $vm | Set-VMNetworkAdapter -MacAddressSpoofing On -ErrorAction Stop");
             if (after.StartupMB != before.StartupMB || after.DynamicMemory != before.DynamicMemory
                 || (after.DynamicMemory && (after.MinimumMB != before.MinimumMB || after.MaximumMB != before.MaximumMB)))
                 lines.Add(after.DynamicMemory
@@ -267,10 +276,22 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
                   $"else {{ Add-VMDvdDrive -VM $vm -Path '{Esc(after.IsoPath)}' -ErrorAction Stop }}");
         if (after.SwitchName != before.SwitchName && after.SwitchName.Length > 0)
             lines.Add($"{nic} | Connect-VMNetworkAdapter -SwitchName '{Esc(after.SwitchName)}' -ErrorAction Stop");
-        if (after.VlanId != before.VlanId)
-            lines.Add(after.VlanId == 0
-                ? $"{nic} | Set-VMNetworkAdapterVlan -Untagged -ErrorAction Stop"
-                : $"{nic} | Set-VMNetworkAdapterVlan -Access -VlanId {after.VlanId} -ErrorAction Stop");
+        if (after.VlanMode != before.VlanMode || after.VlanId != before.VlanId
+            || after.NativeVlanId != before.NativeVlanId || after.AllowedVlans != before.AllowedVlans)
+            lines.Add(after.VlanMode switch
+            {
+                VmSettings.VlanAccess => $"{nic} | Set-VMNetworkAdapterVlan -Access -VlanId {after.VlanId} -ErrorAction Stop",
+                VmSettings.VlanTrunk  => $"{nic} | Set-VMNetworkAdapterVlan -Trunk -NativeVlanId {after.NativeVlanId} " +
+                                         $"-AllowedVlanIdList '{after.AllowedVlans.Replace(" ", "")}' -ErrorAction Stop",
+                _                     => $"{nic} | Set-VMNetworkAdapterVlan -Untagged -ErrorAction Stop",
+            });
+        // Port guards; MAC spoofing is also what nested virtualization needs (switched on with it)
+        var guards = new List<string>();
+        if (after.DhcpGuard   != before.DhcpGuard)   guards.Add($"-DhcpGuard {(after.DhcpGuard ? "On" : "Off")}");
+        if (after.RouterGuard != before.RouterGuard) guards.Add($"-RouterGuard {(after.RouterGuard ? "On" : "Off")}");
+        if (after.MacSpoofing != before.MacSpoofing) guards.Add($"-MacAddressSpoofing {(after.MacSpoofing ? "On" : "Off")}");
+        if (guards.Count > 0)
+            lines.Add($"{nic} | Set-VMNetworkAdapter {string.Join(" ", guards)} -ErrorAction Stop");
         return lines;
     }
 
@@ -369,46 +390,106 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
         => await RunScriptAsync(
             $"Remove-VMSwitch -Name '{Esc(name)}' -Force -ErrorAction Stop");
 
-    // ─── Network Adapters ───────────────────────────────────────────────────
+    // ─── Network Adapters and topology ──────────────────────────────────────
 
-    public async Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync()
+    /// <summary>Physical adapters that are up (WMI), for External switches and connection sharing.</summary>
+    public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Wmi(_wmi.GetPhysicalAdapters);
+
+    public Task<List<VmNetworkAdapter>> GetVmNetworkAdaptersAsync() => Wmi(_wmi.GetVmNetworkAdapters);
+
+    public Task<Dictionary<string, string>> GetHostAddressesAsync() => Wmi(_wmi.GetHostAddresses);
+
+    public Task ChangeSwitchTypeAsync(string name, string newType, string? netAdapter)
     {
-        const string script = """
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            try {
-                $adapters = @(Get-NetAdapter -ErrorAction Stop | Where-Object { $_.Status -eq 'Up' } | ForEach-Object {
-                    [PSCustomObject]@{
-                        Name        = $_.Name
-                        Description = $_.InterfaceDescription
-                        MacAddress  = $_.MacAddress
-                        Status      = $_.Status
+        if (newType is not ("External" or "Internal" or "Private")) throw new ArgumentException(newType, nameof(newType));
+        if (newType == "External" && string.IsNullOrWhiteSpace(netAdapter))
+            throw new ArgumentException(LocalizationService.Instance["SW_ErrNoAdapter"]);
+        return RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $name    = '{{Esc(name)}}'
+            $newType = '{{newType}}'
+            $adapter = '{{Esc(netAdapter ?? "")}}'
+            $sw      = Get-VMSwitch -Name $name -ErrorAction Stop
+            $oldType = "$($sw.SwitchType)"
+            $oldMgmt = [bool]$sw.AllowManagementOS
+            $oldAdapter = if ($sw.NetAdapterInterfaceDescription) {
+                (Get-NetAdapter -InterfaceDescription $sw.NetAdapterInterfaceDescription -ErrorAction SilentlyContinue).Name } else { '' }
+            # Static IPv4 of the host adapter (a NAT gateway lives there): put back after the change or after a rollback
+            $alias = "vEthernet ($name)"
+            $ips   = @(Get-NetIPAddress -InterfaceAlias $alias -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                       Where-Object { "$($_.PrefixOrigin)" -eq 'Manual' })
+            function Restore-HostIps {
+                if (-not (Get-NetAdapter -Name $alias -ErrorAction SilentlyContinue)) { return }
+                foreach ($ip in $ips) {
+                    if (-not (Get-NetIPAddress -InterfaceAlias $alias -IPAddress $ip.IPAddress -ErrorAction SilentlyContinue)) {
+                        New-NetIPAddress -InterfaceAlias $alias -IPAddress $ip.IPAddress -PrefixLength $ip.PrefixLength -ErrorAction SilentlyContinue | Out-Null
                     }
-                })
-                if ($adapters.Count -gt 0) { ConvertTo-Json -InputObject $adapters -Depth 2 } else { '[]' }
-            } catch {
-                throw   # rethrow: the runner reports the message
+                }
             }
-            """;
-        var output = await RunScriptAsync(script);
-        var result = new List<NetworkAdapterInfo>();
-        if (string.IsNullOrWhiteSpace(output)) return result;
+            try {
+                if ($newType -eq 'External') { Set-VMSwitch -Name $name -NetAdapterName $adapter -AllowManagementOS $true -ErrorAction Stop }
+                else                         { Set-VMSwitch -Name $name -SwitchType $newType -ErrorAction Stop }
+            } catch {
+                $failure = $_
+                try {
+                    if ($oldType -eq 'External' -and $oldAdapter) { Set-VMSwitch -Name $name -NetAdapterName $oldAdapter -AllowManagementOS $oldMgmt -ErrorAction Stop }
+                    elseif ($oldType -ne 'External')              { Set-VMSwitch -Name $name -SwitchType $oldType -ErrorAction Stop }
+                    Restore-HostIps
+                } catch {}
+                throw $failure
+            }
+            if ($newType -eq 'Internal') { Restore-HostIps }
+            """);
+    }
+
+    // Internet connection sharing goes through the HNetCfg.HNetShare COM object (no cmdlet, no WMI class).
+    // Sharing types: 0 = public (the connection that has Internet), 1 = private (the one that receives it).
+    private const string IcsConnections = """
+        $share = New-Object -ComObject HNetCfg.HNetShare
+        $connections = @(foreach ($c in $share.EnumEveryConnection) {
+            [PSCustomObject]@{
+                Name   = $share.NetConnectionProps.Invoke($c).Name
+                Config = $share.INetSharingConfigurationForINetConnection.Invoke($c)
+            }
+        })
+        """;
+
+    public async Task<IcsStatus?> GetIcsStatusAsync()
+    {
+        var json = ExtractJson(await RunScriptAsync(IcsConnections + """
+
+            $public  = $connections | Where-Object { $_.Config.SharingEnabled -and $_.Config.SharingConnectionType -eq 0 } | Select-Object -First 1
+            $private = $connections | Where-Object { $_.Config.SharingEnabled -and $_.Config.SharingConnectionType -eq 1 } | Select-Object -First 1
+            [PSCustomObject]@{ Public = "$($public.Name)"; Private = "$($private.Name)" } | ConvertTo-Json -Compress
+            """));
         try
         {
-            var json = ExtractJson(output);
-            if (json.StartsWith('{')) json = $"[{json}]";
             using var doc = JsonDocument.Parse(json);
-            foreach (var el in doc.RootElement.EnumerateArray())
-                result.Add(new NetworkAdapterInfo
-                {
-                    Name        = GetStr(el, "Name"),
-                    Description = GetStr(el, "Description"),
-                    MacAddress  = GetStr(el, "MacAddress"),
-                    Status      = GetStr(el, "Status"),
-                });
+            var pub = GetStr(doc.RootElement, "Public");
+            var priv = GetStr(doc.RootElement, "Private");
+            return pub.Length > 0 && priv.Length > 0 ? new IcsStatus(pub, priv) : null;
         }
-        catch (JsonException ex) { throw ParseError("cartes réseau", output, ex); }
-        return result;
+        catch (JsonException ex) { throw ParseError("ICS", json, ex); }
     }
+
+    public Task EnableIcsAsync(string publicAdapter, string switchName)
+        => RunScriptAsync(IcsConnections + $$"""
+
+            $public  = $connections | Where-Object Name -eq '{{Esc(publicAdapter)}}' | Select-Object -First 1
+            $private = $connections | Where-Object Name -eq 'vEthernet ({{Esc(switchName)}})' | Select-Object -First 1
+            if (-not $public)  { throw "##Err_IcsNoConnection|{{Esc(publicAdapter)}}" }
+            if (-not $private) { throw "##Err_IcsNoConnection|vEthernet ({{Esc(switchName)}})" }
+            # Windows allows a single sharing: turn the current one off first
+            foreach ($c in $connections) { if ($c.Config.SharingEnabled) { $c.Config.DisableSharing() } }
+            $public.Config.EnableSharing(0)
+            $private.Config.EnableSharing(1)
+            """);
+
+    public Task DisableIcsAsync()
+        => RunScriptAsync(IcsConnections + """
+
+            foreach ($c in $connections) { if ($c.Config.SharingEnabled) { $c.Config.DisableSharing() } }
+            """);
 
     // ─── Create blank VM (new empty VHDX) ───────────────────────────────────
 

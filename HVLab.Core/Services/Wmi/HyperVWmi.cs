@@ -368,6 +368,76 @@ public sealed class HyperVWmi : IHyperVWmi
             .ToList();
     }
 
+    // ─── Network topology ───────────────────────────────────────────────────
+
+    /// <summary>
+    /// Every adapter of every VM with its switch, VLAN and IP. A resource InstanceID reads
+    /// "Microsoft:&lt;VM&gt;\&lt;adapter&gt;\…": the second GUID ties the port, its VLAN and the guest IP to the adapter.
+    /// </summary>
+    public List<VmNetworkAdapter> GetVmNetworkAdapters()
+    {
+        var vms = Rows(V2, "SELECT Name, ElementName, EnabledState FROM Msvm_ComputerSystem WHERE Caption = 'Virtual Machine'")
+            .ToDictionary(r => S(r, "Name").ToUpperInvariant(), r => (Name: S(r, "ElementName"), State: WmiMap.StateName(L(r, "EnabledState"))));
+        var switchNames = Rows(V2, "SELECT Name, ElementName FROM Msvm_VirtualEthernetSwitch")
+            .ToDictionary(r => S(r, "Name").ToUpperInvariant(), r => S(r, "ElementName"));
+
+        static string AdapterKey(IReadOnlyList<string> guids) => guids.Count >= 2 ? $"{guids[0]}\\{guids[1]}" : "";
+        var ports = Rows(V2, "SELECT InstanceID, HostResource, EnabledState FROM Msvm_EthernetPortAllocationSettingData")
+            .GroupBy(r => AdapterKey(WmiMap.Guids(S(r, "InstanceID"))))
+            .ToDictionary(g => g.Key, g => g.First());
+        var vlans = Rows(V2, "SELECT InstanceID, OperationMode, AccessVlanId, TrunkVlanIdArray FROM Msvm_EthernetSwitchPortVlanSettingData")
+            .GroupBy(r => AdapterKey(WmiMap.Guids(S(r, "InstanceID"))))
+            .ToDictionary(g => g.Key, g => g.First());
+        // Guest IPs: "Microsoft:GuestNetwork\<VM>\<adapter>"
+        var ips = Rows(V2, "SELECT InstanceID, IPAddresses FROM Msvm_GuestNetworkAdapterConfiguration")
+            .GroupBy(r => AdapterKey(WmiMap.Guids(S(r, "InstanceID"))))
+            .ToDictionary(g => g.Key, g => WmiMap.FirstIpv4(g.SelectMany(r => Strings(r, "IPAddresses"))) ?? "");
+
+        var result = new List<VmNetworkAdapter>();
+        // Synthetic adapters, and the legacy (emulated) adapters of generation 1 VMs
+        foreach (var nic in Rows(V2, "SELECT InstanceID, ElementName, Address FROM Msvm_SyntheticEthernetPortSettingData")
+                     .Concat(SafeRows(V2, "SELECT InstanceID, ElementName, Address FROM Msvm_EmulatedEthernetPortSettingData")))
+        {
+            var guids = WmiMap.Guids(S(nic, "InstanceID"));
+            var key = AdapterKey(guids);
+            if (key.Length == 0 || !vms.TryGetValue(guids[0], out var vm)) continue;   // definitions and checkpoints
+            var switchName = "";
+            if (ports.TryGetValue(key, out var port) && L(port, "EnabledState") != 3
+                && WmiMap.PathKey(Strings(port, "HostResource").FirstOrDefault(), "Name") is { } sw)
+                switchName = switchNames.GetValueOrDefault(sw.ToUpperInvariant(), "");
+            var vlan = vlans.TryGetValue(key, out var v)
+                ? WmiMap.VlanText(L(v, "OperationMode"), L(v, "AccessVlanId"),
+                                  (v.GetValueOrDefault("TrunkVlanIdArray") as Array)?.Cast<object>().Select(Convert.ToInt64))
+                : "";
+            result.Add(new VmNetworkAdapter(guids[0], vm.Name, vm.State, S(nic, "ElementName"),
+                WmiMap.FormatMac(S(nic, "Address")), switchName, vlan, ips.GetValueOrDefault(key, "")));
+        }
+        return result.OrderBy(a => a.VmName, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    /// <summary>IPv4 address of each host adapter, by interface alias ("vEthernet (LAB)" → "192.168.100.1").</summary>
+    public Dictionary<string, string> GetHostAddresses()
+        => Rows(Std, "SELECT InterfaceAlias, IPAddress FROM MSFT_NetIPAddress WHERE AddressFamily = 2")
+            .Where(r => !S(r, "IPAddress").StartsWith("169.254."))
+            .GroupBy(r => S(r, "InterfaceAlias"))
+            .ToDictionary(g => g.Key, g => S(g.First(), "IPAddress"), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Physical adapters that are up: the ones an External switch can bind to.</summary>
+    public List<NetworkAdapterInfo> GetPhysicalAdapters()
+        => Rows(Std, "SELECT Name, InterfaceDescription, NetworkAddresses, PermanentAddress, InterfaceOperationalStatus, HardwareInterface FROM MSFT_NetAdapter")
+            .Where(r => L(r, "InterfaceOperationalStatus") == 1 && r.GetValueOrDefault("HardwareInterface") is true)
+            .Select(r => new NetworkAdapterInfo
+            {
+                Name        = S(r, "Name"),
+                Description = S(r, "InterfaceDescription"),
+                // The address in use (as Get-NetAdapter shows it), which differs from the factory one on some adapters
+                MacAddress  = WmiMap.FormatMac(Strings(r, "NetworkAddresses").FirstOrDefault() is { Length: > 0 } current
+                                               ? current : S(r, "PermanentAddress")),
+                Status      = "Up",
+            })
+            .OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
     /// <summary>Query of an optional class (Wi-Fi ports, net adapters): empty instead of failing.</summary>
     private List<Dictionary<string, object?>> SafeRows(string ns, string wql)
     {

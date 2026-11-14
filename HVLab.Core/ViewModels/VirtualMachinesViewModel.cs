@@ -7,6 +7,10 @@ using static HVLab.Services.LocalizationService;
 
 namespace HVLab.ViewModels;
 
+/// <summary>
+/// The VM list: live rows, per-row actions, group filter and bulk actions on the selection.
+/// The details of one VM (screen, credentials, checkpoints, settings) live in its own window (<see cref="VmDetailsViewModel"/>).
+/// </summary>
 public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogService dialogs) : PageViewModelBase
 {
     private readonly IHyperVService _hvService = hvService;
@@ -104,31 +108,21 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         }
     }
 
-    // ─── Selection (detail pane for one VM, bulk bar for several) ───────────
+    // ─── Selection (bulk bar for several VMs) ───────────────────────────────
 
     private List<VirtualMachine> _selection = [];
 
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSingleSelection))] private VirtualMachine? selectedVm;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasSingleSelection), nameof(HasMultiSelection), nameof(SelectionText))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasMultiSelection), nameof(SelectionText))]
     private int selectionCount;
 
-    public bool   HasSingleSelection => SelectedVm is not null && SelectionCount == 1;
-    public bool   HasMultiSelection  => SelectionCount > 1;
-    public string SelectionText      => T("VM_SelectionCount", SelectionCount);
+    public bool   HasMultiSelection => SelectionCount > 1;
+    public string SelectionText     => T("VM_SelectionCount", SelectionCount);
 
     /// <summary>Called by the view when the list selection changes.</summary>
     public void SetSelection(IEnumerable<VirtualMachine> items)
     {
         _selection = items.ToList();
         SelectionCount = _selection.Count;
-        var single = _selection.Count == 1 ? _selection[0] : null;
-        if (!ReferenceEquals(single, SelectedVm))
-        {
-            SelectedVm = single;
-            Thumbnail = null;
-            Checkpoints.Clear();
-            if (single is not null) _ = LoadCheckpointsAsync();
-        }
     }
 
     // ─── Single-VM actions ──────────────────────────────────────────────────
@@ -273,134 +267,12 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         return prefix.TrimEnd('-', '_', ' ', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9') is { Length: > 0 } p ? p : vms[0].Name;
     }
 
-    /// <summary>Non-VM action (group, checkpoint…): status, error banner, then a silent refresh.</summary>
+    /// <summary>Non-VM action (group…): status, error banner, then a silent refresh.</summary>
     private async Task RunAsync(string status, Func<Task> action)
     {
         Status = status;
         try { await action(); Status = T("St_Ready"); }
         catch (Exception ex) { ErrorMessage = ex.Message; }
         await RefreshAsync(silent: true);
-    }
-
-    // ─── Detail pane: screen, credentials, keyboard ─────────────────────────
-
-    [ObservableProperty] private VmThumbnail? thumbnail;
-
-    /// <summary>Called by the view's timer while the pane shows a running VM.</summary>
-    public async Task RefreshThumbnailAsync()
-    {
-        if (SelectedVm is not { IsRunning: true } vm) { Thumbnail = null; return; }
-        try { Thumbnail = await _hvService.GetThumbnailAsync(vm.Id, 320, 240); }
-        catch { Thumbnail = null; }   // the screen is a convenience: never an error banner
-    }
-
-    /// <summary>Guest keyboard layout used to type the password (the VM's answer-file language).</summary>
-    [ObservableProperty] private string typingLanguage = LocalizationService.Instance.CurrentLanguage == "en" ? "en-US" : "fr-FR";
-    public IReadOnlyList<string> TypingLanguages => LabCatalog.Languages;
-
-    [RelayCommand]
-    private async Task TypePasswordAsync()
-    {
-        if (SelectedVm is not { } vm) return;
-        if (!vm.Credentials.HasPassword) { Status = T("VM_NoPassword"); return; }
-        await RunAsync(T("VM_TypingPassword", vm.Name), () => _hvService.TypeTextAsync(vm.Id, vm.Credentials.Password, TypingLanguage, true));
-    }
-
-    [RelayCommand]
-    private Task SendCtrlAltDelAsync()
-        => SelectedVm is { } vm ? RunAsync(T("VM_CtrlAltDel", vm.Name), () => _hvService.SendCtrlAltDelAsync(vm.Id)) : Task.CompletedTask;
-
-    // ─── Checkpoints ────────────────────────────────────────────────────────
-
-    public ObservableCollection<CheckpointRow> Checkpoints { get; } = [];
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasCheckpointSelection))] private CheckpointRow? selectedCheckpoint;
-    public bool HasCheckpointSelection => SelectedCheckpoint is { IsNow: false };
-
-    public async Task LoadCheckpointsAsync()
-    {
-        if (SelectedVm is not { } vm) return;
-        try
-        {
-            var rows = await _hvService.GetCheckpointsAsync(vm.Id);
-            if (!ReferenceEquals(vm, SelectedVm)) return;   // selection changed meanwhile
-            Checkpoints.Clear();
-            foreach (var r in rows) Checkpoints.Add(r);
-        }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
-    }
-
-    [RelayCommand]
-    private async Task CreateCheckpointAsync()
-    {
-        if (SelectedVm is not { } vm) return;
-        var name = await _dialogs.PromptAsync(T("CP_CreateTitle"), T("CP_Name"), $"{vm.Name} - {DateTime.Now:yyyy-MM-dd HH:mm}");
-        if (name is null) return;
-        await RunAsync(T("CP_Creating", name), () => _hvService.CreateCheckpointAsync(vm.Name, name));
-        await LoadCheckpointsAsync();
-    }
-
-    [RelayCommand]
-    private async Task ApplyCheckpointAsync()
-    {
-        if (SelectedVm is not { } vm || SelectedCheckpoint is not { IsNow: false } cp) return;
-        if (!await _dialogs.ConfirmAsync(T("CP_ApplyTitle"), T("CP_ApplyConfirm", cp.Name, vm.Name), T("CP_Apply"))) return;
-        await RunAsync(T("CP_Applying", cp.Name), () => _hvService.ApplyCheckpointAsync(vm.Name, cp.Id));
-        await LoadCheckpointsAsync();
-    }
-
-    [RelayCommand]
-    private async Task RemoveCheckpointAsync()
-    {
-        if (SelectedVm is not { } vm || SelectedCheckpoint is not { IsNow: false } cp) return;
-        var hasChildren = Checkpoints.SkipWhile(r => r != cp).Skip(1).TakeWhile(r => r.Depth > cp.Depth).Any(r => !r.IsNow);
-        var (confirmed, withChildren) = await _dialogs.ConfirmWithOptionAsync(T("CP_DeleteTitle"), T("CP_DeleteConfirm", cp.Name),
-            T("VM_DeleteConfirm"), hasChildren ? T("CP_DeleteSubtree") : null, false);
-        if (!confirmed) return;
-        await RunAsync(T("CP_Deleting", cp.Name), () => _hvService.RemoveCheckpointAsync(vm.Name, cp.Id, withChildren));
-        await LoadCheckpointsAsync();
-    }
-
-    [RelayCommand]
-    private async Task RenameCheckpointAsync()
-    {
-        if (SelectedVm is not { } vm || SelectedCheckpoint is not { IsNow: false } cp) return;
-        var name = await _dialogs.PromptAsync(T("CP_RenameTitle"), T("CP_Name"), cp.Name);
-        if (name is null || name == cp.Name) return;
-        await RunAsync(T("CP_Renaming", name), () => _hvService.RenameCheckpointAsync(vm.Name, cp.Id, name));
-        await LoadCheckpointsAsync();
-    }
-
-    // ─── Settings after creation (dialog shown by the view) ─────────────────
-
-    [ObservableProperty] private VmSettings? editingSettings;
-    private VmSettings? _settingsBefore;
-    public ObservableCollection<string> SwitchNames { get; } = [];
-
-    /// <summary>Reads the VM's settings into <see cref="EditingSettings"/>; false when they cannot be read.</summary>
-    public async Task<bool> LoadSettingsAsync(VirtualMachine vm)
-    {
-        IsLoading = true;
-        try
-        {
-            var settingsTask = _hvService.GetVmSettingsAsync(vm.Name);
-            var switchTask   = _hvService.GetVirtualSwitchesAsync();
-            await Task.WhenAll(settingsTask, switchTask);
-            SwitchNames.Clear();
-            foreach (var s in switchTask.Result) SwitchNames.Add(s.Name);
-            _settingsBefore = settingsTask.Result;
-            EditingSettings = _settingsBefore.Clone();
-            return true;
-        }
-        catch (Exception ex) { ErrorMessage = ex.Message; return false; }
-        finally { IsLoading = false; }
-    }
-
-    /// <summary>Validation message of the edited settings, or null when they can be applied.</summary>
-    public string? ValidateSettings() => EditingSettings?.Validate() is { } key ? T(key) : null;
-
-    public async Task ApplySettingsAsync(VirtualMachine vm)
-    {
-        if (EditingSettings is not { } after || _settingsBefore is not { } before) return;
-        await RunVmActionAsync(vm, null, T("VM_SavingSettings", vm.Name), () => _hvService.SetVmSettingsAsync(vm.Name, before, after));
     }
 }

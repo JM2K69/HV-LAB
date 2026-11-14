@@ -42,14 +42,15 @@ Le menu **⋯** regroupe les autres actions :
 | Redémarrer | Redémarrage propre par l'invité |
 | Réinitialiser | Réinitialisation matérielle |
 | Enregistrer l'état / Suspendre / Reprendre | États enregistré et en pause d'Hyper-V |
-| Paramètres… | Voir [Paramètres après création](#parametres-apres-creation) |
+| Paramètres… | Ouvre la fenêtre de la VM sur son onglet **Paramètres** |
 | Supprimer | Voir [Supprimer une VM](#supprimer-une-vm) |
 
-### Volet de détail
+### Fenêtre de la VM
 
-Sélectionnez une VM pour ouvrir son volet de détail à droite :
+Double-cliquez sur une VM, appuyez sur ++enter++ ou utilisez son bouton **Détails** pour ouvrir la VM dans **sa propre fenêtre**, une fenêtre par VM. La fenêtre reste à jour, quelle que soit la page affichée dans la fenêtre principale. Son onglet **Aperçu** contient :
 
-- **Écran en direct** de la VM démarrée, rafraîchi toutes les 2 secondes.
+- l'**écran en direct** de la VM démarrée, rafraîchi toutes les 2 secondes ;
+- les actions d'alimentation en haut : Démarrer, Arrêter, Console, et dans **⋯** Éteindre, Redémarrer, Réinitialiser, Enregistrer l'état, Suspendre et Reprendre.
 - **Système invité**, adresse IP, durée de fonctionnement et signal de vie.
 - Boutons **Console**, **SSH** et **Bureau à distance** :
     - SSH ouvre Windows Terminal avec `ssh <compte>@<IP>`, avec le compte des notes ;
@@ -58,11 +59,11 @@ Sélectionnez une VM pour ouvrir son volet de détail à droite :
     - **Copier le mot de passe** ;
     - **Taper le mot de passe** : le saisit dans la VM, puis appuie sur Entrée. Choisissez le **clavier de la VM** (`fr-FR`, `en-US`…) pour qu'un invité AZERTY reçoive les bons caractères ;
     - **Ctrl+Alt+Suppr**.
-- **Points de contrôle** (voir ci-dessous).
+- les onglets **Points de contrôle** et **Paramètres**, décrits ci-dessous.
 
 ### Points de contrôle
 
-Le volet de détail affiche les points de contrôle en arbre. **Maintenant** indique le point à partir duquel la VM tourne.
+L'onglet **Points de contrôle** de la fenêtre de la VM affiche les points de contrôle en arbre. **Maintenant** indique le point à partir duquel la VM tourne.
 
 | Bouton | Effet |
 |---|---|
@@ -73,14 +74,16 @@ Le volet de détail affiche les points de contrôle en arbre. **Maintenant** ind
 
 ### Paramètres après création
 
-**Paramètres…**, dans le menu **⋯** ou le volet de détail, modifie :
+L'onglet **Paramètres** de la fenêtre de la VM, ouvert aussi par **Paramètres…** dans le menu **⋯**, modifie les paramètres sur place : **Appliquer** les enregistre, **Annuler les modifications** revient aux valeurs actuelles.
 
 | Paramètre | Quand |
 |---|---|
 | Processeurs, virtualisation imbriquée | VM arrêtée |
 | Mémoire de démarrage, mémoire dynamique (minimum, maximum) | VM arrêtée |
 | Image ISO du lecteur DVD (parcourir ou éjecter) | À tout moment |
-| Commutateur de la carte réseau, VLAN | À tout moment |
+| Commutateur de la première carte réseau | À tout moment |
+| VLAN de la première carte : sans étiquette, **Access** (un VLAN) ou **Trunk** (VLAN natif et liste autorisée, ex. `10,20,100-110`) | À tout moment |
+| Protections du port : **protection DHCP** (bloque les offres DHCP de la VM), **protection routeur** (bloque ses annonces de routeur), **usurpation d'adresse MAC** | À tout moment |
 
 La **virtualisation imbriquée** permet de faire tourner Hyper-V, WSL ou des conteneurs dans la VM. HV-LAB passe alors la mémoire en statique et active l'usurpation d'adresse MAC sur la carte, pour que les VM internes accèdent au réseau.
 

@@ -59,6 +59,18 @@ public static partial class WmiMap
         return m.Success ? m.Value.ToUpperInvariant() : null;
     }
 
+    /// <summary>Every GUID of an InstanceID, upper case, in order ("Microsoft:&lt;VM&gt;\&lt;adapter&gt;\…" → VM, adapter).</summary>
+    public static List<string> Guids(string? instanceId)
+        => string.IsNullOrEmpty(instanceId) ? []
+         : GuidRegex().Matches(instanceId).Select(m => m.Value.ToUpperInvariant()).ToList();
+
+    /// <summary>"00155D010203" → "00-15-5D-01-02-03" (as Get-NetAdapter shows it); other lengths unchanged.</summary>
+    public static string FormatMac(string? mac)
+    {
+        var hex = NormalizeMac(mac);
+        return hex.Length == 12 ? string.Join("-", Enumerable.Range(0, 6).Select(i => hex.Substring(i * 2, 2))) : mac ?? "";
+    }
+
     /// <summary>Value of <paramref name="key"/> in a WMI object path (…,Name="x",…), null when absent.</summary>
     public static string? PathKey(string? path, string key)
     {

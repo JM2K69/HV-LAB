@@ -243,7 +243,6 @@ public class VmManagementViewModelTests
 
         vm.SetSelection(vm.VirtualMachines);
         Assert.True(vm.HasMultiSelection);
-        Assert.False(vm.HasSingleSelection);
         await vm.StartSelectedCommand.ExecuteAsync(null);
         Assert.Equal(new[] { $"power {a.Id} Start", $"power {c.Id} Start" }.Order(), hv.Calls.Order());
 
@@ -268,59 +267,89 @@ public class VmManagementViewModelTests
         Assert.All(vm.VirtualMachines, v => Assert.Equal("LAB-AD", v.GroupName));
     }
 
+    private static VmDetailsViewModel Details(FakeHyperVService hv, FakeDialogService dialogs, VirtualMachine v)
+    {
+        var d = new VmDetailsViewModel(hv, dialogs);
+        d.Initialize(v);
+        return d;
+    }
+
     [Fact]
     public async Task Type_password_uses_the_notes_and_the_chosen_layout()
     {
         var a = Vm("DC01", "Running", notes: "Created by HV-LAB on 2026-11-02 10:50\nAccount: Administrator\nPassword: P@ss");
         var hv = new FakeHyperVService { Vms = [a] };
-        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService());
-        await vm.RefreshAsync();
-        vm.SetSelection([vm.VirtualMachines[0]]);
-        vm.TypingLanguage = "fr-FR";
-        await vm.TypePasswordCommand.ExecuteAsync(null);
+        var d = Details(hv, new FakeDialogService(), a);
+        d.TypingLanguage = "fr-FR";
+        await d.TypePasswordCommand.ExecuteAsync(null);
         Assert.Contains($"type {a.Id} P@ss fr-FR True", hv.Calls);
+    }
+
+    [Fact]
+    public async Task Window_refresh_follows_the_vm_and_reports_its_removal()
+    {
+        var a = Vm("A", "Off");
+        var hv = new FakeHyperVService { Vms = [a] };
+        var d = Details(hv, new FakeDialogService(), a);
+        var removed = false;
+        d.VmRemoved += (_, _) => removed = true;
+        a.State = "Running";
+        await d.RefreshAsync();
+        Assert.Equal("Running", d.Vm.State);
+        hv.Vms.Clear();
+        await d.RefreshAsync();
+        Assert.True(removed);
     }
 
     [Fact]
     public async Task Checkpoint_actions_address_the_selected_checkpoint()
     {
+        var a = Vm("A", "Off");
         var hv = new FakeHyperVService
         {
-            Vms = [Vm("A", "Off")],
+            Vms = [a],
             CheckpointRows = [new CheckpointRow("CP1", "Fresh", null, 0, false), new CheckpointRow("", "", null, 1, true)],
         };
-        var dialogs = new FakeDialogService { PromptAnswer = "Renamed" };
-        var vm = new VirtualMachinesViewModel(hv, dialogs);
-        await vm.RefreshAsync();
-        vm.SetSelection([vm.VirtualMachines[0]]);
-        await vm.LoadCheckpointsAsync();
-        Assert.Equal(2, vm.Checkpoints.Count);
+        var d = Details(hv, new FakeDialogService { PromptAnswer = "Renamed" }, a);
+        await d.LoadCheckpointsAsync();
+        Assert.Equal(2, d.Checkpoints.Count);
 
-        vm.SelectedCheckpoint = vm.Checkpoints[1];             // "Now" is not a checkpoint
-        Assert.False(vm.HasCheckpointSelection);
-        vm.SelectedCheckpoint = vm.Checkpoints[0];
-        await vm.ApplyCheckpointCommand.ExecuteAsync(null);
-        await vm.RenameCheckpointCommand.ExecuteAsync(null);
-        await vm.RemoveCheckpointCommand.ExecuteAsync(null);
+        d.SelectedCheckpoint = d.Checkpoints[1];             // "Now" is not a checkpoint
+        Assert.False(d.HasCheckpointSelection);
+        d.SelectedCheckpoint = d.Checkpoints[0];
+        await d.ApplyCheckpointCommand.ExecuteAsync(null);
+        await d.RenameCheckpointCommand.ExecuteAsync(null);
+        await d.RemoveCheckpointCommand.ExecuteAsync(null);
         Assert.Equal(["apply A CP1", "rename-checkpoint A CP1 Renamed", "remove-checkpoint A CP1 False"], hv.Calls);
     }
 
     [Fact]
     public async Task Settings_are_validated_then_applied()
     {
-        var hv = new FakeHyperVService { Vms = [Vm("A", "Off")], Settings = new VmSettings { ProcessorCount = 2 } };
-        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService());
-        await vm.RefreshAsync();
-        var row = vm.VirtualMachines[0];
-        Assert.True(await vm.LoadSettingsAsync(row));
-        vm.EditingSettings!.ProcessorCount = 0;
-        Assert.NotNull(vm.ValidateSettings());
-        vm.EditingSettings.ProcessorCount = 4;
-        Assert.Null(vm.ValidateSettings());
-        await vm.ApplySettingsAsync(row);
+        var a = Vm("A", "Off");
+        var hv = new FakeHyperVService { Vms = [a], Settings = new VmSettings { ProcessorCount = 2 } };
+        var d = Details(hv, new FakeDialogService(), a);
+        await d.LoadSettingsAsync();
+        d.EditingSettings!.ProcessorCount = 0;
+        await d.ApplySettingsCommand.ExecuteAsync(null);
+        Assert.NotEmpty(d.SettingsError);
+        Assert.DoesNotContain(hv.Calls, c => c.StartsWith("settings"));
+        d.EditingSettings.ProcessorCount = 4;
+        await d.ApplySettingsCommand.ExecuteAsync(null);
+        Assert.Empty(d.SettingsError);
         Assert.Contains(hv.Calls, c => c.StartsWith("settings A") && c.Contains("-Count 4"));
     }
 
+    [Fact]
+    public async Task Window_power_actions_use_the_vm_id()
+    {
+        var a = Vm("A", "Running");
+        var hv = new FakeHyperVService { Vms = [a] };
+        var d = Details(hv, new FakeDialogService(), a);
+        await d.ShutdownCommand.ExecuteAsync(null);
+        await d.TurnOffCommand.ExecuteAsync(null);
+        Assert.Equal([$"power {a.Id} Shutdown", $"power {a.Id} TurnOff"], hv.Calls);
+    }
     [Fact]
     public async Task A_bulk_series_becomes_a_hyperv_group()
     {
