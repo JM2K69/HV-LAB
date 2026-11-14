@@ -41,7 +41,42 @@ public sealed partial class VmWindow : Window
         }
         window.Tabs.SelectedIndex = (int)tab;
         window.Activate();
+        window.KeepInFront();
     }
+
+    /// <summary>
+    /// Opened from a double-click, the window is activated while the main window still handles that click: the list
+    /// then takes the focus back and the VM window drops behind it. Once the click is over, the VM window comes back to
+    /// the front, unless the user has meanwhile gone to another application (never steals the focus from it).
+    /// </summary>
+    private void KeepInFront()
+    {
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(250);
+        timer.IsRepeating = false;
+        timer.Tick += (t, _) =>
+        {
+            t.Stop();
+            var hwnd  = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var front = GetForegroundWindow();
+            GetWindowThreadProcessId(front, out var pid);
+            if (front == hwnd || pid != (uint)Environment.ProcessId) return;
+            AppWindow.MoveInZOrderAtTop();
+            SetForegroundWindow(hwnd);
+            Activate();
+        };
+        timer.Start();
+    }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hwnd);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
 
     /// <summary>Keeps the open VM windows on the theme chosen in Settings.</summary>
     public static void ApplyThemeToAll(string theme)

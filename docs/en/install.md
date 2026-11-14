@@ -35,7 +35,11 @@ The application is copied to `C:\Program Files\HV-LAB`, and a shortcut is added 
 | `-EnableHyperV` | Enables the Hyper-V feature if it is missing. A restart is required. |
 | `-Destination <folder>` | Installs somewhere else than `C:\Program Files\HV-LAB`. |
 | `-Source <folder>` | Folder that contains `HVLab.exe`. The default is the script's own folder, or `HVLab\publish` when run from the sources. |
-| `-Uninstall` | Removes the installation folder and the shortcuts. |
+| `-SelfSign` | Signs `HVLab.exe` with a self-signed `CN=JM2K69` certificate trusted by **this machine only**, so the UAC prompt shows *Verified publisher: JM2K69* instead of *Unknown publisher*. The certificate is created once (non-exportable private key, code signing only, valid 10 years) and reused: later installations sign the exe without the option. |
+| `-Uninstall` | Removes the installation folder, the shortcuts and the certificate created by `-SelfSign`. |
+
+!!! note "Why a self-signed certificate"
+    Windows shows a publisher only for a signed exe whose certificate the machine trusts. A public certificate authority certifies a legal name, never a pseudonym, and charges for it. `-SelfSign` adds the certificate to the *Trusted Root* and *Trusted Publishers* stores of the computer: on another machine, the release zip still shows *Unknown publisher*.
 
 ## First start
 

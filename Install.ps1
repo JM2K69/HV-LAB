@@ -27,12 +27,21 @@
     Active la fonctionnalité Hyper-V si elle est absente (redémarrage requis).
 
 .PARAMETER Uninstall
-    Supprime le dossier d'installation et les raccourcis.
+    Supprime le dossier d'installation, les raccourcis et le certificat de signature créé par -SelfSign.
+
+.PARAMETER SelfSign
+    Signe HVLab.exe avec un certificat auto-signé « CN=JM2K69 » approuvé par CETTE machine seulement :
+    l'invite UAC affiche alors « Éditeur vérifié : JM2K69 » au lieu de « Éditeur inconnu ».
+    Le certificat est créé une fois (clé privée non exportable, signature de code uniquement, valable 10 ans),
+    ajouté aux magasins Racine et Éditeurs approuvés de l'ordinateur, puis réutilisé : les installations suivantes
+    signent l'exe automatiquement, sans le paramètre.
 
 .EXAMPLE
     .\Install.ps1
 .EXAMPLE
     .\Install.ps1 -DesktopShortcut -EnableHyperV
+.EXAMPLE
+    .\Install.ps1 -SelfSign
 .EXAMPLE
     .\Install.ps1 -Uninstall
 #>
@@ -42,6 +51,7 @@ param(
     [string]$Destination = (Join-Path $env:ProgramFiles 'HV-LAB'),
     [switch]$DesktopShortcut,
     [switch]$EnableHyperV,
+    [switch]$SelfSign,
     [switch]$Uninstall
 )
 
@@ -76,6 +86,57 @@ function Assert-SafeDestination {
         Write-Fail "$full contient déjà d'autres fichiers et n'est pas une installation de $AppName : choisissez un dossier vide avec -Destination."
         exit 1
     }
+}
+
+# ── Signature (option -SelfSign) ────────────────────────────────────────────
+# UAC shows a publisher only for a signed exe whose certificate the machine trusts. A public CA certifies a legal
+# name, never a pseudonym: "JM2K69" needs a self-signed certificate, trusted by this machine only.
+$Publisher       = 'JM2K69'
+$CertFriendly    = 'HV-LAB code signing'
+$MachineStores   = 'Root', 'TrustedPublisher'
+
+function Get-SigningCertificate {
+    Get-ChildItem Cert:\LocalMachine\My -CodeSigningCert |
+        Where-Object { $_.Subject -eq "CN=$Publisher" -and $_.FriendlyName -eq $CertFriendly -and $_.HasPrivateKey -and $_.NotAfter -gt (Get-Date) } |
+        Sort-Object NotAfter -Descending | Select-Object -First 1
+}
+
+function New-SigningCertificate {
+    Write-Step "Création du certificat de signature « CN=$Publisher » (cette machine uniquement)..."
+    $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=$Publisher" -FriendlyName $CertFriendly `
+                -CertStoreLocation Cert:\LocalMachine\My -KeyExportPolicy NonExportable -KeyAlgorithm RSA -KeyLength 3072 `
+                -HashAlgorithm SHA256 -NotAfter (Get-Date).AddYears(10)
+    # Only the public part is trusted; the private key stays in the machine store, non-exportable, admins only
+    $public = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($cert.RawData)
+    foreach ($name in $MachineStores) {
+        $store = [System.Security.Cryptography.X509Certificates.X509Store]::new($name, 'LocalMachine')
+        $store.Open('ReadWrite'); $store.Add($public); $store.Close()
+    }
+    Write-OK "Certificat créé : $($cert.Thumbprint), valable jusqu'au $($cert.NotAfter.ToString('d'))"
+    $cert
+}
+
+function Remove-SigningCertificate {
+    $found = @(Get-ChildItem Cert:\LocalMachine\My | Where-Object { $_.Subject -eq "CN=$Publisher" -and $_.FriendlyName -eq $CertFriendly })
+    foreach ($cert in $found) {
+        foreach ($name in $MachineStores) {
+            $store = [System.Security.Cryptography.X509Certificates.X509Store]::new($name, 'LocalMachine')
+            $store.Open('ReadWrite')
+            $store.Certificates.Find('FindByThumbprint', $cert.Thumbprint, $false) | ForEach-Object { $store.Remove($_) }
+            $store.Close()
+        }
+        Remove-Item -LiteralPath $cert.PSPath -DeleteKey -Force
+        Write-OK "Certificat de signature supprimé : $($cert.Thumbprint)"
+    }
+}
+
+function Set-ExeSignature ([string]$Path) {
+    $cert = Get-SigningCertificate
+    if (-not $cert -and $SelfSign) { $cert = New-SigningCertificate }
+    if (-not $cert) { return }   # never asked for: the exe stays unsigned ("Unknown publisher")
+    $sig = Set-AuthenticodeSignature -FilePath $Path -Certificate $cert -HashAlgorithm SHA256
+    if ($sig.Status -eq 'Valid') { Write-OK "HVLab.exe signé : éditeur vérifié « $Publisher »" }
+    else { Write-Warn "Signature non valide : $($sig.StatusMessage)" }
 }
 
 function Stop-RunningApp {
@@ -127,6 +188,7 @@ if ($Uninstall) {
     } else {
         Write-Warn "Aucune installation trouvée dans $Destination"
     }
+    Remove-SigningCertificate
     Write-Host ''
     Write-Host '  Les paramètres utilisateur (%LocalAppData%\HV-LAB) sont conservés.' -ForegroundColor Gray
     exit 0
@@ -193,6 +255,8 @@ if ($PSCommandPath -and -not (Test-Path (Join-Path $Destination 'Install.ps1')))
 Get-ChildItem $Destination -Recurse -File | Unblock-File
 $exe = Join-Path $Destination $ExeName
 Write-OK "$((Get-ChildItem $Destination -Recurse -File).Count) fichiers installés."
+# Signed when -SelfSign was given once on this machine (the certificate is then reused)
+Set-ExeSignature $exe
 
 # ── 5. Raccourcis ────────────────────────────────────────────────────────────
 Write-Step 'Création des raccourcis...'
