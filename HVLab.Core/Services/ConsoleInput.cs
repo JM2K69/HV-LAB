@@ -21,6 +21,19 @@ public static class ConsoleInput
         return extended ? [0xE0, code] : [code];
     }
 
+    private const uint Ctrl = 0x1D, Alt = 0x38, Left = 0x4B;
+
+    /// <summary>
+    /// Ctrl+Alt+Left (as in vmconnect): gives keyboard and mouse back to the host instead of reaching the guest.
+    /// Left is the extended arrow (0xE0 0x4B), not the numeric keypad 4; either Ctrl and either Alt count.
+    /// </summary>
+    public static bool IsReleaseChord(IEnumerable<(uint Code, bool Extended)> held, uint scanCode, bool extended)
+    {
+        if (scanCode != Left || !extended) return false;
+        var codes = held.Select(k => k.Code).ToHashSet();
+        return codes.Contains(Ctrl) && codes.Contains(Alt);
+    }
+
     /// <summary>Pointer position on the displayed screen → guest pixel, clamped to the guest screen.</summary>
     public static (int X, int Y) ToGuest(double x, double y, double shownWidth, double shownHeight, int guestWidth, int guestHeight)
     {

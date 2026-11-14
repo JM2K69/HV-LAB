@@ -294,7 +294,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             {
                 VmSettings.VlanAccess => $"{nic} | Set-VMNetworkAdapterVlan -Access -VlanId {after.VlanId} -ErrorAction Stop",
                 VmSettings.VlanTrunk  => $"{nic} | Set-VMNetworkAdapterVlan -Trunk -NativeVlanId {after.NativeVlanId} " +
-                                         $"-AllowedVlanIdList '{after.AllowedVlans.Replace(" ", "")}' -ErrorAction Stop",
+                                         $"-AllowedVlanIdList '{Esc(after.AllowedVlans.Replace(" ", ""))}' -ErrorAction Stop",
                 _                     => $"{nic} | Set-VMNetworkAdapterVlan -Untagged -ErrorAction Stop",
             });
         // Port guards; MAC spoofing is also what nested virtualization needs (switched on with it)
@@ -518,10 +518,13 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
     public Task EnableIcsAsync(string publicAdapter, string switchName)
         => RunScriptAsync(IcsConnections + $$"""
 
-            $public  = $connections | Where-Object Name -eq '{{Esc(publicAdapter)}}' | Select-Object -First 1
-            $private = $connections | Where-Object Name -eq 'vEthernet ({{Esc(switchName)}})' | Select-Object -First 1
-            if (-not $public)  { throw "##Err_IcsNoConnection|{{Esc(publicAdapter)}}" }
-            if (-not $private) { throw "##Err_IcsNoConnection|vEthernet ({{Esc(switchName)}})" }
+            $publicName  = '{{Esc(publicAdapter)}}'
+            $privateName = 'vEthernet ({{Esc(switchName)}})'
+            $public  = $connections | Where-Object Name -eq $publicName | Select-Object -First 1
+            $private = $connections | Where-Object Name -eq $privateName | Select-Object -First 1
+            # Names only ever come from single-quoted literals: never expanded inside a double-quoted string
+            if (-not $public)  { throw "##Err_IcsNoConnection|$publicName" }
+            if (-not $private) { throw "##Err_IcsNoConnection|$privateName" }
             # Windows allows a single sharing: turn the current one off first
             foreach ($c in $connections) { if ($c.Config.SharingEnabled) { $c.Config.DisableSharing() } }
             $public.Config.EnableSharing(0)

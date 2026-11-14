@@ -40,8 +40,9 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
             var fresh = (await _hvService.GetVirtualMachinesAsync()).FirstOrDefault(v => v.Id == Vm.Id);
             if (fresh is null) { VmRemoved?.Invoke(this, EventArgs.Empty); return; }
             if (!Vm.IsBusy) Vm.UpdateFrom(fresh);
+            MarkLoaded();   // clears a refresh error once WMI answers again
         }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
+        catch (Exception ex) { ShowError(ex); }
     }
 
     // ─── Power actions ──────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     private async Task PowerAsync(VmPowerAction action, string? optimisticState, string statusKey)
     {
         if (Vm.IsBusy) return;
+        ClearActionError();
         Vm.IsBusy = true;
         var previous = Vm.State;
         if (optimisticState is not null) Vm.State = optimisticState;
@@ -68,7 +70,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
             await _hvService.PowerAsync(Vm.Id, action);
             Status = T("VM_ActionOk", Vm.Name);
         }
-        catch (Exception ex) { Vm.State = previous; ErrorMessage = ex.Message; }
+        catch (Exception ex) { Vm.State = previous; ShowActionError(ex.Message); }
         finally { Vm.IsBusy = false; }
         await RefreshAsync();
     }
@@ -77,16 +79,17 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     private void Connect()
     {
         try   { _hvService.ConnectToVMConsole(Vm.Name); }
-        catch (Exception ex) { ErrorMessage = $"{T("VM_ErrConsole")} {ex.Message}"; }
+        catch (Exception ex) { ShowActionError($"{T("VM_ErrConsole")} {ex.Message}"); }
     }
 
     /// <summary>Non-power action (keyboard, checkpoint…): status, error banner.</summary>
     private async Task RunAsync(string status, Func<Task> action)
     {
+        ClearActionError();
         IsLoading = true;
         Status = status;
         try { await action(); Status = T("St_Ready"); }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
+        catch (Exception ex) { ShowActionError(ex.Message); }
         finally { IsLoading = false; }
     }
 
@@ -217,7 +220,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
             foreach (var r in rows) Checkpoints.Add(r);
             HasNoCheckpoints = rows.Count == 0;
         }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
+        catch (Exception ex) { ShowError(ex); }
     }
 
     [RelayCommand]
@@ -282,7 +285,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
             _settingsBefore = settingsTask.Result;
             EditingSettings = _settingsBefore.Clone();
         }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
+        catch (Exception ex) { ShowError(ex); }
         finally { IsLoading = false; }
     }
 

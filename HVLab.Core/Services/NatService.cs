@@ -21,6 +21,19 @@ public class NatService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : INatServ
             : null;
     }
 
+    /// <summary>
+    /// Network of a gateway in CIDR form, the address masked by the prefix:
+    /// 192.168.1.129/25 → 192.168.1.128/25, 10.0.5.1/16 → 10.0.0.0/16 (not just ".0" on the last byte).
+    /// </summary>
+    public static string NetworkPrefix(string gatewayIP, int prefixLength)
+    {
+        var bytes = IPAddress.Parse(gatewayIP).GetAddressBytes();
+        var address = (uint)(bytes[0] << 24 | bytes[1] << 16 | bytes[2] << 8 | bytes[3]);
+        var mask = prefixLength == 0 ? 0u : uint.MaxValue << (32 - prefixLength);
+        var network = address & mask;
+        return $"{network >> 24}.{(network >> 16) & 0xFF}.{(network >> 8) & 0xFF}.{network & 0xFF}/{prefixLength}";
+    }
+
     public async Task CreateNatNetworkAsync(string switchName, string natName, string gatewayIP, int prefixLength)
     {
         gatewayIP = NormalizeGateway(gatewayIP, prefixLength)
@@ -30,7 +43,7 @@ public class NatService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : INatServ
             $natName      = '{{Esc(natName)}}'
             $gatewayIP    = '{{gatewayIP}}'
             $prefixLength = {{prefixLength}}
-            $prefix       = "$($gatewayIP -replace '\.\d+$', '.0')/$prefixLength"
+            $prefix       = '{{NetworkPrefix(gatewayIP, prefixLength)}}'
 
             $adapter = Get-NetAdapter | Where-Object { $_.Name -eq "vEthernet ($switchName)" }
             if (-not $adapter) {

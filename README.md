@@ -135,7 +135,9 @@ HV-LAB/
 **Architecture**:
 - **MVVM** with CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
 - **Dependency injection** with Microsoft.Extensions.DependencyInjection: `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` and `IThemeService`.
-- **Hyper-V access** goes through Windows PowerShell 5.1:
+- **Hyper-V access**:
+  - WMI (`System.Management`) for the fast and frequent work: VM list, power actions, checkpoints list, switches, NAT, screen, keyboard and mouse;
+  - Windows PowerShell 5.1 for the heavy, rare operations (creation, disks, settings, base images);
   - scripts run in a pool of up to 3 warm `powershell.exe` workers (Hyper-V module imported once), streamed over stdin, with cancellation and timeouts;
   - errors are translated into the UI language;
   - every value is escaped by a single helper (`PowerShellRunner.Esc`).

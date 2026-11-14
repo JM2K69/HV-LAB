@@ -248,7 +248,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE756;" FontSize="13"
                                           Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
-                                <TextBlock Text="PowerShell 5.1" FontSize="12"
+                                <TextBlock Text="{Binding [Dash_Engine], Source={StaticResource Loc}}" FontSize="12"
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </StackPanel>

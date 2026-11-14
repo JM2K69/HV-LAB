@@ -80,6 +80,16 @@ public class NatAndBulkTests
     public void NormalizeGateway_accepts_only_ipv4_and_prefix_8_to_30(string ip, int prefix, string? expected)
         => Assert.Equal(expected, NatService.NormalizeGateway(ip, prefix));
 
+    [Theory]
+    [InlineData("192.168.100.1", 24, "192.168.100.0/24")]
+    [InlineData("192.168.1.129", 25, "192.168.1.128/25")]
+    [InlineData("10.0.5.1", 16, "10.0.0.0/16")]
+    [InlineData("172.16.10.1", 28, "172.16.10.0/28")]
+    [InlineData("172.16.10.30", 30, "172.16.10.28/30")]
+    [InlineData("10.200.3.4", 8, "10.0.0.0/8")]
+    public void Nat_prefix_is_the_masked_network(string gateway, int prefix, string expected)
+        => Assert.Equal(expected, NatService.NetworkPrefix(gateway, prefix));
+
     [Fact]
     public void Bulk_names_are_numbered_with_two_digits()
         => Assert.Equal(["SRV-01", "SRV-02", "SRV-03"], VmCreationViewModelBase.BulkNames("SRV", 3));

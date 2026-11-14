@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace HVLab.ViewModels;
 
@@ -23,15 +24,44 @@ public abstract partial class PageViewModelBase : ObservableObject
     /// <summary>Raise PropertyChanged for the page's IsXxxEmpty properties.</summary>
     protected virtual void OnEmptyStateChanged() { }
 
-    /// <summary>Marks a successful load: clears the error and enables empty states.</summary>
+    // True while the error shown comes from a user action: a background refresh must not hide it
+    private bool _actionError;
+
+    /// <summary>Marks a successful load: clears a load error (not an action error) and enables empty states.</summary>
     protected void MarkLoaded()
     {
-        ErrorMessage = string.Empty;
-        HasLoaded    = true;
+        if (!_actionError) ErrorMessage = string.Empty;
+        HasLoaded = true;
         OnEmptyStateChanged();
     }
 
-    protected void ShowError(Exception ex) => ErrorMessage = ex.Message;
+    /// <summary>Load error: cleared by the next successful load.</summary>
+    protected void ShowError(Exception ex)
+    {
+        ErrorMessage = ex.Message;
+        _actionError = false;
+    }
+
+    /// <summary>Error of a user action (start, delete…): stays until the banner is closed or the next action starts.</summary>
+    protected void ShowActionError(string message)
+    {
+        ErrorMessage = message;
+        _actionError = true;
+    }
+
+    /// <summary>A new action starts: the previous action's error no longer applies.</summary>
+    protected void ClearActionError()
+    {
+        if (_actionError) DismissError();
+    }
+
+    /// <summary>Close button of the error banner.</summary>
+    [RelayCommand]
+    private void DismissError()
+    {
+        ErrorMessage = string.Empty;
+        _actionError = false;
+    }
 
     /// <summary>True when a successful load returned no item (and no error is shown).</summary>
     protected bool IsEmptyAfterLoad(int count) => HasLoaded && !HasError && count == 0;

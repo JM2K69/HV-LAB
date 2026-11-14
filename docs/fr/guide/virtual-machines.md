@@ -68,7 +68,7 @@ Double-cliquez sur une VM, appuyez sur ++enter++ ou utilisez son bouton **Détai
 L'onglet **Console** affiche l'écran de la VM à sa résolution réelle, environ 10 images par seconde, et lui envoie clavier et souris par WMI. Elle fonctionne dès le BIOS et l'installation de l'OS, sans réseau dans la VM et sans identifiants.
 
 - **Zoom** : *Ajuster* (l'écran entier dans la fenêtre) ou 50 à 200 %. À 100 %, un pixel de la VM est un pixel de l'écran, quelle que soit la mise à l'échelle de Windows. ++ctrl++ + molette change de niveau.
-- **Clavier et souris** : cliquez dans l'écran ; une bordure de couleur indique que les touches et la souris vont à la VM. Cliquez hors de l'écran pour les libérer : les touches encore enfoncées sont relâchées dans la VM.
+- **Clavier et souris** : cliquez dans l'écran ; une bordure de couleur indique que les touches et la souris vont à la VM. ++ctrl+alt+left++ (comme dans `vmconnect`) ou un clic hors de l'écran les libère, et quitte aussi le plein écran : les touches encore enfoncées sont relâchées dans la VM.
 - Les touches sont envoyées comme **codes physiques** : la VM applique sa propre disposition (un invité AZERTY reçoit de l'AZERTY).
 - ++ctrl+alt+del++ et la touche Windows restent à l'hôte : utilisez le bouton **Ctrl+Alt+Suppr**.
 - **Taper le presse-papiers** saisit le texte copié sur l'hôte, avec le clavier de la VM choisi à côté.

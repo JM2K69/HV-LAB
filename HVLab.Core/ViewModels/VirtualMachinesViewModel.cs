@@ -47,7 +47,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
             Status = T("VM_Count", vms.Count);
             MarkLoaded();
         }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
+        catch (Exception ex) { ShowError(ex); }
         finally
         {
             if (!silent) IsLoading = false;
@@ -179,7 +179,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     private void ConnectVm(VirtualMachine vm)
     {
         try   { _hvService.ConnectToVMConsole(vm.Name); }
-        catch (Exception ex) { ErrorMessage = $"{T("VM_ErrConsole")} {ex.Message}"; }
+        catch (Exception ex) { ShowActionError($"{T("VM_ErrConsole")} {ex.Message}"); }
     }
 
     /// <summary>
@@ -190,6 +190,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
                                         bool refresh = true)
     {
         if (vm.IsBusy) return;
+        if (refresh) ClearActionError();   // bulk actions clear it once, before the first VM
         vm.IsBusy = true;
         var previousState = vm.State;
         if (optimisticState is not null) vm.State = optimisticState;
@@ -202,7 +203,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         catch (Exception ex)
         {
             vm.State = previousState;
-            ErrorMessage = ex.Message;
+            ShowActionError(ex.Message);
         }
         finally { vm.IsBusy = false; }
         if (refresh) await RefreshAsync(silent: true);
@@ -219,6 +220,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     {
         var targets = _selection.Where(applies).ToList();
         if (targets.Count == 0) return;
+        ClearActionError();
         await Task.WhenAll(targets.Select(v => RunVmActionAsync(v, optimisticState, T("VM_BulkAction", targets.Count),
             () => _hvService.PowerAsync(v.Id, action), refresh: false)));
         await RefreshAsync(silent: true);
@@ -236,6 +238,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         var (confirmed, withFiles) = await _dialogs.ConfirmWithOptionAsync(T("VM_DeleteTitle"), content, T("VM_DeleteConfirm"),
             known.Any(p => p.Files.Count > 0) ? T("VM_DeleteWithDisks") : null, true);
         if (!confirmed) return;
+        ClearActionError();
         foreach (var v in targets)
             await RunVmActionAsync(v, null, T("VM_Removing", v.Name),
                 () => _hvService.RemoveVMAsync(v.Name, withFiles ? plans[v]?.Files : null), refresh: false);
@@ -270,9 +273,10 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     /// <summary>Non-VM action (group…): status, error banner, then a silent refresh.</summary>
     private async Task RunAsync(string status, Func<Task> action)
     {
+        ClearActionError();
         Status = status;
         try { await action(); Status = T("St_Ready"); }
-        catch (Exception ex) { ErrorMessage = ex.Message; }
+        catch (Exception ex) { ShowActionError(ex.Message); }
         await RefreshAsync(silent: true);
     }
 }

@@ -217,6 +217,56 @@ public class VmManagementViewModelTests
         Assert.Equal([$"power {a.Id} TurnOff", $"power {a.Id} Save"], hv.Calls);
     }
 
+    [Fact]
+    public async Task An_action_error_survives_the_refresh_until_closed_or_the_next_action()
+    {
+        var hv = new FakeHyperVService { Vms = [Vm("A", "Running")], PowerError = new InvalidOperationException("boom") };
+        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService());
+        await vm.RefreshAsync();
+        var row = vm.VirtualMachines[0];
+
+        await vm.TurnOffVmCommand.ExecuteAsync(row);      // fails, then refreshes silently
+        Assert.Equal("boom", vm.ErrorMessage);
+        await vm.RefreshAsync(silent: true);              // a poll does not hide it
+        Assert.True(vm.HasError);
+
+        vm.DismissErrorCommand.Execute(null);             // close button of the banner
+        Assert.False(vm.HasError);
+
+        await vm.TurnOffVmCommand.ExecuteAsync(row);
+        hv.PowerError = null;
+        await vm.SaveVmCommand.ExecuteAsync(row);         // the next action starts clean
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
+    public async Task A_load_error_clears_on_the_next_successful_refresh()
+    {
+        var hv = new FakeHyperVService { Vms = [Vm("A", "Off")], Failure = new InvalidOperationException("wmi down") };
+        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService());
+        await vm.RefreshAsync();
+        Assert.Equal("wmi down", vm.ErrorMessage);
+        hv.Failure = null;
+        await vm.RefreshAsync(silent: true);
+        Assert.False(vm.HasError);
+    }
+
+    [Fact]
+    public async Task The_vm_window_shows_an_action_error_until_the_next_action()
+    {
+        var a = Vm("A", "Running");
+        var hv = new FakeHyperVService { Vms = [a], PowerError = new InvalidOperationException("boom") };
+        var d = new VmDetailsViewModel(hv, new FakeDialogService());
+        d.Initialize(a);
+        await d.TurnOffCommand.ExecuteAsync(null);
+        Assert.Equal("boom", d.ErrorMessage);
+        await d.RefreshAsync();
+        Assert.True(d.HasError);
+        hv.PowerError = null;
+        await d.SaveCommand.ExecuteAsync(null);
+        Assert.False(d.HasError);
+    }
+
     [Theory]
     [InlineData(true, "remove A 1 files")]
     [InlineData(false, "remove A 0 files")]

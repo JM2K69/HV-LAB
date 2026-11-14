@@ -23,6 +23,18 @@ public class ConsoleInputTests
         => Assert.Empty(ConsoleInput.Scancodes(scan, false, false));
 
     [Fact]
+    public void Ctrl_alt_left_releases_the_console()
+    {
+        (uint, bool)[] ctrlAlt = [(0x1D, false), (0x38, false)];
+        (uint, bool)[] rightCtrlAltGr = [(0x1D, true), (0x38, true)];
+        Assert.True(ConsoleInput.IsReleaseChord(ctrlAlt, 0x4B, extended: true));
+        Assert.True(ConsoleInput.IsReleaseChord(rightCtrlAltGr, 0x4B, extended: true));
+        Assert.False(ConsoleInput.IsReleaseChord(ctrlAlt, 0x4B, extended: false));            // keypad 4
+        Assert.False(ConsoleInput.IsReleaseChord([(0x1D, false)], 0x4B, extended: true));     // Ctrl only
+        Assert.False(ConsoleInput.IsReleaseChord(ctrlAlt, 0x4D, extended: true));             // right arrow
+    }
+
+    [Fact]
     public void Pointer_positions_become_guest_pixels_whatever_the_zoom()
     {
         // 1024×768 guest shown at 200 % (2048×1536)

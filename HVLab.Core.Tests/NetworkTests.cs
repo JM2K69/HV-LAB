@@ -222,4 +222,28 @@ public class NetworkScriptTests
         Assert.Contains("'vEthernet (LAB)'", script);
         Assert.True(script.IndexOf("EnableSharing(0)", StringComparison.Ordinal) < script.IndexOf("EnableSharing(1)", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public async Task Hostile_names_never_reach_a_double_quoted_string()
+    {
+        var runner = new FakePowerShellRunner(_ => "");
+        await new HyperVService(runner).EnableIcsAsync("Wi-Fi $(calc) 'x'", "LAB\"$(calc)");
+        var script = runner.Scripts.Single();
+        Assert.Contains("$publicName  = 'Wi-Fi $(calc) ''x'''", script);
+        Assert.Contains("$privateName = 'vEthernet (LAB\"$(calc))'", script);
+        Assert.DoesNotContain("throw \"##Err_IcsNoConnection|Wi-Fi", script);
+        Assert.Contains("throw \"##Err_IcsNoConnection|$publicName\"", script);
+    }
+
+    [Fact]
+    public void Trunk_vlan_list_is_a_single_quoted_literal()
+    {
+        var before = new VmSettings();
+        var after = before.Clone();
+        after.VlanMode = VmSettings.VlanTrunk;
+        after.AllowedVlans = "10,20'; calc; '";
+        var line = Assert.Single(HyperVService.SettingsScript(before, after), l => l.Contains("-Trunk"));
+        // 10,20';calc;'  →  each ' doubled inside the literal: the quote never closes it
+        Assert.Contains("-AllowedVlanIdList '10,20'';calc;''' -ErrorAction Stop", line);
+    }
 }

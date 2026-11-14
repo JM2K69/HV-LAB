@@ -216,13 +216,21 @@ public sealed partial class VmWindow : Window
         ConsoleImage.Height = Math.Max(1, Math.Floor(height));
     }
 
-    // Keyboard: physical scancodes, so the guest applies its own layout. Ctrl+Alt+Del stays with the host (button).
+    // Keyboard: physical scancodes, so the guest applies its own layout. Ctrl+Alt+Del stays with the host (button),
+    // and Ctrl+Alt+Left gives the keyboard back to the host, as in vmconnect.
 
     private async void Console_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (!ViewModel.Vm.IsRunning) return;
         e.Handled = true;   // Tab, arrows, Esc… go to the VM, not to the window
         var key = (e.KeyStatus.ScanCode, e.KeyStatus.IsExtendedKey);
+        if (ConsoleInput.IsReleaseChord(_keysDown, key.ScanCode, key.IsExtendedKey))
+        {
+            // Leaves full screen too; losing the focus releases Ctrl and Alt in the guest
+            SetFullScreen(false);
+            ZoomBox.Focus(FocusState.Keyboard);
+            return;
+        }
         _keysDown.Add(key);
         await ViewModel.SendKeyAsync(key.ScanCode, key.IsExtendedKey, keyUp: false);
     }

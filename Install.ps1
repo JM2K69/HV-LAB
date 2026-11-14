@@ -57,6 +57,26 @@ $AppName       = 'HV-LAB Manager'
 $ExeName       = 'HVLab.exe'
 $StartMenuLink = Join-Path $env:ProgramData "Microsoft\Windows\Start Menu\Programs\$AppName.lnk"
 $DesktopLink   = Join-Path $env:PUBLIC "Desktop\$AppName.lnk"
+$MarkerName    = '.hvlab-install'   # written in every installation folder: only such a folder is ever mirrored or deleted
+
+# Folder created by this script: it holds the marker, or HVLab.exe (installations made before the marker existed)
+function Test-HvLabFolder ([string]$Path) {
+    (Test-Path (Join-Path $Path $MarkerName)) -or (Test-Path (Join-Path $Path $ExeName))
+}
+
+# Never mirror into, nor delete, a drive root or a folder that holds something else (robocopy /MIR deletes extra files)
+function Assert-SafeDestination {
+    $full = [IO.Path]::GetFullPath($Destination).TrimEnd('\')
+    if ($full.Length -le 3 -or $full -ieq $env:ProgramFiles.TrimEnd('\') -or $full -ieq $env:SystemRoot.TrimEnd('\') -or
+        $full -ieq $env:USERPROFILE.TrimEnd('\')) {
+        Write-Fail "Dossier d'installation refusé : $full"
+        exit 1
+    }
+    if ((Test-Path $full) -and (Get-ChildItem $full -Force | Select-Object -First 1) -and -not (Test-HvLabFolder $full)) {
+        Write-Fail "$full contient déjà d'autres fichiers et n'est pas une installation de $AppName : choisissez un dossier vide avec -Destination."
+        exit 1
+    }
+}
 
 function Stop-RunningApp {
     $running = Get-Process -Name ([IO.Path]::GetFileNameWithoutExtension($ExeName)) -ErrorAction SilentlyContinue |
@@ -73,7 +93,7 @@ function Stop-RunningApp {
 function Test-ShortcutOwned ([string]$Path) {
     if (-not (Test-Path $Path)) { return $false }
     $target = (New-Object -ComObject WScript.Shell).CreateShortcut($Path).TargetPath
-    return $target -and $target.StartsWith($Destination.TrimEnd('') + '', [StringComparison]::OrdinalIgnoreCase)
+    return $target -and $target.StartsWith($Destination.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)
 }
 
 function New-Shortcut ([string]$Path, [string]$Target) {
@@ -97,9 +117,13 @@ if ($Uninstall) {
         if (Test-ShortcutOwned $link) { Remove-Item $link -Force; Write-OK "Raccourci supprimé : $link" }
         elseif (Test-Path $link)       { Write-Warn "Raccourci conservé (il pointe vers une autre installation) : $link" }
     }
-    if (Test-Path $Destination) {
+    if ((Test-Path $Destination) -and (Test-HvLabFolder $Destination)) {
+        Set-Location $env:TEMP   # the script may run from the folder it deletes
         Remove-Item $Destination -Recurse -Force
         Write-OK "Dossier supprimé : $Destination"
+    } elseif (Test-Path $Destination) {
+        Write-Fail "$Destination n'est pas une installation de $AppName (ni $MarkerName ni $ExeName) : rien n'est supprimé."
+        exit 1
     } else {
         Write-Warn "Aucune installation trouvée dans $Destination"
     }
@@ -150,6 +174,7 @@ if ($legacy) {
 
 # ── 4. Copie ─────────────────────────────────────────────────────────────────
 Write-Step "Copie vers $Destination..."
+Assert-SafeDestination
 Stop-RunningApp
 New-Item -Path $Destination -ItemType Directory -Force | Out-Null
 # /MIR : miroir exact (supprime les fichiers d'une version précédente qui n'existent plus)
@@ -159,6 +184,11 @@ if ($LASTEXITCODE -ge 8) {
     exit 1
 }
 $global:LASTEXITCODE = 0
+# Marker of an HV-LAB folder, and the script itself, so that -Uninstall works from the installation folder
+Set-Content -Path (Join-Path $Destination $MarkerName) -Value $AppName -Encoding UTF8
+if ($PSCommandPath -and -not (Test-Path (Join-Path $Destination 'Install.ps1'))) {
+    Copy-Item $PSCommandPath (Join-Path $Destination 'Install.ps1')
+}
 # Files extracted from a downloaded release zip carry the "from the Internet" mark: clear it
 Get-ChildItem $Destination -Recurse -File | Unblock-File
 $exe = Join-Path $Destination $ExeName

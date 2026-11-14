@@ -68,7 +68,7 @@ Double-click a VM, press ++enter++ or use its **Details** button to open the VM 
 The **Console** tab shows the VM screen at its real resolution, about 10 frames per second, and sends it keyboard and mouse through WMI. It works from the BIOS and OS setup on, with no network in the VM and no credentials.
 
 - **Zoom**: *Fit* (the whole screen in the window) or 50 to 200 %. At 100 %, a VM pixel is a screen pixel, whatever the Windows scaling. ++ctrl++ + wheel changes the level.
-- **Keyboard and mouse**: click the screen; a coloured border shows that keys and mouse go to the VM. Click outside the screen to release them: keys still held are released in the VM.
+- **Keyboard and mouse**: click the screen; a coloured border shows that keys and mouse go to the VM. ++ctrl+alt+left++ (as in `vmconnect`) or a click outside the screen releases them, and also leaves full screen: keys still held are released in the VM.
 - Keys are sent as **physical codes**: the VM applies its own layout (an AZERTY guest gets AZERTY).
 - ++ctrl+alt+del++ and the Windows key stay with the host: use the **Ctrl+Alt+Del** button.
 - **Type the clipboard** types the text copied on the host, with the VM keyboard chosen next to it.

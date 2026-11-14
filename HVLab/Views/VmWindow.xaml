@@ -114,7 +114,7 @@
             <StackPanel Grid.Row="1" Spacing="8">
                 <ProgressBar IsIndeterminate="True"
                              Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay}"/>
-                <InfoBar Severity="Error" IsClosable="False"
+                <InfoBar Severity="Error" IsClosable="True" CloseButtonCommand="{x:Bind ViewModel.DismissErrorCommand}"
                          IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                          Title="{Binding [Err_Title], Source={StaticResource Loc}}"
                          Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>

@@ -73,7 +73,13 @@ internal sealed class FakeHyperVService : IHyperVService
 
     public Task<HyperVEnvironment> GetEnvironmentStatusAsync() => Task.FromResult(HyperVEnvironment.Ok);
     public Task StartHyperVServiceAsync() => Task.CompletedTask;
-    public Task PowerAsync(string vmId, VmPowerAction action) { Calls.Add($"power {vmId} {action}"); return Task.CompletedTask; }
+    /// <summary>When set, power actions fail with it.</summary>
+    public Exception? PowerError { get; set; }
+    public Task PowerAsync(string vmId, VmPowerAction action)
+    {
+        Calls.Add($"power {vmId} {action}");
+        return PowerError is null ? Task.CompletedTask : Task.FromException(PowerError);
+    }
     public Task<VmDeletePlan> GetDeletePlanAsync(string name) => Task.FromResult(Plan);
     public Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null)
     {
