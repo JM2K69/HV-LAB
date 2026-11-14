@@ -168,7 +168,8 @@ public static partial class WmiMap
     public static (int Width, int Height) FitThumbnail(int screenWidth, int screenHeight, int maxWidth, int maxHeight)
     {
         if (screenWidth <= 0 || screenHeight <= 0) return (maxWidth, maxHeight);
-        var scale = Math.Min((double)maxWidth / screenWidth, (double)maxHeight / screenHeight);
+        // Never larger than the guest screen: Hyper-V rejects an upscaled thumbnail (32775, invalid parameter)
+        var scale = Math.Min(1.0, Math.Min((double)maxWidth / screenWidth, (double)maxHeight / screenHeight));
         return (Math.Max(1, (int)(screenWidth * scale)), Math.Max(1, (int)(screenHeight * scale)));
     }
 }

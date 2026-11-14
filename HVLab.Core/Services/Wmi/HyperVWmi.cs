@@ -116,6 +116,11 @@ public sealed class HyperVWmi : IHyperVWmi
                     (r.GetValueOrDefault("TrunkVlanIdArray") as Array)?.Cast<object>().Select(Convert.ToInt64)))
                     .Where(t => t.Length > 0).Distinct());
 
+        // Enhanced session: 2 = available (guest ready), 6 = enabled but the guest is not ready, 3 = off
+        foreach (var r in Rows(V2, "SELECT Name, EnhancedSessionModeState FROM Msvm_ComputerSystem WHERE Caption = 'Virtual Machine'"))
+            if (byId.TryGetValue(S(r, "Name").ToUpperInvariant(), out var vm))
+                vm.EnhancedSessionReady = L(r, "EnhancedSessionModeState") == 2;
+
         FillAddresses(byId);
         FillGroups(byId);
         return vms;
@@ -273,14 +278,9 @@ public sealed class HyperVWmi : IHyperVWmi
         return new VmThumbnail(w, h, WmiMap.Rgb565ToBgra(data, w, h));
     }
 
+    /// <summary>Raw scancodes (make and break codes): every key of the console goes through here.</summary>
     public void TypeScancodes(string vmId, byte[] scancodes)
-    {
-        using var keyboard = Keyboard(vmId);
-        using var args = keyboard.GetMethodParameters("TypeScancodes");
-        args["Scancodes"] = scancodes;
-        using var result = keyboard.InvokeMethod("TypeScancodes", args, null);
-        CheckResult(result);
-    }
+        => Invoke("Msvm_Keyboard", vmId, "TypeScancodes", ("Scancodes", scancodes));
 
     public void TypeCtrlAltDel(string vmId)
     {
@@ -292,6 +292,78 @@ public sealed class HyperVWmi : IHyperVWmi
     private ManagementObject Keyboard(string vmId)
         => First(V2, $"SELECT * FROM Msvm_Keyboard WHERE SystemName = '{Id(vmId)}'")
            ?? throw new InvalidOperationException(T("Err_NoKeyboard"));
+
+    // ─── Integrated console: mouse ──────────────────────────────────────────
+
+    // Console input sends many small calls: the device objects are cached per VM (dropped on failure)
+    private readonly ConcurrentDictionary<string, ManagementObject?> _devices = new();
+    private readonly ConcurrentDictionary<string, (int X, int Y)> _ps2Positions = new();
+
+    /// <summary>Device of a running VM; a missing device is not cached (it appears once the guest has booted).</summary>
+    private ManagementObject? Device(string cls, string vmId)
+    {
+        var key = $"{cls}|{Id(vmId)}";
+        if (_devices.TryGetValue(key, out var cached) && cached is not null) return cached;
+        var device = First(V2, $"SELECT * FROM {cls} WHERE SystemName = '{Id(vmId)}'");
+        if (device is not null) _devices[key] = device;
+        return device;
+    }
+
+    /// <summary>Calls a device method; on a stale cached object the device is looked up again once.</summary>
+    private void Invoke(string cls, string vmId, string method, params (string Name, object Value)[] args)
+    {
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var device = Device(cls, vmId)
+                ?? throw new InvalidOperationException(T(cls == "Msvm_Keyboard" ? "Err_NoKeyboard" : "Err_NoMouse"));
+            try
+            {
+                using var inArgs = device.GetMethodParameters(method);
+                foreach (var (name, value) in args) inArgs[name] = value;
+                using var result = device.InvokeMethod(method, inArgs, null);
+                return;
+            }
+            catch (ManagementException) when (attempt == 0) { _devices.TryRemove($"{cls}|{Id(vmId)}", out _); }
+        }
+    }
+
+    /// <summary>Synthetic mouse (absolute pixels) when the guest has one, else PS/2 relative moves.</summary>
+    private bool HasSyntheticMouse(string vmId) => Device("Msvm_SyntheticMouse", vmId) is not null;
+
+    public void MouseMove(string vmId, int x, int y)
+    {
+        if (HasSyntheticMouse(vmId))
+        {
+            Invoke("Msvm_SyntheticMouse", vmId, "SetAbsolutePosition", ("HorizontalPosition", x), ("VerticalPosition", y));
+            return;
+        }
+        var last = _ps2Positions.GetValueOrDefault(Id(vmId));
+        foreach (var (dx, dy) in ConsoleInput.RelativeSteps(x - last.X, y - last.Y))
+            Invoke("Msvm_Ps2Mouse", vmId, "SetRelativePosition", ("HorizontalDelta", dx), ("VerticalDelta", dy));
+        _ps2Positions[Id(vmId)] = (x, y);
+    }
+
+    /// <summary>Button 1 = left, 2 = right, 3 = middle.</summary>
+    public void MouseButton(string vmId, int button, bool down)
+    {
+        if (HasSyntheticMouse(vmId))
+            Invoke("Msvm_SyntheticMouse", vmId, "SetButtonState", ("ButtonIndex", (uint)button), ("IsDown", down));
+        else
+            Invoke("Msvm_Ps2Mouse", vmId, "SetButtonState", ("ButtonIndex", (uint)button), ("ButtonState", down));
+    }
+
+    public void MouseWheel(string vmId, int delta)
+    {
+        if (HasSyntheticMouse(vmId))
+            Invoke("Msvm_SyntheticMouse", vmId, "SetScrollPosition", ("ScrollPositionDelta", delta));
+        else
+            Invoke("Msvm_Ps2Mouse", vmId, "SetScrollPosition", ("ScrollPositionDelta", (sbyte)Math.Clamp(delta / 40, -127, 127)));
+    }
+
+    /// <summary>Host setting that lets vmconnect open enhanced sessions (clipboard, drives, dynamic resolution).</summary>
+    public bool GetEnhancedSessionHost()
+        => Rows(V2, "SELECT EnhancedSessionModeEnabled FROM Msvm_VirtualSystemManagementServiceSettingData")
+            .FirstOrDefault()?.GetValueOrDefault("EnhancedSessionModeEnabled") is true;
 
     // ─── Checkpoints ────────────────────────────────────────────────────────
 

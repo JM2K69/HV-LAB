@@ -16,10 +16,50 @@ public partial class SettingsViewModel : ObservableObject
     public List<string> Languages { get; } = ["fr", "en"];
 
     private readonly IThemeService _theme;
+    private readonly IHyperVService? _hvService;
 
-    public SettingsViewModel(IThemeService theme)
+    // Enhanced session mode of the host: read when the page opens, written when the user toggles it
+    [ObservableProperty] private bool enhancedSession;
+    [ObservableProperty] private bool enhancedSessionLoaded;
+    private bool _loadingEnhancedSession;
+
+    public async Task LoadHostSettingsAsync()
+    {
+        if (_hvService is null) return;
+        try
+        {
+            _loadingEnhancedSession = true;
+            EnhancedSession = await _hvService.GetEnhancedSessionHostAsync();
+            EnhancedSessionLoaded = true;
+        }
+        catch (Exception ex) { Status = ex.Message; }
+        finally { _loadingEnhancedSession = false; }
+    }
+
+    partial void OnEnhancedSessionChanged(bool value)
+    {
+        if (_loadingEnhancedSession || _hvService is null) return;
+        _ = ApplyEnhancedSessionAsync(value);
+    }
+
+    private async Task ApplyEnhancedSessionAsync(bool value)
+    {
+        try
+        {
+            await _hvService!.SetEnhancedSessionHostAsync(value);
+            Status = LocalizationService.T(value ? "SET_EnhancedOn" : "SET_EnhancedOff");
+        }
+        catch (Exception ex)
+        {
+            Status = ex.Message;
+            await LoadHostSettingsAsync();   // show the real host state again
+        }
+    }
+
+    public SettingsViewModel(IThemeService theme, IHyperVService? hvService = null)
     {
         _theme = theme;
+        _hvService = hvService;
         var s = AppSettings.Current;
         baseImagesFolder = s.BaseImagesFolder;
         vmsFolder        = s.VmsFolder;

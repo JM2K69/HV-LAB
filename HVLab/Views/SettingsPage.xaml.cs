@@ -13,6 +13,12 @@ public sealed partial class SettingsPage : Page
 
     public SettingsPage() => InitializeComponent();
 
+    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        _ = ViewModel.LoadHostSettingsAsync();
+    }
+
     private void BrowseBaseImages_Click(object sender, RoutedEventArgs e)
     {
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);

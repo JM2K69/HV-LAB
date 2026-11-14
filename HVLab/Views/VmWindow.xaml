@@ -22,7 +22,7 @@
             <TextBlock x:Name="TitleText" Grid.Column="1" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}"/>
         </Grid>
 
-        <Grid Grid.Row="1" Padding="24,4,24,16" RowSpacing="10">
+        <Grid x:Name="BodyGrid" Grid.Row="1" Padding="24,4,24,16" RowSpacing="10">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -31,7 +31,7 @@
             </Grid.RowDefinitions>
 
             <!-- Header: name, state, power actions -->
-            <Grid ColumnSpacing="12">
+            <Grid x:Name="HeaderGrid" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -42,6 +42,17 @@
                     <Border CornerRadius="12" Padding="10,3" VerticalAlignment="Center"
                             Background="{x:Bind helpers:Display.StateBrush(ViewModel.Vm.State), Mode=OneWay}">
                         <TextBlock Text="{x:Bind ViewModel.Vm.State, Mode=OneWay}" FontSize="12" FontWeight="SemiBold" Foreground="White"/>
+                    </Border>
+                    <!-- Enhanced session available in the guest (vmconnect: clipboard, sound, any resolution) -->
+                    <Border CornerRadius="12" Padding="10,3" VerticalAlignment="Center"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            Visibility="{x:Bind ViewModel.Vm.EnhancedSessionReady, Mode=OneWay}"
+                            ToolTipService.ToolTip="{Binding [VMW_EnhancedTip], Source={StaticResource Loc}}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE7F4;" FontSize="12" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
+                            <TextBlock Text="{Binding [VMW_Enhanced], Source={StaticResource Loc}}" FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"/>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
@@ -213,6 +224,74 @@
                                 </Border>
                             </StackPanel>
                         </ScrollViewer>
+                    </Grid>
+                </PivotItem>
+
+                <!-- ═══ Console: live screen at the guest resolution, zoom, keyboard and mouse sent to the VM ═══ -->
+                <PivotItem Header="{Binding [VMW_TabConsole], Source={StaticResource Loc}}">
+                    <Grid RowSpacing="8" Margin="0,8,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ComboBox x:Name="ZoomBox" MinWidth="110" ItemsSource="{x:Bind ViewModel.ZoomOptions}"
+                                      SelectedIndex="{x:Bind ViewModel.ZoomIndex, Mode=TwoWay}"
+                                      AutomationProperties.Name="{Binding [CON_Zoom], Source={StaticResource Loc}}"
+                                      ToolTipService.ToolTip="{Binding [CON_Zoom], Source={StaticResource Loc}}"/>
+                            <Button Command="{x:Bind ViewModel.SendCtrlAltDelCommand}" IsEnabled="{x:Bind ViewModel.Vm.IsRunning, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE92E;" FontSize="14"/>
+                                    <TextBlock Text="{Binding [VM_SendCtrlAltDel], Source={StaticResource Loc}}"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Click="TypeClipboard_Click" IsEnabled="{x:Bind ViewModel.Vm.IsRunning, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE77F;" FontSize="14"/>
+                                    <TextBlock Text="{Binding [CON_TypeClipboard], Source={StaticResource Loc}}"/>
+                                </StackPanel>
+                            </Button>
+                            <ComboBox ItemsSource="{x:Bind ViewModel.TypingLanguages}"
+                                      SelectedItem="{x:Bind ViewModel.TypingLanguage, Mode=TwoWay}"
+                                      AutomationProperties.Name="{Binding [VM_TypeLayout], Source={StaticResource Loc}}"
+                                      ToolTipService.ToolTip="{Binding [VM_TypeLayout], Source={StaticResource Loc}}"/>
+                            <Button Click="FullScreen_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon x:Name="FullScreenIcon" Glyph="&#xE740;" FontSize="14"/>
+                                    <TextBlock x:Name="FullScreenText" Text="{Binding [CON_FullScreen], Source={StaticResource Loc}}"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Focusable surface: while it has the focus, keys and mouse go to the VM (accent border) -->
+                        <Border x:Name="ConsoleBorder" Grid.Row="1" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="8" BorderThickness="2" BorderBrush="Transparent">
+                            <ContentControl x:Name="ConsoleSurface" IsTabStop="True" UseSystemFocusVisuals="True"
+                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                                            AutomationProperties.Name="{Binding [VMW_Screen], Source={StaticResource Loc}}"
+                                            PreviewKeyDown="Console_PreviewKeyDown" PreviewKeyUp="Console_PreviewKeyUp"
+                                            GotFocus="Console_GotFocus" LostFocus="Console_LostFocus">
+                                <Grid>
+                                    <ScrollViewer x:Name="ConsoleScroll" ZoomMode="Disabled"
+                                                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled"
+                                                  SizeChanged="ConsoleScroll_SizeChanged">
+                                        <Image x:Name="ConsoleImage" Stretch="Fill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               PointerPressed="ConsoleImage_PointerPressed" PointerReleased="ConsoleImage_PointerReleased"
+                                               PointerMoved="ConsoleImage_PointerMoved" PointerWheelChanged="ConsoleImage_PointerWheelChanged"/>
+                                    </ScrollViewer>
+                                    <TextBlock x:Name="NoConsoleText" Text="{Binding [VM_NoScreen], Source={StaticResource Loc}}"
+                                               TextWrapping="Wrap" TextAlignment="Center" Margin="24"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </Grid>
+                            </ContentControl>
+                        </Border>
+
+                        <TextBlock x:Name="ConsoleHint" Grid.Row="2" Text="{Binding [CON_Hint], Source={StaticResource Loc}}"
+                                   Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     </Grid>
                 </PivotItem>
 
@@ -392,7 +471,7 @@
             </Pivot>
 
             <!-- Status -->
-            <TextBlock Grid.Row="3" Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12"
+            <TextBlock x:Name="StatusText" Grid.Row="3" Text="{x:Bind ViewModel.Status, Mode=OneWay}" FontSize="12"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
         </Grid>
     </Grid>

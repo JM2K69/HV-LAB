@@ -116,6 +116,91 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     [RelayCommand]
     private Task SendCtrlAltDelAsync() => RunAsync(T("VM_CtrlAltDel", Vm.Name), () => _hvService.SendCtrlAltDelAsync(Vm.Id));
 
+    // ─── Integrated console: live screen at the guest resolution, zoom, keyboard and mouse ──
+
+    [ObservableProperty] private VmThumbnail? consoleFrame;
+    /// <summary>Index in <see cref="ConsoleInput.ZoomLevels"/> (0 = fit to the window).</summary>
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(Zoom), nameof(IsFit))] private int zoomIndex;
+
+    public int  Zoom  => ConsoleInput.ZoomLevels[Math.Clamp(ZoomIndex, 0, ConsoleInput.ZoomLevels.Count - 1)];
+    public bool IsFit => Zoom == 0;
+    public IReadOnlyList<string> ZoomOptions { get; } =
+        ConsoleInput.ZoomLevels.Select(z => z == 0 ? T("CON_ZoomFit") : $"{z} %").ToList();
+
+    /// <summary>Ctrl + wheel on the screen: one zoom level up or down.</summary>
+    public void StepZoom(bool up)
+    {
+        var levels = ConsoleInput.ZoomLevels;
+        ZoomIndex = levels.ToList().IndexOf(ConsoleInput.StepZoom(Zoom, up));
+    }
+
+    /// <summary>Next frame of the console (called in a loop by the window while the Console tab is shown).</summary>
+    public async Task RefreshConsoleAsync()
+    {
+        if (!Vm.IsRunning) { ConsoleFrame = null; return; }
+        // Native resolution (up to 2560×1600), so a frame pixel is a guest pixel for the mouse
+        try { ConsoleFrame = await _hvService.GetThumbnailAsync(Vm.Id, 2560, 1600); }
+        catch { ConsoleFrame = null; }
+    }
+
+    // Input goes out in order, one WMI call at a time; mouse moves are coalesced (only the last position is sent)
+    private readonly SemaphoreSlim _input = new(1, 1);
+    private (int X, int Y)? _pendingMove;
+    private bool _moving;
+
+    private async Task SendAsync(Func<Task> call)
+    {
+        await _input.WaitAsync();
+        try { await call(); }
+        catch (Exception ex) { Status = T("CON_InputError", ex.Message); }   // no banner: input keeps flowing
+        finally { _input.Release(); }
+    }
+
+    /// <summary>A physical key pressed or released in the console (scancode of the host keyboard).</summary>
+    public Task SendKeyAsync(uint scanCode, bool extended, bool keyUp)
+    {
+        var codes = ConsoleInput.Scancodes(scanCode, extended, keyUp);
+        return codes.Length == 0 ? Task.CompletedTask : SendAsync(() => _hvService.SendScancodesAsync(Vm.Id, codes));
+    }
+
+    public void MoveMouse(int x, int y)
+    {
+        _pendingMove = (x, y);
+        if (_moving) return;
+        _moving = true;
+        _ = PumpMovesAsync();
+    }
+
+    private async Task PumpMovesAsync()
+    {
+        try
+        {
+            while (_pendingMove is { } p)
+            {
+                _pendingMove = null;
+                await SendAsync(() => _hvService.MouseMoveAsync(Vm.Id, p.X, p.Y));
+            }
+        }
+        finally { _moving = false; }
+    }
+
+    /// <summary>Button 1 = left, 2 = right, 3 = middle.</summary>
+    public Task MouseButtonAsync(int button, bool down) => SendAsync(async () =>
+    {
+        // The click lands where the pointer is now: a move still waiting goes out first
+        if (_pendingMove is { } p) { _pendingMove = null; await _hvService.MouseMoveAsync(Vm.Id, p.X, p.Y); }
+        await _hvService.MouseButtonAsync(Vm.Id, button, down);
+    });
+
+    public Task MouseWheelAsync(int delta) => SendAsync(() => _hvService.MouseWheelAsync(Vm.Id, delta));
+
+    /// <summary>Types text (the clipboard) with the guest keyboard layout chosen for the password.</summary>
+    public Task TypeTextAsync(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) { Status = T("CON_ClipboardEmpty"); return Task.CompletedTask; }
+        return RunAsync(T("CON_TypingClipboard"), () => _hvService.TypeTextAsync(Vm.Id, text, TypingLanguage, false));
+    }
+
     // ─── Checkpoints ────────────────────────────────────────────────────────
 
     public ObservableCollection<CheckpointRow> Checkpoints { get; } = [];

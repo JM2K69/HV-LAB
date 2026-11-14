@@ -77,6 +77,20 @@
                           MinWidth="120"/>
             </ctk:SettingsCard>
 
+            <!-- ══ Hyper-V host ═══════════════════════════════════════════ -->
+            <TextBlock Text="{Binding [SET_SecHost], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,20,0,4"/>
+
+            <ctk:SettingsCard Header="{Binding [SET_Enhanced], Source={StaticResource Loc}}"
+                              Description="{Binding [SET_EnhancedDesc], Source={StaticResource Loc}}">
+                <ctk:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE7F4;"/>
+                </ctk:SettingsCard.HeaderIcon>
+                <ToggleSwitch IsOn="{x:Bind ViewModel.EnhancedSession, Mode=TwoWay}"
+                              IsEnabled="{x:Bind ViewModel.EnhancedSessionLoaded, Mode=OneWay}"/>
+            </ctk:SettingsCard>
+
             <!-- ══ À propos ═════════════════════════════════════════════════ -->
             <TextBlock Text="{Binding [SET_SecAbout], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"

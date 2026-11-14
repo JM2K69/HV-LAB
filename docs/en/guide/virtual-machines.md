@@ -32,7 +32,7 @@ Each row has three buttons:
 
 - **Start**;
 - **Shut down**, a clean shutdown through the guest;
-- **Console**, which opens *Virtual Machine Connection* (`vmconnect`).
+- **Console**, which opens *Virtual Machine Connection* (`vmconnect`). One window per VM: a second click brings the open window to the front.
 
 The **⋯** menu holds the other actions:
 
@@ -42,6 +42,7 @@ The **⋯** menu holds the other actions:
 | Restart | Clean restart through the guest |
 | Reset | Hard reset |
 | Save state / Pause / Resume | Hyper-V saved and paused states |
+| Built-in console | Opens the VM window on its **Console** tab |
 | Settings… | Opens the VM window on its **Settings** tab |
 | Delete | See [Delete a VM](#delete-a-vm) |
 
@@ -50,6 +51,7 @@ The **⋯** menu holds the other actions:
 Double-click a VM, press ++enter++ or use its **Details** button to open the VM in **its own window**, one window per VM. The window stays live, whatever page the main window shows. Its **Overview** tab holds:
 
 - the **live screen** of the running VM, refreshed every 2 seconds;
+- the **Enhanced session** badge when the VM integration services accept it: `vmconnect` then offers clipboard, sound and any resolution;
 - the power actions at the top: Start, Shut down, Console, and in **⋯** Turn off, Restart, Reset, Save state, Pause and Resume.
 - **Guest OS**, IP address, uptime and heartbeat.
 - **Console**, **SSH** and **Remote Desktop** buttons:
@@ -59,7 +61,20 @@ Double-click a VM, press ++enter++ or use its **Details** button to open the VM 
     - **Copy password**;
     - **Type the password**: types it into the VM, then presses Enter. Choose the **VM keyboard** (`fr-FR`, `en-US`…) so that an AZERTY guest receives the right characters;
     - **Ctrl+Alt+Del**.
-- the **Checkpoints** and **Settings** tabs, described below.
+- the **Console**, **Checkpoints** and **Settings** tabs, described below.
+
+### Built-in console
+
+The **Console** tab shows the VM screen at its real resolution, about 10 frames per second, and sends it keyboard and mouse through WMI. It works from the BIOS and OS setup on, with no network in the VM and no credentials.
+
+- **Zoom**: *Fit* (the whole screen in the window) or 50 to 200 %. At 100 %, a VM pixel is a screen pixel, whatever the Windows scaling. ++ctrl++ + wheel changes the level.
+- **Keyboard and mouse**: click the screen; a coloured border shows that keys and mouse go to the VM. Click outside the screen to release them: keys still held are released in the VM.
+- Keys are sent as **physical codes**: the VM applies its own layout (an AZERTY guest gets AZERTY).
+- ++ctrl+alt+del++ and the Windows key stay with the host: use the **Ctrl+Alt+Del** button.
+- **Type the clipboard** types the text copied on the host, with the VM keyboard chosen next to it.
+- **Full screen** shows the console alone; the same button leaves it.
+
+For a shared clipboard, sound or another resolution, use **Console** (`vmconnect`) in enhanced session, turned on in **Settings > Hyper-V host**.
 
 ### Checkpoints
 

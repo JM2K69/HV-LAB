@@ -12,7 +12,7 @@ public enum HyperVEnvironment { Ok, FeatureMissing, ServiceStopped }
 /// go through WMI (<see cref="IHyperVWmi"/>), heavy and rare ones (VM creation, disks, settings, groups)
 /// through the PowerShell pool.
 /// </summary>
-public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHyperVService
+public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHyperVService
 {
     private readonly IHyperVWmi _wmi = wmi ?? new Wmi.HyperVWmi();
 
@@ -139,6 +139,18 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
         });
 
     public Task SendCtrlAltDelAsync(string vmId) => Wmi(() => _wmi.TypeCtrlAltDel(vmId));
+
+    // ─── Integrated console ─────────────────────────────────────────────────
+
+    public Task SendScancodesAsync(string vmId, byte[] scancodes) => Wmi(() => _wmi.TypeScancodes(vmId, scancodes));
+    public Task MouseMoveAsync(string vmId, int x, int y)         => Wmi(() => _wmi.MouseMove(vmId, x, y));
+    public Task MouseButtonAsync(string vmId, int button, bool down) => Wmi(() => _wmi.MouseButton(vmId, button, down));
+    public Task MouseWheelAsync(string vmId, int delta)           => Wmi(() => _wmi.MouseWheel(vmId, delta));
+
+    public Task<bool> GetEnhancedSessionHostAsync() => Wmi(_wmi.GetEnhancedSessionHost);
+
+    public Task SetEnhancedSessionHostAsync(bool enabled)
+        => RunScriptAsync($"Import-Module Hyper-V -ErrorAction Stop\nSet-VMHost -EnableEnhancedSessionMode ${(enabled ? "true" : "false")} -ErrorAction Stop");
 
     // ─── Checkpoints: list through WMI, changes through PowerShell ──────────
 
@@ -328,28 +340,59 @@ public class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHype
             }
             """);
 
+    // vmconnect window opened per VM: a second click brings it back instead of opening another one
+    private static readonly Dictionary<string, Process> VmConnectWindows = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
-    /// Opens the Hyper-V VM Connect window (vmconnect.exe) for the specified VM.
-    /// Equivalent to double-clicking the VM in Hyper-V Manager.
+    /// Opens the Hyper-V VM Connect window (vmconnect.exe) for the specified VM, or brings the one HV-LAB
+    /// already opened for it to the front. Equivalent to double-clicking the VM in Hyper-V Manager.
     /// </summary>
     public void ConnectToVMConsole(string name)
     {
-        var vmconnect = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.System),
-            "vmconnect.exe");
-
-        if (!File.Exists(vmconnect))
-            throw new InvalidOperationException(
-                LocalizationService.Instance["Err_VmConnect"]);
-
-        var psi = new ProcessStartInfo
+        lock (VmConnectWindows)
         {
-            FileName        = vmconnect,
-            Arguments       = $"localhost \"{name.Replace("\"", "\\\"")}\"",
-            UseShellExecute = false,
-        };
-        Process.Start(psi);
+            if (VmConnectWindows.TryGetValue(name, out var open) && !open.HasExited)
+            {
+                open.Refresh();
+                if (open.MainWindowHandle != 0)
+                {
+                    if (IsIconic(open.MainWindowHandle)) ShowWindow(open.MainWindowHandle, SW_RESTORE);
+                    SetForegroundWindow(open.MainWindowHandle);
+                    return;
+                }
+            }
+
+            var vmconnect = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.System),
+                "vmconnect.exe");
+
+            if (!File.Exists(vmconnect))
+                throw new InvalidOperationException(
+                    LocalizationService.Instance["Err_VmConnect"]);
+
+            var psi = new ProcessStartInfo
+            {
+                FileName        = vmconnect,
+                Arguments       = $"localhost \"{name.Replace("\"", "\\\"")}\"",
+                UseShellExecute = false,
+            };
+            if (Process.Start(psi) is { } process) VmConnectWindows[name] = process;
+        }
     }
+
+    private const int SW_RESTORE = 9;
+
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static partial bool SetForegroundWindow(nint hWnd);
+
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static partial bool ShowWindow(nint hWnd, int nCmdShow);
+
+    [System.Runtime.InteropServices.LibraryImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static partial bool IsIconic(nint hWnd);
 
     // ─── Virtual Switches
 

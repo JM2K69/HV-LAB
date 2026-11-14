@@ -113,6 +113,8 @@ public class WmiMapTests
         Assert.Equal((320, 180), WmiMap.FitThumbnail(1920, 1080, 320, 240));
         Assert.Equal((320, 240), WmiMap.FitThumbnail(1024, 768, 320, 240));
         Assert.Equal((320, 240), WmiMap.FitThumbnail(0, 0, 320, 240));
+        // never upscaled: the console asks for up to 2560×1600 and gets the native 1024×768
+        Assert.Equal((1024, 768), WmiMap.FitThumbnail(1024, 768, 2560, 1600));
     }
 }
 

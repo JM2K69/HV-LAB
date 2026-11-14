@@ -268,6 +268,10 @@
                                             <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE768;"/></MenuFlyoutItem.Icon>
                                         </MenuFlyoutItem>
                                         <MenuFlyoutSeparator/>
+                                        <MenuFlyoutItem Text="{Binding [VM_OpenConsoleTab], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        Click="ConsoleTab_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE7F4;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
                                         <MenuFlyoutItem Text="{Binding [VM_Settings], Source={StaticResource Loc}}" Tag="{x:Bind}"
                                                         Click="Settings_Click">
                                             <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE713;"/></MenuFlyoutItem.Icon>

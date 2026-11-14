@@ -19,8 +19,9 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
 - **Dashboard**: running and stopped VMs, switches and base images at a glance, with a check of the Hyper-V environment (module, `vmms` service) at startup.
 - **Virtual machines**, read through WMI (a few tens of milliseconds, refreshed every 3 s):
   - live CPU load, memory, uptime, heartbeat and IP address;
-  - start, clean shutdown, turn off, save, pause/resume, restart, reset, console (`vmconnect`);
-  - a window per VM (double-click) with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop, and tabs for checkpoints and settings;
+  - start, clean shutdown, turn off, save, pause/resume, restart, reset, console (`vmconnect`, one window per VM);
+  - a window per VM (double-click) with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop, an enhanced-session badge, and tabs for the console, checkpoints and settings;
+  - built-in console: the VM screen at its real resolution, zoom (fit, 50–200 %, Ctrl + wheel), keyboard and mouse sent to the VM, type the clipboard, full screen;
   - checkpoint tree (create, apply, rename, delete), settings after creation (CPU, nested virtualization, memory, ISO, switch, VLAN);
   - multi-select, Hyper-V VM groups, delete with the VM's own disks (never the base image);
   - each VM runs one action at a time, so a double click does nothing.

@@ -85,6 +85,7 @@ public sealed partial class VirtualMachinesPage : Page
 
     private void Details_Click(object sender, RoutedEventArgs e)  { if (VmOf(sender) is { } vm) VmWindow.Show(vm); }
     private void Settings_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) VmWindow.Show(vm, VmWindowTab.Settings); }
+    private void ConsoleTab_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) VmWindow.Show(vm, VmWindowTab.Console); }
     private void TurnOff_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) ViewModel.TurnOffVmCommand.Execute(vm); }
     private void Restart_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) ViewModel.RestartVmCommand.Execute(vm); }
     private void Reset_Click(object sender, RoutedEventArgs e)   { if (VmOf(sender) is { } vm) ViewModel.ResetVmCommand.Execute(vm); }

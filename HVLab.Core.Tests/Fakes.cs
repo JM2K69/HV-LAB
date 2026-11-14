@@ -86,6 +86,17 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task TypeTextAsync(string vmId, string text, string language, bool pressEnter)
     { Calls.Add($"type {vmId} {text} {language} {pressEnter}"); return Task.CompletedTask; }
     public Task SendCtrlAltDelAsync(string vmId) { Calls.Add($"cad {vmId}"); return Task.CompletedTask; }
+    public Task SendScancodesAsync(string vmId, byte[] scancodes)
+    { Calls.Add($"keys {vmId} {Convert.ToHexString(scancodes)}"); return Task.CompletedTask; }
+    /// <summary>When set, mouse moves wait for it (to test that moves are coalesced).</summary>
+    public TaskCompletionSource? MoveGate { get; set; }
+    public Task MouseMoveAsync(string vmId, int x, int y) { Calls.Add($"move {vmId} {x},{y}"); return MoveGate?.Task ?? Task.CompletedTask; }
+    public Task MouseButtonAsync(string vmId, int button, bool down) { Calls.Add($"button {vmId} {button} {down}"); return Task.CompletedTask; }
+    public Task MouseWheelAsync(string vmId, int delta) { Calls.Add($"wheel {vmId} {delta}"); return Task.CompletedTask; }
+    public bool EnhancedSessionHost { get; set; } = true;
+    public Task<bool> GetEnhancedSessionHostAsync() => Task.FromResult(EnhancedSessionHost);
+    public Task SetEnhancedSessionHostAsync(bool enabled)
+    { Calls.Add($"enhanced {enabled}"); EnhancedSessionHost = enabled; return Task.CompletedTask; }
     public Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId) => Task.FromResult(CheckpointRows.ToList());
     public Task CreateCheckpointAsync(string vmName, string checkpointName) { Calls.Add($"checkpoint {vmName} {checkpointName}"); return Task.CompletedTask; }
     public Task ApplyCheckpointAsync(string vmName, string checkpointId) { Calls.Add($"apply {vmName} {checkpointId}"); return Task.CompletedTask; }

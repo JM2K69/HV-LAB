@@ -27,6 +27,12 @@ public interface IHyperVWmi
     List<VmNetworkAdapter> GetVmNetworkAdapters();
     Dictionary<string, string> GetHostAddresses();
     List<NetworkAdapterInfo> GetPhysicalAdapters();
+
+    // Integrated console: absolute mouse (synthetic, generation 2) or relative PS/2 mouse (generation 1)
+    void MouseMove(string vmId, int x, int y);
+    void MouseButton(string vmId, int button, bool down);
+    void MouseWheel(string vmId, int delta);
+    bool GetEnhancedSessionHost();
 }
 
 /// <summary>Hyper-V host operations: VMs, switches, network adapters, environment.</summary>
@@ -80,6 +86,16 @@ public interface IHyperVService
     /// </summary>
     Task EnableIcsAsync(string publicAdapter, string switchName);
     Task DisableIcsAsync();
+
+    // Integrated console (WMI): raw key scancodes and mouse
+    Task SendScancodesAsync(string vmId, byte[] scancodes);
+    Task MouseMoveAsync(string vmId, int x, int y);
+    Task MouseButtonAsync(string vmId, int button, bool down);
+    Task MouseWheelAsync(string vmId, int delta);
+
+    // Enhanced session mode of the host (vmconnect with clipboard, drives, dynamic resolution)
+    Task<bool> GetEnhancedSessionHostAsync();
+    Task SetEnhancedSessionHostAsync(bool enabled);
 
     Task<List<VirtualSwitch>> GetVirtualSwitchesAsync();
     Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0);

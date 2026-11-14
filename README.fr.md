@@ -19,8 +19,9 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
 - **Tableau de bord** : VM démarrées et arrêtées, commutateurs et images de base en un coup d'œil. L'environnement Hyper-V (module, service `vmms`) est vérifié au démarrage.
 - **Machines virtuelles**, lues via WMI (quelques dizaines de millisecondes, rafraîchies toutes les 3 s) :
   - charge CPU, mémoire, durée de fonctionnement, signal de vie et adresse IP en direct ;
-  - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, console (`vmconnect`) ;
-  - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, et des onglets pour les points de contrôle et les paramètres ;
+  - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, console (`vmconnect`, une fenêtre par VM) ;
+  - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, un badge de session avancée, et des onglets pour la console, les points de contrôle et les paramètres ;
+  - console intégrée : l'écran de la VM à sa résolution réelle, zoom (ajuster, 50–200 %, Ctrl + molette), clavier et souris envoyés à la VM, saisie du presse-papiers, plein écran ;
   - arbre des points de contrôle (créer, appliquer, renommer, supprimer), paramètres après création (CPU, virtualisation imbriquée, mémoire, ISO, commutateur, VLAN) ;
   - sélection multiple, groupes de VM Hyper-V, suppression avec les disques de la VM (jamais l'image de base) ;
   - une seule action à la fois par VM, donc un double clic n'a aucun effet.

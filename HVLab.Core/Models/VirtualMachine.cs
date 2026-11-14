@@ -33,6 +33,8 @@ public partial class VirtualMachine : ObservableObject
     [ObservableProperty] private string guestOs        = string.Empty;
     /// <summary>Hyper-V VM group (collection) the VM belongs to, empty when none.</summary>
     [ObservableProperty] private string groupName      = string.Empty;
+    /// <summary>The guest accepts an enhanced session in vmconnect (clipboard, drives, dynamic resolution).</summary>
+    [ObservableProperty] private bool   enhancedSessionReady;
 
     /// <summary>True while a start/stop/remove action is running on this VM (prevents double clicks).</summary>
     [ObservableProperty] private bool   isBusy;
@@ -110,6 +112,7 @@ public partial class VirtualMachine : ObservableObject
         Notes          = fresh.Notes;
         GuestOs        = fresh.GuestOs;
         GroupName      = fresh.GroupName;
+        EnhancedSessionReady = fresh.EnhancedSessionReady;
     }
 }
 

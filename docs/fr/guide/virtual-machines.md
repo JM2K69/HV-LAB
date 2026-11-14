@@ -32,7 +32,7 @@ Chaque ligne a trois boutons :
 
 - **Démarrer** ;
 - **Arrêter**, un arrêt propre par l'invité ;
-- **Console**, qui ouvre *Connexion à une machine virtuelle* (`vmconnect`).
+- **Console**, qui ouvre *Connexion à une machine virtuelle* (`vmconnect`). Une seule fenêtre par VM : un second clic ramène au premier plan la fenêtre déjà ouverte.
 
 Le menu **⋯** regroupe les autres actions :
 
@@ -42,6 +42,7 @@ Le menu **⋯** regroupe les autres actions :
 | Redémarrer | Redémarrage propre par l'invité |
 | Réinitialiser | Réinitialisation matérielle |
 | Enregistrer l'état / Suspendre / Reprendre | États enregistré et en pause d'Hyper-V |
+| Console intégrée | Ouvre la fenêtre de la VM sur son onglet **Console** |
 | Paramètres… | Ouvre la fenêtre de la VM sur son onglet **Paramètres** |
 | Supprimer | Voir [Supprimer une VM](#supprimer-une-vm) |
 
@@ -50,6 +51,7 @@ Le menu **⋯** regroupe les autres actions :
 Double-cliquez sur une VM, appuyez sur ++enter++ ou utilisez son bouton **Détails** pour ouvrir la VM dans **sa propre fenêtre**, une fenêtre par VM. La fenêtre reste à jour, quelle que soit la page affichée dans la fenêtre principale. Son onglet **Aperçu** contient :
 
 - l'**écran en direct** de la VM démarrée, rafraîchi toutes les 2 secondes ;
+- le badge **Session avancée** quand les services d'intégration de la VM l'acceptent : `vmconnect` offre alors presse-papiers, son et résolution libre ;
 - les actions d'alimentation en haut : Démarrer, Arrêter, Console, et dans **⋯** Éteindre, Redémarrer, Réinitialiser, Enregistrer l'état, Suspendre et Reprendre.
 - **Système invité**, adresse IP, durée de fonctionnement et signal de vie.
 - Boutons **Console**, **SSH** et **Bureau à distance** :
@@ -59,7 +61,20 @@ Double-cliquez sur une VM, appuyez sur ++enter++ ou utilisez son bouton **Détai
     - **Copier le mot de passe** ;
     - **Taper le mot de passe** : le saisit dans la VM, puis appuie sur Entrée. Choisissez le **clavier de la VM** (`fr-FR`, `en-US`…) pour qu'un invité AZERTY reçoive les bons caractères ;
     - **Ctrl+Alt+Suppr**.
-- les onglets **Points de contrôle** et **Paramètres**, décrits ci-dessous.
+- les onglets **Console**, **Points de contrôle** et **Paramètres**, décrits ci-dessous.
+
+### Console intégrée
+
+L'onglet **Console** affiche l'écran de la VM à sa résolution réelle, environ 10 images par seconde, et lui envoie clavier et souris par WMI. Elle fonctionne dès le BIOS et l'installation de l'OS, sans réseau dans la VM et sans identifiants.
+
+- **Zoom** : *Ajuster* (l'écran entier dans la fenêtre) ou 50 à 200 %. À 100 %, un pixel de la VM est un pixel de l'écran, quelle que soit la mise à l'échelle de Windows. ++ctrl++ + molette change de niveau.
+- **Clavier et souris** : cliquez dans l'écran ; une bordure de couleur indique que les touches et la souris vont à la VM. Cliquez hors de l'écran pour les libérer : les touches encore enfoncées sont relâchées dans la VM.
+- Les touches sont envoyées comme **codes physiques** : la VM applique sa propre disposition (un invité AZERTY reçoit de l'AZERTY).
+- ++ctrl+alt+del++ et la touche Windows restent à l'hôte : utilisez le bouton **Ctrl+Alt+Suppr**.
+- **Taper le presse-papiers** saisit le texte copié sur l'hôte, avec le clavier de la VM choisi à côté.
+- **Plein écran** n'affiche plus que la console ; le même bouton en sort.
+
+Pour le presse-papiers partagé, le son ou une autre résolution, utilisez **Console** (`vmconnect`) en session avancée, à activer dans **Paramètres > Hôte Hyper-V**.
 
 ### Points de contrôle
 
