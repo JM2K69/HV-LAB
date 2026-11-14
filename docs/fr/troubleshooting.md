@@ -22,7 +22,13 @@ L'application ne démarre pas
 :   Consultez les journaux de `%LocalAppData%\HV-LAB\logs` et le journal Windows *Application*, puis réinstallez avec `Install.ps1`.
 
 Bandeau d'erreur sur une page
-:   Le message est l'erreur renvoyée par PowerShell ou Hyper-V, par exemple un nom de commutateur déjà utilisé, ou un fichier verrouillé par une VM démarrée.
+:   Le message est l'erreur renvoyée par PowerShell ou Hyper-V, par exemple un nom de commutateur déjà utilisé, ou un fichier verrouillé par une VM démarrée. Le bandeau d'une action reste affiché jusqu'à ce que vous le fermiez ou lanciez une autre action. **Copier les détails** copie la sortie de PowerShell, utile pour signaler un problème.
+
+Quelles opérations ont tourné, et combien de temps
+:   `%LocalAppData%\HV-LAB\logs\operations-aaaaMMjj.log` contient une ligne par opération Hyper-V : nom, durée, résultat. Les scripts n'y sont jamais écrits (ils peuvent contenir des mots de passe). Les journaux de plus de 30 jours sont supprimés au démarrage.
+
+Une création a échoué ou a été annulée
+:   HV-LAB supprime ce que cette création a produit : les disques sont démontés, puis la VM et son dossier sont supprimés. Une VM ou un dossier qui existait avant n'est jamais touché. Un nom déjà utilisé par une autre VM est refusé.
 
 ## Images de base
 

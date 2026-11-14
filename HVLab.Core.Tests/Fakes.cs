@@ -84,7 +84,7 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null)
     {
         Calls.Add($"remove {name} {files?.Count ?? 0} files");
-        Vms.RemoveAll(v => v.Name == name);
+        Vms.RemoveAll(v => v.Id == name || v.Name == name);   // the view models pass the GUID
         return Task.CompletedTask;
     }
     public void ConnectToVMConsole(string name) { }
@@ -116,7 +116,7 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames)
     {
         Calls.Add($"group {groupName} {string.Join(",", vmNames)}");
-        foreach (var v in Vms.Where(v => vmNames.Contains(v.Name))) v.GroupName = groupName;
+        foreach (var v in Vms.Where(v => vmNames.Contains(v.Id) || vmNames.Contains(v.Name))) v.GroupName = groupName;
         return Task.CompletedTask;
     }
     public Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames) { Calls.Add($"ungroup {string.Join(",", vmNames)}"); return Task.CompletedTask; }

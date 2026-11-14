@@ -41,6 +41,8 @@ public partial class VirtualMachine : ObservableObject
 
     // ── Derived display props
     public bool   IsRunning     => State == "Running";
+    /// <summary>How the services address this VM: its Hyper-V GUID (unique even with namesakes), else its name.</summary>
+    public string Target        => Id.Length > 0 ? Id : Name;
     public bool   IsPaused      => State == "Paused";
     public string MemoryDisplay => $"{MemoryMB} MB";
     public string GenDisplay    => $"Gen {Generation}";

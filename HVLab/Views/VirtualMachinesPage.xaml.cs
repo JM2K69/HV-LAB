@@ -84,6 +84,14 @@ public sealed partial class VirtualMachinesPage : Page
     private static VirtualMachine? VmOf(object sender) => (sender as FrameworkElement)?.Tag as VirtualMachine;
 
     private void Details_Click(object sender, RoutedEventArgs e)  { if (VmOf(sender) is { } vm) VmWindow.Show(vm); }
+
+    /// <summary>Error banner: the message and PowerShell's output, ready to paste into an issue.</summary>
+    private void CopyErrorDetails_Click(object sender, RoutedEventArgs e)
+    {
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        package.SetText($"{ViewModel.ErrorMessage}\n\n{ViewModel.ErrorDetails}");
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+    }
     private void Settings_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) VmWindow.Show(vm, VmWindowTab.Settings); }
     private void ConsoleTab_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) VmWindow.Show(vm, VmWindowTab.Console); }
     private void TurnOff_Click(object sender, RoutedEventArgs e) { if (VmOf(sender) is { } vm) ViewModel.TurnOffVmCommand.Execute(vm); }

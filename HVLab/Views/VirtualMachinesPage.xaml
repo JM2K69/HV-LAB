@@ -68,7 +68,12 @@
                      IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                      IsClosable="True" CloseButtonCommand="{x:Bind ViewModel.DismissErrorCommand}"
                      Title="{Binding [Err_Title], Source={StaticResource Loc}}"
-                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                     Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button Content="{Binding [Err_CopyDetails], Source={StaticResource Loc}}" Click="CopyErrorDetails_Click"
+                            Visibility="{x:Bind ViewModel.HasErrorDetails, Mode=OneWay}"/>
+                </InfoBar.ActionButton>
+            </InfoBar>
 
             <!-- Several VMs selected: the same action on all of them -->
             <Border Visibility="{x:Bind ViewModel.HasMultiSelection, Mode=OneWay,

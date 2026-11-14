@@ -12,9 +12,16 @@ public enum HyperVEnvironment { Ok, FeatureMissing, ServiceStopped }
 /// go through WMI (<see cref="IHyperVWmi"/>), heavy and rare ones (VM creation, disks, settings, groups)
 /// through the PowerShell pool.
 /// </summary>
-public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHyperVService
+public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null) : IHyperVService, IDisposable
 {
     private readonly IHyperVWmi _wmi = wmi ?? new Wmi.HyperVWmi();
+
+    /// <summary>Singleton: the container disposes it when the app exits (cached WMI console devices).</summary>
+    public void Dispose()
+    {
+        (_wmi as IDisposable)?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 
     /// <summary>WMI calls are synchronous: run them off the UI thread.</summary>
     private static Task<T> Wmi<T>(Func<T> call) => Task.Run(call);
@@ -22,10 +29,90 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     // ─── PowerShell runner ──────────────────────────────────────────────────
 
-    private Task<string> RunScriptAsync(
+    /// <summary>
+    /// Every script has a deadline: a hung cmdlet (a stuck WMI provider, a disk that never mounts) would otherwise keep
+    /// its worker forever, and three of them freeze the whole pool. Creation gets <see cref="CreationTimeout"/>.
+    /// </summary>
+    internal static readonly TimeSpan DefaultScriptTimeout = TimeSpan.FromMinutes(15);
+    internal static readonly TimeSpan CreationTimeout     = TimeSpan.FromMinutes(60);
+
+    /// <summary>Runs a script with its deadline and writes one line to the operation log (name, duration, result).</summary>
+    private async Task<string> RunScriptAsync(
         string script, IProgress<string>? progress = null,
-        TimeSpan? timeout = null, CancellationToken ct = default)
-        => ps.RunAsync(script, progress, timeout, ct);
+        TimeSpan? timeout = null, CancellationToken ct = default,
+        [System.Runtime.CompilerServices.CallerMemberName] string operation = "")
+    {
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            var output = await ps.RunAsync(script, progress, timeout ?? DefaultScriptTimeout, ct);
+            CrashLogger.Operation(operation, watch.Elapsed);
+            return output;
+        }
+        catch (Exception ex)
+        {
+            CrashLogger.Operation(operation, watch.Elapsed, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Runs a creation script; when it fails, times out or is cancelled (a cancel kills the worker, so the script's own
+    /// finally blocks never run), removes what this run left behind before rethrowing.
+    /// </summary>
+    private async Task RunCreationScriptAsync(string script, string vmName, string vmFolder,
+                                              IProgress<string>? progress, CancellationToken ct,
+                                              [System.Runtime.CompilerServices.CallerMemberName] string operation = "")
+    {
+        var started = DateTime.UtcNow;
+        try { await RunScriptAsync(script, progress, CreationTimeout, ct, operation); }
+        catch
+        {
+            try { await RunScriptAsync(CleanupScript(vmName, vmFolder, started), timeout: TimeSpan.FromMinutes(5), operation: "CleanupFailedCreation"); }
+            catch (Exception cleanup) { CrashLogger.Log($"Cleanup after the creation of {vmName}", cleanup); }
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Undoes a failed creation, touching only what was created after <paramref name="startedUtc"/>: a namesake VM or an
+    /// older folder of the same name is never removed. Disks of the VM folder are dismounted first (unattend or seed
+    /// injection interrupted), then the VM and the folder are removed.
+    /// </summary>
+    internal static string CleanupScript(string vmName, string vmFolder, DateTime startedUtc) => $$"""
+        Import-Module Hyper-V -ErrorAction Stop
+        $vmName  = '{{Esc(vmName)}}'
+        $vmPath  = Join-Path '{{Esc(vmFolder)}}' $vmName
+        $started = [DateTime]::Parse('{{startedUtc.AddSeconds(-2):o}}', $null, 'RoundtripKind').ToLocalTime()
+        foreach ($vm in @(Get-VM | Where-Object { $_.Name -eq $vmName -and $_.CreationTime -ge $started })) {
+            Stop-VM -VM $vm -TurnOff -Force -ErrorAction SilentlyContinue
+            Remove-VM -VM $vm -Force -ErrorAction SilentlyContinue
+        }
+        if ((Test-Path -LiteralPath $vmPath) -and (Get-Item -LiteralPath $vmPath).CreationTime -ge $started) {
+            Get-ChildItem -LiteralPath $vmPath -Recurse -File -Include *.vhdx, *.avhdx |
+                ForEach-Object { Dismount-DiskImage -ImagePath $_.FullName -ErrorAction SilentlyContinue | Out-Null }
+            Remove-Item -LiteralPath $vmPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        """;
+
+    /// <summary>
+    /// Empty folders left in ProgramData\HV-LAB\mnt by an interrupted injection (called at startup). A folder that is
+    /// still a mount point (reparse point) is left alone: deleting it could reach into the mounted volume.
+    /// </summary>
+    public static void PurgeMountFolders()
+    {
+        var root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "HV-LAB", "mnt");
+        if (!Directory.Exists(root)) return;
+        foreach (var dir in new DirectoryInfo(root).EnumerateDirectories())
+        {
+            try
+            {
+                if (!dir.Attributes.HasFlag(FileAttributes.ReparsePoint) && !dir.EnumerateFileSystemInfos().Any())
+                    dir.Delete();
+            }
+            catch (Exception ex) { CrashLogger.Log($"Mount folder {dir.Name}", ex); }
+        }
+    }
 
     /// <summary>PowerShell expression that yields <paramref name="text"/> without any quoting concern (base64 UTF-8).</summary>
     internal static string PsLiteral(string text)
@@ -46,16 +133,47 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     public Task<List<VirtualMachine>> GetVirtualMachinesAsync() => Wmi(_wmi.GetVirtualMachines);
 
-    public Task PowerAsync(string vmId, VmPowerAction action) => Wmi(() => _wmi.ChangeState(vmId, action));
+    // A power action can wait minutes for its job (shutdown, save): at most 4 at once, so a bulk action
+    // on 20 VMs never ties up 20 pool threads. The others wait asynchronously for a slot.
+    private static readonly SemaphoreSlim PowerSlots = new(4, 4);
+
+    public async Task PowerAsync(string vmId, VmPowerAction action)
+    {
+        await PowerSlots.WaitAsync();
+        var watch = Stopwatch.StartNew();
+        try
+        {
+            await Wmi(() => _wmi.ChangeState(vmId, action));
+            CrashLogger.Operation($"Power {action}", watch.Elapsed);
+        }
+        catch (Exception ex)
+        {
+            CrashLogger.Operation($"Power {action}", watch.Elapsed, ex);
+            throw;
+        }
+        finally { PowerSlots.Release(); }
+    }
+
+    /// <summary>
+    /// PowerShell expression of exactly one VM. The UI passes the Hyper-V GUID (the WMI id): that VM and no other,
+    /// even with namesakes. A name is matched literally (never as a wildcard) and must be unique.
+    /// </summary>
+    internal static string VmExpr(string vmIdOrName)
+    {
+        if (Guid.TryParse(vmIdOrName, out var id)) return $"(Get-VM -Id '{id}' -ErrorAction Stop)";
+        InputValidator.EnsureVmName(vmIdOrName);
+        var name = Esc(vmIdOrName);
+        return "$($hvlMatch = @(Get-VM | Where-Object Name -eq '" + name + "'); " +
+               "if ($hvlMatch.Count -ne 1) { throw ('##Err_VmNotUnique|' + '" + name + "' + '|' + $hvlMatch.Count) }; $hvlMatch[0])";
+    }
 
     public async Task<VmDeletePlan> GetDeletePlanAsync(string name)
     {
-        InputValidator.EnsureVmName(name);
         // The VM's own disks and checkpoint disks. Differencing parents are followed only while they stay inside
         // the VM folder: the base image, a disk another VM uses and anything in the base images folder are kept.
         var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
-            $vm      = Get-VM -Name '{{Esc(name)}}' -ErrorAction Stop
+            $vm      = {{VmExpr(name)}}
             $vmPath  = "$($vm.Path)".TrimEnd('\')
             $baseDir = '{{Esc(AppSettings.Current.BaseImagesFolder)}}'.TrimEnd('\').ToLowerInvariant()
             $others  = @(Get-VM | Where-Object { $_.Id -ne $vm.Id } | ForEach-Object {
@@ -98,11 +216,10 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     public async Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null)
     {
-        InputValidator.EnsureVmName(name);
         var fileList = files is { Count: > 0 } ? "@(" + string.Join(", ", files.Select(f => $"'{Esc(f)}'")) + ")" : "@()";
         var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
-            $vm     = Get-VM -Name '{{Esc(name)}}' -ErrorAction Stop
+            $vm     = {{VmExpr(name)}}
             $vmPath = "$($vm.Path)"
             $files  = {{fileList}}
             if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force -ErrorAction Stop }
@@ -157,22 +274,19 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
     public Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId) => Wmi(() => _wmi.GetCheckpoints(vmId));
 
     public Task CreateCheckpointAsync(string vmName, string checkpointName)
-    {
-        InputValidator.EnsureVmName(vmName);
-        return RunScriptAsync($$"""
+        => RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            Checkpoint-VM -Name '{{Esc(vmName)}}' -SnapshotName '{{Esc(checkpointName)}}' -ErrorAction Stop
+            Checkpoint-VM -VM {{VmExpr(vmName)}} -SnapshotName '{{Esc(checkpointName)}}' -ErrorAction Stop
             """);
-    }
 
     /// <summary>Checkpoints are addressed by ID: names can repeat.</summary>
     private Task CheckpointScriptAsync(string vmName, string checkpointId, string action)
     {
-        InputValidator.EnsureVmName(vmName);
         var id = Guid.Parse(checkpointId);
         return RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            $cp = Get-VMSnapshot -VMName '{{Esc(vmName)}}' -ErrorAction Stop | Where-Object { $_.Id -eq '{{id}}' } | Select-Object -First 1
+            $vm = {{VmExpr(vmName)}}
+            $cp = Get-VMSnapshot -VM $vm -ErrorAction Stop | Where-Object { $_.Id -eq '{{id}}' } | Select-Object -First 1
             if (-not $cp) { throw "##Err_CheckpointNotFound" }
             {{action}}
             """);
@@ -180,11 +294,10 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     public Task ApplyCheckpointAsync(string vmName, string checkpointId)
         => CheckpointScriptAsync(vmName, checkpointId, """
-            $vm = Get-VM -Name $cp.VMName
             $wasRunning = $vm.State -eq 'Running'
             if ($vm.State -ne 'Off') { Stop-VM -VM $vm -TurnOff -Force -ErrorAction Stop }
             Restore-VMSnapshot -VMSnapshot $cp -Confirm:$false -ErrorAction Stop
-            if ($wasRunning -and (Get-VM -Name $cp.VMName).State -ne 'Running') { Start-VM -VM $vm -ErrorAction Stop }
+            if ($wasRunning -and (Get-VM -Id $vm.Id).State -ne 'Running') { Start-VM -VM $vm -ErrorAction Stop }
             """);
 
     public Task RemoveCheckpointAsync(string vmName, string checkpointId, bool withChildren)
@@ -200,10 +313,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     public async Task<VmSettings> GetVmSettingsAsync(string vmName)
     {
-        InputValidator.EnsureVmName(vmName);
         var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
-            $vm   = Get-VM -Name '{{Esc(vmName)}}' -ErrorAction Stop
+            $vm   = {{VmExpr(vmName)}}
             $mem  = Get-VMMemory -VM $vm
             $nic  = @(Get-VMNetworkAdapter -VM $vm) | Select-Object -First 1
             $vlan = if ($nic) { Get-VMNetworkAdapterVlan -VMNetworkAdapter $nic } else { $null }
@@ -259,11 +371,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
     /// <summary>Applies only what changed; processor and memory only when the VM was off (see <see cref="VmSettings"/>).</summary>
     public Task SetVmSettingsAsync(string vmName, VmSettings before, VmSettings after)
     {
-        InputValidator.EnsureVmName(vmName);
         var lines = SettingsScript(before, after);
         return lines.Count == 0 ? Task.CompletedTask
-            : RunScriptAsync($"Import-Module Hyper-V -ErrorAction Stop\n$vm = Get-VM -Name '{Esc(vmName)}' -ErrorAction Stop\n"
-                             + string.Join("\n", lines));
+            : RunScriptAsync($"Import-Module Hyper-V -ErrorAction Stop\n$vm = {VmExpr(vmName)}\n" + string.Join("\n", lines));
     }
 
     internal static List<string> SettingsScript(VmSettings before, VmSettings after)
@@ -309,10 +419,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     // ─── Hyper-V VM groups ──────────────────────────────────────────────────
 
-    private static string NameList(IReadOnlyList<string> vmNames)
+    private static string VmList(IReadOnlyList<string> vmNames)
     {
-        foreach (var n in vmNames) InputValidator.EnsureVmName(n);
-        return "@(" + string.Join(", ", vmNames.Select(n => $"'{Esc(n)}'")) + ")";
+        return "@(" + string.Join(", ", vmNames.Select(VmExpr)) + ")";
     }
 
     public Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames)
@@ -320,8 +429,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             Import-Module Hyper-V -ErrorAction Stop
             $group = Get-VMGroup -Name '{{Esc(groupName)}}' -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $group) { $group = New-VMGroup -Name '{{Esc(groupName)}}' -GroupType VMCollectionType -ErrorAction Stop }
-            foreach ($name in {{NameList(vmNames)}}) {
-                $vm = Get-VM -Name $name -ErrorAction Stop
+            foreach ($vm in {{VmList(vmNames)}}) {
                 if (-not ($group.VMMembers | Where-Object { $_.Id -eq $vm.Id })) { Add-VMGroupMember -VMGroup $group -VM $vm -ErrorAction Stop }
             }
             """);
@@ -329,9 +437,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
     public Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames)
         => RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            $names = {{NameList(vmNames)}}
+            $ids = @({{VmList(vmNames)}} | ForEach-Object { $_.Id })
             foreach ($group in @(Get-VMGroup)) {
-                $members = @($group.VMMembers | Where-Object { $names -contains $_.Name })
+                $members = @($group.VMMembers | Where-Object { $ids -contains $_.Id })
                 if ($members.Count -eq 0) { continue }
                 foreach ($vm in $members) { Remove-VMGroupMember -VMGroup $group -VM $vm -ErrorAction Stop }
                 # A group these VMs leave empty is removed
@@ -370,12 +478,11 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                 throw new InvalidOperationException(
                     LocalizationService.Instance["Err_VmConnect"]);
 
-            var psi = new ProcessStartInfo
-            {
-                FileName        = vmconnect,
-                Arguments       = $"localhost \"{name.Replace("\"", "\\\"")}\"",
-                UseShellExecute = false,
-            };
+            // By GUID (-G) the window opens on that VM even when another one has the same name
+            var psi = new ProcessStartInfo { FileName = vmconnect, UseShellExecute = false };
+            psi.ArgumentList.Add("localhost");
+            if (Guid.TryParse(name, out var id)) { psi.ArgumentList.Add("-G"); psi.ArgumentList.Add(id.ToString()); }
+            else psi.ArgumentList.Add(name);
             if (Process.Start(psi) is { } process) VmConnectWindows[name] = process;
         }
     }
@@ -563,6 +670,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             $secureBoot  = {{secureBootPs}}
             $pxeBoot     = {{pxeBootPs}}
 
+            # A namesake would share the folder and disk names, and later actions by name would hit both
+            if (@(Get-VM | Where-Object Name -eq $vmName).Count -gt 0) { throw "##Err_VmExists|$vmName" }
+
             $vmPath    = Join-Path $vmFolder $vmName
             $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
             New-Item -Path $vmPath    -ItemType Directory -Force | Out-Null
@@ -571,45 +681,45 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             $vhdPath = Join-Path $vhdFolder "$vmName.vhdx"
             New-VHD -Path $vhdPath -SizeBytes $diskBytes -Dynamic -ErrorAction Stop | Out-Null
 
-            New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
-                   -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
+            $vm = New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
+                   -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop
 
-            Set-VM -Name $vmName -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
-            Add-VMHardDiskDrive -VMName $vmName -Path $vhdPath -ErrorAction Stop
+            Set-VM -VM $vm -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
+            Add-VMHardDiskDrive -VM $vm -Path $vhdPath -ErrorAction Stop
 
             if ($generation -eq 2) {
                 $sbState = if ($secureBoot) { 'On' } else { 'Off' }
-                Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
+                Set-VMFirmware -VM $vm -EnableSecureBoot $sbState `
                                -SecureBootTemplate 'MicrosoftWindows' -ErrorAction SilentlyContinue
 
-                $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
-                $nic = Get-VMNetworkAdapter -VMName $vmName | Select-Object -First 1
+                $hdd = Get-VMHardDiskDrive -VM $vm | Select-Object -First 1
+                $nic = Get-VMNetworkAdapter -VM $vm | Select-Object -First 1
 
                 if ($pxeBoot -and $nic -and $hdd) {
-                    Set-VMFirmware -VMName $vmName -BootOrder $nic,$hdd -ErrorAction Stop
+                    Set-VMFirmware -VM $vm -BootOrder $nic,$hdd -ErrorAction Stop
                 } elseif ($hdd -and $nic) {
-                    Set-VMFirmware -VMName $vmName -BootOrder $hdd,$nic -ErrorAction Stop
+                    Set-VMFirmware -VM $vm -BootOrder $hdd,$nic -ErrorAction Stop
                 } elseif ($hdd) {
-                    Set-VMFirmware -VMName $vmName -FirstBootDevice $hdd -ErrorAction Stop
+                    Set-VMFirmware -VM $vm -FirstBootDevice $hdd -ErrorAction Stop
                 } else {
                     throw "##Err_NoBootDisk|$vmName"
                 }
 
-                $first = (Get-VMFirmware -VMName $vmName).BootOrder | Select-Object -First 1
+                $first = (Get-VMFirmware -VM $vm).BootOrder | Select-Object -First 1
                 if (-not $pxeBoot -and $first.BootType -eq 'Network') {
                     throw "##Err_BootOrder|$vmName"
                 }
             } else {
                 if ($pxeBoot) {
-                    Set-VMBios -VMName $vmName -StartupOrder @('LegacyNetworkAdapter', 'IDE', 'CD', 'Floppy') -ErrorAction SilentlyContinue
+                    Set-VMBios -VM $vm -StartupOrder @('LegacyNetworkAdapter', 'IDE', 'CD', 'Floppy') -ErrorAction SilentlyContinue
                 } else {
-                    Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+                    Set-VMBios -VM $vm -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
                 }
             }
             Write-Output "##Prg_VmCreated|$vmName"
             """;
 
-        await RunScriptAsync(script, progress, ct: ct);
+        await RunCreationScriptAsync(script, vmName, vmFolder, progress, ct);
     }
 
     // ─── Create VM with differencing disk ───────────────────────────────────
@@ -647,6 +757,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                 $isGen2       = {{isGen2}}
                 $secureBoot   = {{secureBootPs}}
                 $pxeBoot      = {{pxeBootPs}}
+
+                # A namesake would share the folder and disk names, and later actions by name would hit both
+                if (@(Get-VM | Where-Object Name -eq $vmName).Count -gt 0) { throw "##Err_VmExists|$vmName" }
 
                 $vmPath    = Join-Path $vmFolder $vmName
                 $vhdFolder = Join-Path $vmPath 'Virtual Hard Disks'
@@ -694,42 +807,42 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                     }
                 }
 
-                New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
-                       -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop | Out-Null
+                $vm = New-VM -Name $vmName -Path $vmFolder -MemoryStartupBytes $memoryBytes `
+                       -Generation $generation -SwitchName $switchName -NoVHD -ErrorAction Stop
 
-                Set-VM -Name $vmName -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
-                Add-VMHardDiskDrive -VMName $vmName -Path $diffVhd -ErrorAction Stop
+                Set-VM -VM $vm -ProcessorCount $cpuCount -Notes $notes -ErrorAction Stop
+                Add-VMHardDiskDrive -VM $vm -Path $diffVhd -ErrorAction Stop
 
                 if ($generation -eq 2) {
                     # Secure Boot as chosen; a Linux clone cannot boot with the Windows template, so it must not fail silently
                     $sbState = if ($secureBoot) { 'On' } else { 'Off' }
                     $sbError = if ($sbTemplate -eq 'MicrosoftWindows') { 'SilentlyContinue' } else { 'Stop' }
-                    Set-VMFirmware -VMName $vmName -EnableSecureBoot $sbState `
+                    Set-VMFirmware -VM $vm -EnableSecureBoot $sbState `
                                    -SecureBootTemplate $sbTemplate -ErrorAction $sbError
 
                     # Boot order strict: HDD first unless PXE explicitly requested
-                    $hdd = Get-VMHardDiskDrive -VMName $vmName | Select-Object -First 1
-                    $nic = Get-VMNetworkAdapter -VMName $vmName | Select-Object -First 1
+                    $hdd = Get-VMHardDiskDrive -VM $vm | Select-Object -First 1
+                    $nic = Get-VMNetworkAdapter -VM $vm | Select-Object -First 1
                     if ($pxeBoot -and $nic -and $hdd) {
-                        Set-VMFirmware -VMName $vmName -BootOrder $nic,$hdd -ErrorAction Stop
+                        Set-VMFirmware -VM $vm -BootOrder $nic,$hdd -ErrorAction Stop
                     } elseif ($hdd -and $nic) {
-                        Set-VMFirmware -VMName $vmName -BootOrder $hdd,$nic -ErrorAction Stop
+                        Set-VMFirmware -VM $vm -BootOrder $hdd,$nic -ErrorAction Stop
                     } elseif ($hdd) {
-                        Set-VMFirmware -VMName $vmName -FirstBootDevice $hdd -ErrorAction Stop
+                        Set-VMFirmware -VM $vm -FirstBootDevice $hdd -ErrorAction Stop
                     } else {
                         throw "##Err_NoBootDisk|$vmName"
                     }
 
-                    $first = (Get-VMFirmware -VMName $vmName).BootOrder | Select-Object -First 1
+                    $first = (Get-VMFirmware -VM $vm).BootOrder | Select-Object -First 1
                     if (-not $pxeBoot -and $first.BootType -eq 'Network') {
                         throw "##Err_BootOrder|$vmName"
                     }
                 } else {
                     # Gen1 : BIOS
                     if ($pxeBoot) {
-                        Set-VMBios -VMName $vmName -StartupOrder @('LegacyNetworkAdapter', 'IDE', 'CD', 'Floppy') -ErrorAction SilentlyContinue
+                        Set-VMBios -VM $vm -StartupOrder @('LegacyNetworkAdapter', 'IDE', 'CD', 'Floppy') -ErrorAction SilentlyContinue
                     } else {
-                        Set-VMBios -VMName $vmName -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
+                        Set-VMBios -VM $vm -StartupOrder @('IDE', 'CD', 'LegacyNetworkAdapter', 'Floppy') -ErrorAction SilentlyContinue
                     }
                 }
 
@@ -763,11 +876,11 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                         }
                         Dismount-DiskImage -ImagePath $seedVhd -ErrorAction SilentlyContinue | Out-Null
                     }
-                    Add-VMHardDiskDrive -VMName $vmName -Path $seedVhd -ErrorAction Stop
+                    Add-VMHardDiskDrive -VM $vm -Path $seedVhd -ErrorAction Stop
                 }
                 Write-Output "##Prg_VmCreated|$vmName"
                 """;
-            await RunScriptAsync(script, progress, ct: ct);
+            await RunCreationScriptAsync(script, vmName, vmFolder, progress, ct);
         }
     }
 

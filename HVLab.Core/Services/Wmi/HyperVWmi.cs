@@ -11,7 +11,7 @@ namespace HVLab.Services.Wmi;
 /// Heavy, rare operations (base images, VM creation, settings, export) stay in PowerShell.
 /// All methods are synchronous and are called from a worker thread (see <see cref="HyperVService"/>).
 /// </summary>
-public sealed class HyperVWmi : IHyperVWmi
+public sealed class HyperVWmi : IHyperVWmi, IDisposable
 {
     private const string V2    = @"root\virtualization\v2";
     private const string Std   = @"root\StandardCimv2";
@@ -244,6 +244,7 @@ public sealed class HyperVWmi : IHyperVWmi
         _     => T("Err_WmiCode", code),
     };
 
+    /// <summary>Waits for a state; a guest that never gets there is an error (not a silent success).</summary>
     private void WaitForState(string id, long state, TimeSpan timeout)
     {
         var deadline = DateTime.UtcNow + timeout;
@@ -253,6 +254,7 @@ public sealed class HyperVWmi : IHyperVWmi
             if (rows.Count == 0 || L(rows[0], "EnabledState") == state) return;
             Thread.Sleep(500);
         }
+        throw new TimeoutException(T("Err_ShutdownTimeout", (int)timeout.TotalMinutes));
     }
 
     // ─── Screen and keyboard ────────────────────────────────────────────────
@@ -323,8 +325,18 @@ public sealed class HyperVWmi : IHyperVWmi
                 using var result = device.InvokeMethod(method, inArgs, null);
                 return;
             }
-            catch (ManagementException) when (attempt == 0) { _devices.TryRemove($"{cls}|{Id(vmId)}", out _); }
+            catch (ManagementException) when (attempt == 0)
+            {
+                if (_devices.TryRemove($"{cls}|{Id(vmId)}", out var stale)) stale?.Dispose();
+            }
         }
+    }
+
+    /// <summary>Releases the cached console devices (the service is a singleton: called when the app exits).</summary>
+    public void Dispose()
+    {
+        foreach (var device in _devices.Values) device?.Dispose();
+        _devices.Clear();
     }
 
     /// <summary>Synthetic mouse (absolute pixels) when the guest has one, else PS/2 relative moves.</summary>

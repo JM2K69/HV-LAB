@@ -398,6 +398,7 @@ public sealed partial class VmWindow : Window
     }
 
     private void CopyIp_Click(object sender, RoutedEventArgs e) => Copy(ViewModel.Vm.IpAddress);
+    private void CopyErrorDetails_Click(object sender, RoutedEventArgs e) => Copy($"{ViewModel.ErrorMessage}\n\n{ViewModel.ErrorDetails}");
     private void CopyPassword_Click(object sender, RoutedEventArgs e) => Copy(ViewModel.Vm.Credentials.Password);
 
     private void Copy(string? text)

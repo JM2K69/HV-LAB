@@ -22,7 +22,13 @@ The application does not start
 :   Check the logs in `%LocalAppData%\HV-LAB\logs` and the Windows *Application* event log, then reinstall with `Install.ps1`.
 
 Error banner on a page
-:   The message is the error returned by PowerShell or Hyper-V, for example a switch name that is already used, or a file locked by a running VM.
+:   The message is the error returned by PowerShell or Hyper-V, for example a switch name that is already used, or a file locked by a running VM. The banner of an action stays until you close it or start another action. **Copy details** copies PowerShell's own output, useful for an issue.
+
+Which operations ran, and how long they took
+:   `%LocalAppData%\HV-LAB\logs\operations-yyyyMMdd.log` has one line per Hyper-V operation: name, duration, result. Scripts are never written there (they can hold passwords). Logs older than 30 days are deleted at startup.
+
+A creation failed or was cancelled
+:   HV-LAB removes what that creation made: the disks are dismounted, then the VM and its folder are deleted. A VM or folder that existed before is never touched. A name already used by another VM is refused.
 
 ## Base images
 

@@ -117,7 +117,12 @@
                 <InfoBar Severity="Error" IsClosable="True" CloseButtonCommand="{x:Bind ViewModel.DismissErrorCommand}"
                          IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
                          Title="{Binding [Err_Title], Source={StaticResource Loc}}"
-                         Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"/>
+                         Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}">
+                    <InfoBar.ActionButton>
+                        <Button Content="{Binding [Err_CopyDetails], Source={StaticResource Loc}}" Click="CopyErrorDetails_Click"
+                                Visibility="{x:Bind ViewModel.HasErrorDetails, Mode=OneWay}"/>
+                    </InfoBar.ActionButton>
+                </InfoBar>
             </StackPanel>
 
             <Pivot x:Name="Tabs" Grid.Row="2" SelectionChanged="Tabs_SelectionChanged">

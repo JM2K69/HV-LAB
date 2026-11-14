@@ -36,6 +36,8 @@ public partial class App : Application
     {
         // Démarrer les processus PowerShell (Hyper-V importé) pendant que le splash s'affiche
         (GetService<IPowerShellRunner>() as PowerShellRunner)?.Warmup();
+        // Mount folders left by an injection interrupted in a previous session (crash, kill)
+        _ = Task.Run(HyperVService.PurgeMountFolders);
 
         // Afficher le splash immédiatement
         var splash = new SplashWindow();

@@ -70,7 +70,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
             await _hvService.PowerAsync(Vm.Id, action);
             Status = T("VM_ActionOk", Vm.Name);
         }
-        catch (Exception ex) { Vm.State = previous; ShowActionError(ex.Message); }
+        catch (Exception ex) { Vm.State = previous; ShowActionError(ex); }
         finally { Vm.IsBusy = false; }
         await RefreshAsync();
     }
@@ -78,8 +78,8 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     [RelayCommand]
     private void Connect()
     {
-        try   { _hvService.ConnectToVMConsole(Vm.Name); }
-        catch (Exception ex) { ShowActionError($"{T("VM_ErrConsole")} {ex.Message}"); }
+        try   { _hvService.ConnectToVMConsole(Vm.Target); }
+        catch (Exception ex) { ShowActionError(ex, T("VM_ErrConsole")); }
     }
 
     /// <summary>Non-power action (keyboard, checkpoint…): status, error banner.</summary>
@@ -89,7 +89,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         IsLoading = true;
         Status = status;
         try { await action(); Status = T("St_Ready"); }
-        catch (Exception ex) { ShowActionError(ex.Message); }
+        catch (Exception ex) { ShowActionError(ex); }
         finally { IsLoading = false; }
     }
 
@@ -113,11 +113,23 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     private async Task TypePasswordAsync()
     {
         if (!Vm.Credentials.HasPassword) { Status = T("VM_NoPassword"); return; }
-        await RunAsync(T("VM_TypingPassword", Vm.Name), () => _hvService.TypeTextAsync(Vm.Id, Vm.Credentials.Password, TypingLanguage, true));
+        await RunAsync(T("VM_TypingPassword", Vm.Name),
+            () => Queued(() => _hvService.TypeTextAsync(Vm.Id, Vm.Credentials.Password, TypingLanguage, true)));
     }
 
     [RelayCommand]
-    private Task SendCtrlAltDelAsync() => RunAsync(T("VM_CtrlAltDel", Vm.Name), () => _hvService.SendCtrlAltDelAsync(Vm.Id));
+    private Task SendCtrlAltDelAsync() => RunAsync(T("VM_CtrlAltDel", Vm.Name), () => Queued(() => _hvService.SendCtrlAltDelAsync(Vm.Id)));
+
+    /// <summary>
+    /// Everything typed into the VM (password, clipboard, Ctrl+Alt+Del, console keys and mouse) goes through one
+    /// queue, so a password being typed never interleaves with console keys. Errors reach the caller.
+    /// </summary>
+    private async Task Queued(Func<Task> call)
+    {
+        await _input.WaitAsync();
+        try { await call(); }
+        finally { _input.Release(); }
+    }
 
     // ─── Integrated console: live screen at the guest resolution, zoom, keyboard and mouse ──
 
@@ -201,7 +213,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     public Task TypeTextAsync(string? text)
     {
         if (string.IsNullOrEmpty(text)) { Status = T("CON_ClipboardEmpty"); return Task.CompletedTask; }
-        return RunAsync(T("CON_TypingClipboard"), () => _hvService.TypeTextAsync(Vm.Id, text, TypingLanguage, false));
+        return RunAsync(T("CON_TypingClipboard"), () => Queued(() => _hvService.TypeTextAsync(Vm.Id, text, TypingLanguage, false)));
     }
 
     // ─── Checkpoints ────────────────────────────────────────────────────────
@@ -228,7 +240,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     {
         var name = await _dialogs.PromptAsync(T("CP_CreateTitle"), T("CP_Name"), $"{Vm.Name} - {DateTime.Now:yyyy-MM-dd HH:mm}");
         if (name is null) return;
-        await RunAsync(T("CP_Creating", name), () => _hvService.CreateCheckpointAsync(Vm.Name, name));
+        await RunAsync(T("CP_Creating", name), () => _hvService.CreateCheckpointAsync(Vm.Target, name));
         await LoadCheckpointsAsync();
     }
 
@@ -237,7 +249,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
     {
         if (SelectedCheckpoint is not { IsNow: false } cp) return;
         if (!await _dialogs.ConfirmAsync(T("CP_ApplyTitle"), T("CP_ApplyConfirm", cp.Name, Vm.Name), T("CP_Apply"))) return;
-        await RunAsync(T("CP_Applying", cp.Name), () => _hvService.ApplyCheckpointAsync(Vm.Name, cp.Id));
+        await RunAsync(T("CP_Applying", cp.Name), () => _hvService.ApplyCheckpointAsync(Vm.Target, cp.Id));
         await LoadCheckpointsAsync();
         await RefreshAsync();
     }
@@ -250,7 +262,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         var (confirmed, withChildren) = await _dialogs.ConfirmWithOptionAsync(T("CP_DeleteTitle"), T("CP_DeleteConfirm", cp.Name),
             T("VM_DeleteConfirm"), hasChildren ? T("CP_DeleteSubtree") : null, false);
         if (!confirmed) return;
-        await RunAsync(T("CP_Deleting", cp.Name), () => _hvService.RemoveCheckpointAsync(Vm.Name, cp.Id, withChildren));
+        await RunAsync(T("CP_Deleting", cp.Name), () => _hvService.RemoveCheckpointAsync(Vm.Target, cp.Id, withChildren));
         await LoadCheckpointsAsync();
     }
 
@@ -260,7 +272,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         if (SelectedCheckpoint is not { IsNow: false } cp) return;
         var name = await _dialogs.PromptAsync(T("CP_RenameTitle"), T("CP_Name"), cp.Name);
         if (name is null || name == cp.Name) return;
-        await RunAsync(T("CP_Renaming", name), () => _hvService.RenameCheckpointAsync(Vm.Name, cp.Id, name));
+        await RunAsync(T("CP_Renaming", name), () => _hvService.RenameCheckpointAsync(Vm.Target, cp.Id, name));
         await LoadCheckpointsAsync();
     }
 
@@ -277,7 +289,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         SettingsError = "";
         try
         {
-            var settingsTask = _hvService.GetVmSettingsAsync(Vm.Name);
+            var settingsTask = _hvService.GetVmSettingsAsync(Vm.Target);
             var switchTask   = _hvService.GetVirtualSwitchesAsync();
             await Task.WhenAll(settingsTask, switchTask);
             SwitchNames.Clear();
@@ -295,7 +307,7 @@ public partial class VmDetailsViewModel(IHyperVService hvService, IDialogService
         if (EditingSettings is not { } after || _settingsBefore is not { } before) return;
         if (after.Validate() is { } key) { SettingsError = T(key); return; }
         SettingsError = "";
-        await RunAsync(T("VM_SavingSettings", Vm.Name), () => _hvService.SetVmSettingsAsync(Vm.Name, before, after));
+        await RunAsync(T("VM_SavingSettings", Vm.Name), () => _hvService.SetVmSettingsAsync(Vm.Target, before, after));
         if (!HasError) await LoadSettingsAsync();   // show what Hyper-V really applied
         await RefreshAsync();
     }

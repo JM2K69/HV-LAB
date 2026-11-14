@@ -240,6 +240,20 @@ public class VmManagementViewModelTests
     }
 
     [Fact]
+    public async Task A_powershell_error_keeps_its_details_for_the_copy_button()
+    {
+        var a = Vm("A", "Off");
+        var hv = new FakeHyperVService { Vms = [a], PowerError = new PowerShellException("Échec", "Start-VM : the file is locked", 1) };
+        var vm = new VirtualMachinesViewModel(hv, new FakeDialogService());
+        await vm.RefreshAsync();
+        await vm.StartVmCommand.ExecuteAsync(vm.VirtualMachines[0]);
+        Assert.Equal("Échec", vm.ErrorMessage);
+        Assert.Equal("Start-VM : the file is locked", vm.ErrorDetails);
+        vm.DismissErrorCommand.Execute(null);
+        Assert.False(vm.HasErrorDetails);
+    }
+
+    [Fact]
     public async Task A_load_error_clears_on_the_next_successful_refresh()
     {
         var hv = new FakeHyperVService { Vms = [Vm("A", "Off")], Failure = new InvalidOperationException("wmi down") };
@@ -268,16 +282,17 @@ public class VmManagementViewModelTests
     }
 
     [Theory]
-    [InlineData(true, "remove A 1 files")]
-    [InlineData(false, "remove A 0 files")]
-    public async Task Delete_removes_the_disks_only_when_asked(bool withDisks, string expected)
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public async Task Delete_removes_the_disks_only_when_asked(bool withDisks, int files)
     {
-        var hv = new FakeHyperVService { Vms = [Vm("A", "Off")] };
+        var a = Vm("A", "Off");
+        var hv = new FakeHyperVService { Vms = [a] };
         var dialogs = new FakeDialogService { Option = withDisks };
         var vm = new VirtualMachinesViewModel(hv, dialogs);
         await vm.RefreshAsync();
         await vm.RemoveVmCommand.ExecuteAsync(vm.VirtualMachines[0]);
-        Assert.Equal(expected, Assert.Single(hv.Calls));
+        Assert.Equal($"remove {a.Id} {files} files", Assert.Single(hv.Calls));   // by GUID, never by name
         Assert.Contains("X.vhdx", dialogs.LastContent);          // the files are listed
         Assert.Contains("BASE_X.vhdx", dialogs.LastContent);     // and the kept base image too
         Assert.NotNull(dialogs.LastOptionLabel);
@@ -307,7 +322,8 @@ public class VmManagementViewModelTests
     [Fact]
     public async Task Grouping_suggests_the_bulk_prefix()
     {
-        var hv = new FakeHyperVService { Vms = [Vm("SRV-01", "Off"), Vm("SRV-02", "Off")] };
+        var a = Vm("SRV-01", "Off"); var b = Vm("SRV-02", "Off");
+        var hv = new FakeHyperVService { Vms = [a, b] };
         var dialogs = new FakeDialogService { PromptAnswer = "LAB-AD" };
         var vm = new VirtualMachinesViewModel(hv, dialogs);
         await vm.RefreshAsync();
@@ -315,7 +331,7 @@ public class VmManagementViewModelTests
 
         vm.SetSelection(vm.VirtualMachines);
         await vm.GroupSelectedCommand.ExecuteAsync(null);
-        Assert.Contains("group LAB-AD SRV-01,SRV-02", hv.Calls);
+        Assert.Contains($"group LAB-AD {a.Id},{b.Id}", hv.Calls);
         Assert.All(vm.VirtualMachines, v => Assert.Equal("LAB-AD", v.GroupName));
     }
 
@@ -372,7 +388,7 @@ public class VmManagementViewModelTests
         await d.ApplyCheckpointCommand.ExecuteAsync(null);
         await d.RenameCheckpointCommand.ExecuteAsync(null);
         await d.RemoveCheckpointCommand.ExecuteAsync(null);
-        Assert.Equal(["apply A CP1", "rename-checkpoint A CP1 Renamed", "remove-checkpoint A CP1 False"], hv.Calls);
+        Assert.Equal([$"apply {a.Id} CP1", $"rename-checkpoint {a.Id} CP1 Renamed", $"remove-checkpoint {a.Id} CP1 False"], hv.Calls);
     }
 
     [Fact]
@@ -389,7 +405,7 @@ public class VmManagementViewModelTests
         d.EditingSettings.ProcessorCount = 4;
         await d.ApplySettingsCommand.ExecuteAsync(null);
         Assert.Empty(d.SettingsError);
-        Assert.Contains(hv.Calls, c => c.StartsWith("settings A") && c.Contains("-Count 4"));
+        Assert.Contains(hv.Calls, c => c.StartsWith($"settings {a.Id}") && c.Contains("-Count 4"));
     }
 
     [Fact]
@@ -438,6 +454,62 @@ public class VmScriptTests
         var script = runner.Scripts.Single();
         Assert.Contains(@"'C:\VMs\A\Virtual Hard Disks\A-cidata.vhdx'", script);
         Assert.Contains("Remove-VM", script);
+    }
+
+    [Fact]
+    public void Vms_are_addressed_by_guid_or_by_an_exact_unique_name()
+    {
+        var id = Guid.NewGuid();
+        Assert.Equal($"(Get-VM -Id '{id}' -ErrorAction Stop)", HyperVService.VmExpr(id.ToString().ToUpperInvariant()));
+        var byName = HyperVService.VmExpr("SRV[1]");
+        Assert.Contains("Where-Object Name -eq 'SRV[1]'", byName);     // literal match: [1] is not a wildcard
+        Assert.Contains("Err_VmNotUnique", byName);                       // namesakes: nothing is touched
+        Assert.DoesNotContain("Get-VM -Name", byName);
+    }
+
+    [Fact]
+    public async Task Delete_by_guid_never_uses_the_name()
+    {
+        var runner = new FakePowerShellRunner(_ => "");
+        var id = Guid.NewGuid().ToString();
+        await new HyperVService(runner).RemoveVMAsync(id);
+        var script = runner.Scripts.Single();
+        Assert.Contains($"Get-VM -Id '{id}'", script);
+        Assert.DoesNotContain("Get-VM -Name", script);
+    }
+
+    [Fact]
+    public async Task Creation_refuses_a_namesake_and_works_on_the_created_vm()
+    {
+        var runner = new FakePowerShellRunner(_ => "");
+        await new HyperVService(runner).CreateBlankVmAsync("SRV-01", "LAN", 2048, 2, 2, "C:/VMs", 40);
+        var script = runner.Scripts.Single();
+        Assert.Contains("##Err_VmExists", script);
+        Assert.Contains("$vm = New-VM -Name $vmName", script);
+        Assert.DoesNotContain("-VMName $vmName", script);
+        Assert.DoesNotContain("Set-VM -Name", script);
+    }
+
+    [Fact]
+    public async Task A_failed_creation_cleans_up_only_what_it_created()
+    {
+        var runner = new FakePowerShellRunner(script =>
+            script.Contains("New-VM") ? throw new PowerShellException("boom", "", 1) : "");
+        await Assert.ThrowsAsync<PowerShellException>(() =>
+            new HyperVService(runner).CreateBlankVmAsync("SRV-01", "LAN", 2048, 2, 2, "D:/VMs", 40));
+        Assert.Equal(2, runner.Scripts.Count);
+        var cleanup = runner.Scripts[1];
+        Assert.Contains("$_.CreationTime -ge $started", cleanup);           // never a namesake created before
+        Assert.Contains("(Get-Item -LiteralPath $vmPath).CreationTime -ge $started", cleanup);
+        Assert.Contains("Dismount-DiskImage", cleanup);
+        Assert.Contains("'SRV-01'", cleanup);
+    }
+
+    [Fact]
+    public void Script_timeouts_are_bounded()
+    {
+        Assert.True(HyperVService.DefaultScriptTimeout <= TimeSpan.FromMinutes(15));
+        Assert.True(HyperVService.CreationTimeout > HyperVService.DefaultScriptTimeout);
     }
 
     [Fact]

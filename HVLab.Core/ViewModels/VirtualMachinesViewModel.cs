@@ -151,13 +151,13 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
             plan?.Files.Count > 0 ? T("VM_DeleteWithDisks") : null, true);
         if (confirmed)
             await RunVmActionAsync(vm, null, T("VM_Removing", vm.Name),
-                () => _hvService.RemoveVMAsync(vm.Name, withFiles ? plan?.Files : null));
+                () => _hvService.RemoveVMAsync(vm.Target, withFiles ? plan?.Files : null));
     }
 
     /// <summary>Disk plan of a delete; null when it cannot be computed (the VM is then deleted without its files).</summary>
     private async Task<VmDeletePlan?> TryDeletePlanAsync(VirtualMachine vm)
     {
-        try { return await _hvService.GetDeletePlanAsync(vm.Name); }
+        try { return await _hvService.GetDeletePlanAsync(vm.Target); }
         catch (Exception ex) { CrashLogger.Log($"Delete plan of {vm.Name}", ex); return null; }
     }
 
@@ -178,8 +178,8 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     [RelayCommand]
     private void ConnectVm(VirtualMachine vm)
     {
-        try   { _hvService.ConnectToVMConsole(vm.Name); }
-        catch (Exception ex) { ShowActionError($"{T("VM_ErrConsole")} {ex.Message}"); }
+        try   { _hvService.ConnectToVMConsole(vm.Target); }
+        catch (Exception ex) { ShowActionError(ex, T("VM_ErrConsole")); }
     }
 
     /// <summary>
@@ -203,7 +203,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         catch (Exception ex)
         {
             vm.State = previousState;
-            ShowActionError(ex.Message);
+            ShowActionError(ex);
         }
         finally { vm.IsBusy = false; }
         if (refresh) await RefreshAsync(silent: true);
@@ -241,7 +241,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         ClearActionError();
         foreach (var v in targets)
             await RunVmActionAsync(v, null, T("VM_Removing", v.Name),
-                () => _hvService.RemoveVMAsync(v.Name, withFiles ? plans[v]?.Files : null), refresh: false);
+                () => _hvService.RemoveVMAsync(v.Target, withFiles ? plans[v]?.Files : null), refresh: false);
         await RefreshAsync(silent: true);
     }
 
@@ -252,13 +252,13 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         var suggested = _selection.Select(v => v.GroupName).FirstOrDefault(g => g.Length > 0) ?? CommonPrefix(_selection);
         var name = await _dialogs.PromptAsync(T("VM_GroupTitle"), T("VM_GroupName"), suggested);
         if (name is null) return;
-        await RunAsync(T("VM_Grouping", name), () => _hvService.AddToGroupAsync(name, _selection.Select(v => v.Name).ToList()));
+        await RunAsync(T("VM_Grouping", name), () => _hvService.AddToGroupAsync(name, _selection.Select(v => v.Target).ToList()));
     }
 
     [RelayCommand]
     private Task UngroupSelectedAsync()
         => _selection.Count == 0 ? Task.CompletedTask
-         : RunAsync(T("VM_Ungrouping"), () => _hvService.RemoveFromGroupsAsync(_selection.Select(v => v.Name).ToList()));
+         : RunAsync(T("VM_Ungrouping"), () => _hvService.RemoveFromGroupsAsync(_selection.Select(v => v.Target).ToList()));
 
     /// <summary>"SRV-01", "SRV-02" → "SRV": the bulk-creation prefix, as a group name suggestion.</summary>
     internal static string CommonPrefix(IReadOnlyList<VirtualMachine> vms)
@@ -276,7 +276,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         ClearActionError();
         Status = status;
         try { await action(); Status = T("St_Ready"); }
-        catch (Exception ex) { ShowActionError(ex.Message); }
+        catch (Exception ex) { ShowActionError(ex); }
         await RefreshAsync(silent: true);
     }
 }

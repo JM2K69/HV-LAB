@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using HVLab.Services;
 
 namespace HVLab.ViewModels;
 
@@ -17,6 +18,19 @@ public abstract partial class PageViewModelBase : ObservableObject
     [ObservableProperty] private bool hasLoaded;
 
     public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    /// <summary>What PowerShell reported behind the error (the "Copy details" button of the banner); empty otherwise.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasErrorDetails))]
+    private string errorDetails = string.Empty;
+
+    public bool HasErrorDetails => !string.IsNullOrEmpty(ErrorDetails);
+
+    private static string DetailsOf(Exception ex)
+        => ex is PowerShellException { Details.Length: > 0 } ps ? ps.Details : string.Empty;
+
+    // A new message drops the details of the previous error
+    partial void OnErrorMessageChanging(string value) => ErrorDetails = string.Empty;
 
     partial void OnErrorMessageChanged(string value) => OnEmptyStateChanged();
     partial void OnHasLoadedChanged(bool value)      => OnEmptyStateChanged();
@@ -39,7 +53,15 @@ public abstract partial class PageViewModelBase : ObservableObject
     protected void ShowError(Exception ex)
     {
         ErrorMessage = ex.Message;
+        ErrorDetails = DetailsOf(ex);
         _actionError = false;
+    }
+
+    /// <summary>Action error from an exception: its message, and PowerShell's own output as the details.</summary>
+    protected void ShowActionError(Exception ex, string? prefix = null)
+    {
+        ShowActionError(prefix is null ? ex.Message : $"{prefix} {ex.Message}");
+        ErrorDetails = DetailsOf(ex);
     }
 
     /// <summary>Error of a user action (start, delete…): stays until the banner is closed or the next action starts.</summary>
