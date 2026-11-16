@@ -292,7 +292,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["LABS_Domain"]      = "Domaine",
         ["LABS_DomainUser"]  = "Compte autorisé à joindre",
         ["LABS_DomainOu"]    = "Unité d'organisation (facultatif)",
-        ["LABS_DomainHint"]  = "HV-LAB ne promeut pas le contrôleur de domaine : installez AD DS sur la première VM (onglet Aperçu > Exécuter une commande…), puis déployez ou cochez les membres.",
+        ["LABS_DomainHint"]  = "Cochez « Contrôleur » sur un Windows Server en IP fixe : le déploiement le crée en premier, le démarre et le promeut (AD DS et DNS), puis crée les membres cochés « Domaine », qui rejoignent le domaine à leur premier démarrage. Comptez 10 à 15 minutes.",
         ["LABS_ColName"]     = "Nom",
         ["LABS_ColBase"]     = "Image de base",
         ["LABS_ColRam"]      = "RAM (Mo)",
@@ -300,6 +300,8 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["LABS_ColIp"]       = "IP fixe",
         ["LABS_ColDns"]      = "DNS",
         ["LABS_ColJoin"]     = "Domaine",
+        ["LABS_ColDc"]       = "Contrôleur",
+        ["LABS_DcTip"]       = "Promu contrôleur du domaine du lab au déploiement (AD DS et DNS), avant les membres",
         ["LABS_ColUser"]     = "Utilisateur",
         ["LABS_AddVm"]       = "Ajouter une VM",
         ["LABS_MoveUp"]      = "Monter (créée plus tôt)",
@@ -334,12 +336,12 @@ public sealed class LocalizationService : INotifyPropertyChanged
               "password": "",                            // À RENSEIGNER : Administrateur (Windows), utilisateur (Linux), compte de jonction
               "language": "fr-FR",
               "timeZone": "Romance Standard Time",
-              "domain": [[ "name": "lab.local", "user": "Administrator" ]],  // rejoint par les VM qui ont "join": true
+              "domain": [[ "name": "lab.local", "user": "Administrator" ]],  // créé par le contrôleur, rejoint par les VM "join": true
               "vms": [
                 // "base" : identifiant d'OS de l'image de base, * = n'importe quoi ; la version la plus récente est prise
-                [[ "name": "DC01",  "base": "{0}", "memoryMB": 4096, "cpu": 2, "ip": "192.168.100.10", "dns": "127.0.0.1" ]],
-                // "join": true une fois AD DS installé sur DC01 (sinon la jonction échoue pendant l'installation)
-                [[ "name": "SRV01", "base": "{0}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.11", "dns": "192.168.100.10", "join": false ]],
+                // "domainController": true : créé en premier, démarré et promu (AD DS et DNS) ; DNS des autres VM
+                [[ "name": "DC01",  "base": "{0}", "memoryMB": 4096, "cpu": 2, "ip": "192.168.100.10", "domainController": true ]],
+                [[ "name": "SRV01", "base": "{0}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.11", "join": true ]],
                 [[ "name": "WEB01", "base": "{1}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.20", "user": "labadmin" ]]
               ]
             ]]
@@ -362,6 +364,21 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["LAB_Kind_switch"]  = "Commutateur",
         ["LAB_Kind_nat"]     = "NAT",
         ["LAB_Kind_vm"]      = "VM",
+        ["LAB_Kind_domain"]  = "Domaine",
+        ["LAB_ErrTwoDc"]     = "Un seul contrôleur de domaine par lab : les autres serveurs rejoignent son domaine.",
+        ["LAB_ErrDcNoDomain"] = "La VM « {0} » est contrôleur de domaine : renseignez le domaine du lab.",
+        ["LAB_ErrDcIp"]      = "Le contrôleur de domaine « {0} » doit avoir une IP fixe : c'est le DNS des autres VM.",
+        ["LAB_ErrDcJoin"]    = "Le contrôleur de domaine « {0} » crée le domaine : il ne peut pas aussi le rejoindre.",
+        ["LAB_ErrDcPassword"] = "Avec un contrôleur de domaine, le mot de passe doit faire 8 caractères ou plus, avec 3 de ces 4 types : majuscules, minuscules, chiffres, symboles.",
+        ["LAB_DcNeedsServer"] = "« {0} » est contrôleur de domaine : il faut une image de base Windows Server",
+        ["LAB_DcPromote"]    = "promu sur {0} (AD DS et DNS)",
+        ["LAB_DcChecked"]    = "vérifié sur {0} avant de créer des membres",
+        ["LAB_DcMissing"]    = "Le contrôleur de domaine « {0} » est introuvable.",
+        ["LAB_DcStarting"]   = "Démarrage de {0}…",
+        ["LAB_DcWaiting"]    = "Installation de Windows sur {0}…",
+        ["LAB_DcPromoting"]  = "Promotion de {0} en contrôleur du domaine {1} (AD DS et DNS)…",
+        ["LAB_DcWaitingAd"]  = "Redémarrage de {0} et démarrage du domaine {1}…",
+        ["LAB_GuestTimeout"] = "{0} n'a pas répondu en {1} min : {2}",
         ["LAB_CannotDeploy"] = "Le lab ne peut pas être déployé :",
         ["LAB_NothingToDo"]  = "Le lab « {0} » existe déjà en entier.",
         ["LAB_DeployTitle"]  = "Déployer le lab « {0} »",
@@ -1042,7 +1059,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["LABS_Domain"]      = "Domain",
         ["LABS_DomainUser"]  = "Account allowed to join",
         ["LABS_DomainOu"]    = "Organizational unit (optional)",
-        ["LABS_DomainHint"]  = "HV-LAB does not promote the domain controller: install AD DS on the first VM (Overview tab > Run a command…), then deploy or tick the members.",
+        ["LABS_DomainHint"]  = "Tick “Controller” on a Windows Server with a static IP: deploying creates it first, starts it and promotes it (AD DS and DNS), then creates the members ticked “Domain”, which join the domain on their first boot. Allow 10 to 15 minutes.",
         ["LABS_ColName"]     = "Name",
         ["LABS_ColBase"]     = "Base image",
         ["LABS_ColRam"]      = "RAM (MB)",
@@ -1050,6 +1067,8 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["LABS_ColIp"]       = "Static IP",
         ["LABS_ColDns"]      = "DNS",
         ["LABS_ColJoin"]     = "Domain",
+        ["LABS_ColDc"]       = "Controller",
+        ["LABS_DcTip"]       = "Promoted to domain controller of the lab domain when deploying (AD DS and DNS), before the members",
         ["LABS_ColUser"]     = "User",
         ["LABS_AddVm"]       = "Add a VM",
         ["LABS_MoveUp"]      = "Move up (created earlier)",
@@ -1084,12 +1103,12 @@ public sealed class LocalizationService : INotifyPropertyChanged
               "password": "",                            // TO FILL IN: Administrator (Windows), user (Linux), join account
               "language": "en-US",
               "timeZone": "GMT Standard Time",
-              "domain": [[ "name": "lab.local", "user": "Administrator" ]],  // joined by the VMs with "join": true
+              "domain": [[ "name": "lab.local", "user": "Administrator" ]],  // created by the controller, joined by the VMs with "join": true
               "vms": [
                 // "base": OS identifier of the base image, * = anything; the newest version is used
-                [[ "name": "DC01",  "base": "{0}", "memoryMB": 4096, "cpu": 2, "ip": "192.168.100.10", "dns": "127.0.0.1" ]],
-                // "join": true once AD DS is installed on DC01 (otherwise the join fails during setup)
-                [[ "name": "SRV01", "base": "{0}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.11", "dns": "192.168.100.10", "join": false ]],
+                // "domainController": true: created first, started and promoted (AD DS and DNS); DNS of the other VMs
+                [[ "name": "DC01",  "base": "{0}", "memoryMB": 4096, "cpu": 2, "ip": "192.168.100.10", "domainController": true ]],
+                [[ "name": "SRV01", "base": "{0}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.11", "join": true ]],
                 [[ "name": "WEB01", "base": "{1}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.20", "user": "labadmin" ]]
               ]
             ]]
@@ -1112,6 +1131,21 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["LAB_Kind_switch"]  = "Switch",
         ["LAB_Kind_nat"]     = "NAT",
         ["LAB_Kind_vm"]      = "VM",
+        ["LAB_Kind_domain"]  = "Domain",
+        ["LAB_ErrTwoDc"]     = "One domain controller per lab: the other servers join its domain.",
+        ["LAB_ErrDcNoDomain"] = "VM ‘{0}’ is a domain controller: fill in the lab domain.",
+        ["LAB_ErrDcIp"]      = "Domain controller ‘{0}’ needs a static IP: it is the DNS server of the other VMs.",
+        ["LAB_ErrDcJoin"]    = "Domain controller ‘{0}’ creates the domain: it cannot also join it.",
+        ["LAB_ErrDcPassword"] = "With a domain controller, the password needs 8 characters or more, from 3 of these 4 kinds: uppercase, lowercase, digits, symbols.",
+        ["LAB_DcNeedsServer"] = "‘{0}’ is a domain controller: it needs a Windows Server base image",
+        ["LAB_DcPromote"]    = "promoted on {0} (AD DS and DNS)",
+        ["LAB_DcChecked"]    = "checked on {0} before members are created",
+        ["LAB_DcMissing"]    = "Domain controller ‘{0}’ not found.",
+        ["LAB_DcStarting"]   = "Starting {0}…",
+        ["LAB_DcWaiting"]    = "Installing Windows on {0}…",
+        ["LAB_DcPromoting"]  = "Promoting {0} to domain controller of {1} (AD DS and DNS)…",
+        ["LAB_DcWaitingAd"]  = "Restarting {0} and starting domain {1}…",
+        ["LAB_GuestTimeout"] = "{0} did not answer within {1} min: {2}",
         ["LAB_CannotDeploy"] = "The lab cannot be deployed:",
         ["LAB_NothingToDo"]  = "Lab \u2018{0}\u2019 already exists in full.",
         ["LAB_DeployTitle"]  = "Deploy lab \u2018{0}\u2019",

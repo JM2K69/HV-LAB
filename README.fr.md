@@ -28,7 +28,7 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - sélection multiple, groupes de VM Hyper-V, suppression avec les disques de la VM (jamais l'image de base) ;
   - opérations de lab sur une sélection : démarrage en séquence (par nom, chaque VM attendant le signal de vie de la précédente), un point de contrôle pour tout le lab ;
   - VM désignées par leur GUID Hyper-V, donc deux VM de même nom ne sont jamais confondues ; une seule action à la fois par VM.
-- **Page Labs** : composez un lab entier dans un formulaire (commutateur, NAT, domaine, VM avec leur image de base, taille, IP fixe et jonction au domaine) ; HV-LAB génère le blueprint JSON, montre le plan, puis déploie seulement ce qui manque et regroupe les VM. Des VM existantes s'exportent en blueprint.
+- **Page Labs** : composez un lab entier dans un formulaire (commutateur, NAT, domaine, VM avec leur image de base, taille, IP fixe et jonction au domaine) ; HV-LAB génère le blueprint JSON, montre le plan, puis déploie seulement ce qui manque et regroupe les VM. Une VM cochée contrôleur de domaine est créée en premier et promue (AD DS et DNS) avant que ses membres rejoignent le domaine. Des VM existantes s'exportent en blueprint.
 - **Quick VM** : tailles prédéfinies, disque vierge ou différentiel, Gen 1/2, Secure Boot, PXE, création en série (`PREFIXE-01…nn`).
 - **Créer une VM** : disque différentiel issu d'une image de base, avec `unattend.xml` injecté :
   - nom d'ordinateur, mot de passe administrateur (obligatoire) et ouverture de session automatique optionnelle ;

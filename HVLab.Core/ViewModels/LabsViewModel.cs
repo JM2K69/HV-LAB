@@ -24,17 +24,22 @@ public sealed partial class LabVmRow : ObservableObject
     [ObservableProperty] private double cpu = 2;
     [ObservableProperty] private string ip = "";
     [ObservableProperty] private string dns = "";
-    [ObservableProperty] private bool join;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanJoin))] private bool domainController;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanBeDc))] private bool join;
     [ObservableProperty] private string user = "labadmin";
 
     /// <summary>Linux base (cloud-init: a sudo user) or Windows (unattend: can join the domain).</summary>
     public bool IsLinux   => Base.StartsWith("Linux", StringComparison.OrdinalIgnoreCase);
     public bool IsWindows => !IsLinux;
+    /// <summary>The domain controller creates the domain, a member joins it: never both.</summary>
+    public bool CanJoin   => !DomainController;
+    public bool CanBeDc   => !Join;
 
     public static LabVmRow From(LabVm vm) => new()
     {
         Name = vm.Name, Base = vm.Base, MemoryMB = vm.MemoryMB, Cpu = vm.Cpu,
-        Ip = vm.Ip ?? "", Dns = vm.Dns ?? "", Join = vm.Join, User = vm.User ?? "labadmin",
+        Ip = vm.Ip ?? "", Dns = vm.Dns ?? "", Join = vm.Join, DomainController = vm.DomainController,
+        User = vm.User ?? "labadmin",
     };
 
     public LabVm ToVm() => new()
@@ -43,6 +48,7 @@ public sealed partial class LabVmRow : ObservableObject
         Ip = Ip.Trim() is { Length: > 0 } ip ? ip : null,
         Dns = Dns.Trim() is { Length: > 0 } dns ? dns : null,
         Join = IsWindows && Join,
+        DomainController = IsWindows && DomainController,
         User = IsLinux && User.Trim().Length > 0 ? User.Trim() : null,
     };
 }
@@ -355,7 +361,11 @@ public partial class LabsViewModel(LabBlueprintService labs, IHyperVService hv, 
         var steps = await labs.PlanAsync(lab);
         Plan.Clear();
         foreach (var s in steps)
-            Plan.Add(new LabPlanRow(s.Action, s.Kind switch { "switch" => T("LAB_Kind_switch"), "nat" => T("LAB_Kind_nat"), _ => T("LAB_Kind_vm") },
+            Plan.Add(new LabPlanRow(s.Action, s.Kind switch
+                                    {
+                                        "switch" => T("LAB_Kind_switch"), "nat" => T("LAB_Kind_nat"),
+                                        "domain" => T("LAB_Kind_domain"), _ => T("LAB_Kind_vm"),
+                                    },
                                     s.Name, s.Detail));
         PlanChecked = true;
         return steps;

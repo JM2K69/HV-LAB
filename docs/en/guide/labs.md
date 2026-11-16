@@ -9,11 +9,11 @@ Open the **Labs** page from the left menu, or with the **Labs** button of the **
 1. Click **New lab**. The form starts from an example: a domain controller, a member server and a Linux server, on the newest base images of the host.
 2. **Lab** card: lab name (it becomes the Hyper-V group name), password, language and time zone.
 3. **Network** card: the switch, picked from the list or typed (an unknown name is created as an internal switch), and the NAT created with it, with its gateway and prefix.
-4. **Active Directory domain** card: the domain, the account allowed to join and the organizational unit. Only the VMs ticked **Domain** join it.
+4. **Active Directory domain** card: the domain, the account allowed to join and the organizational unit. The VM ticked **Controller** creates the domain; only the VMs ticked **Domain** join it.
 5. **Virtual machines** card, one row per VM:
     - **Name** and **Base image**, picked from the images of the host; `*` matches anything and the newest version is used;
     - **RAM (MB)**, **vCPU**, **Static IP** and **DNS**;
-    - **Domain** for a Windows VM, **User** for a Linux VM;
+    - **Controller** and **Domain** for a Windows VM, **User** for a Linux VM;
     - the arrows change the creation order, the bin removes the VM;
     - **Add a VM** adds a row.
 6. Click **Save**. An unsaved lab shows **Unsaved changes**, and HV-LAB asks before discarding them.
@@ -30,12 +30,12 @@ A draft can be saved without a password; only deploying needs it.
 - **already exists**: it is left unchanged;
 - **impossible**: for example when no base image matches.
 
-**Deploy** saves the lab, shows the plan, then asks for confirmation. HV-LAB creates only what is missing: the switch and its NAT, then the VMs in row order. It then puts the VMs in a Hyper-V group named after the lab.
+**Deploy** saves the lab, shows the plan, then asks for confirmation. HV-LAB creates only what is missing: the switch and its NAT, the [domain controller](#the-domain-controller) if there is one, then the other VMs in row order. It then puts the VMs in a Hyper-V group named after the lab.
 
 When an item is **impossible**, nothing is deployed. Deploying the same lab again only creates what is missing, for example a VM you deleted.
 
 !!! note "The VMs are not started"
-    Select the VMs of the lab (the **Group** filter shows them), then use **Start in sequence**: they start one by one, in name order. See [Several VMs at once](virtual-machines.md#several-vms-at-once).
+    Only the domain controller is left running after the deployment. Select the VMs of the lab (the **Group** filter shows them), then use **Start in sequence**: they start one by one, in name order. See [Several VMs at once](virtual-machines.md#several-vms-at-once).
 
 ## Export VMs as a blueprint
 
@@ -59,8 +59,8 @@ Comments (`//`) and trailing commas are allowed.
   "password": "Lab#2026",
   "domain": { "name": "lab.local", "user": "Administrator" },
   "vms": [
-    { "name": "DC01",  "base": "WindowsServer2025*", "memoryMB": 4096, "ip": "192.168.100.10", "dns": "127.0.0.1" },
-    { "name": "SRV01", "base": "WindowsServer2025*", "ip": "192.168.100.11", "dns": "192.168.100.10", "join": true },
+    { "name": "DC01",  "base": "WindowsServer2025*", "memoryMB": 4096, "ip": "192.168.100.10", "domainController": true },
+    { "name": "SRV01", "base": "WindowsServer2025*", "ip": "192.168.100.11", "join": true },
     { "name": "WEB01", "base": "LinuxAlma*", "ip": "192.168.100.20", "user": "web" }
   ]
 }
@@ -90,7 +90,8 @@ The NAT is only created together with the switch. When the switch already exists
 | `memoryMB` | Memory, in MB | `2048` |
 | `cpu` | Processors | `2` |
 | `ip` | Static IPv4 address. It needs `nat`. | DHCP |
-| `dns` | DNS servers, comma-separated | The NAT gateway |
+| `dns` | DNS servers, comma-separated | The lab's domain controller if there is one, else the NAT gateway |
+| `domainController` | Windows Server: created first and promoted to domain controller of `domain` (one per lab) | `false` |
 | `join` | Windows: join the domain of `domain` during setup | `false` |
 | `user` | Linux: the sudo user | `labadmin` |
 
@@ -98,14 +99,22 @@ The OS identifier is the part of the file name that follows `BASE_`, for example
 
 ## The domain controller
 
-HV-LAB does not promote the domain controller. In the example, `DC01` is created as a plain Windows Server, with itself as DNS server. Install AD DS on it before you deploy the members that join, or deploy them later.
+Tick **Controller** on a Windows Server VM with a static IP (`"domainController": true` in the file). When deploying, HV-LAB:
 
-For example, once `DC01` runs, use **Run a command…** in [its window](virtual-machines.md#automation-windows-guests):
+1. creates this VM before the others, whatever its row;
+2. starts it and waits for Windows setup to finish;
+3. installs AD DS and creates a new forest with its DNS server, through [PowerShell Direct](virtual-machines.md#automation-windows-guests);
+4. restarts it and waits until the domain answers;
+5. then creates the other VMs: the ones ticked **Domain** join the domain on their first boot.
 
-```powershell
-Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
-Install-ADDSForest -DomainName lab.local -InstallDns -Force -NoRebootOnCompletion `
-    -SafeModeAdministratorPassword (ConvertTo-SecureString 'Lab#2026' -AsPlainText -Force)
-```
+Allow 10 to 15 minutes for a controller and its members. The other VMs of the lab use the controller as DNS server, unless their **DNS** field is filled in.
 
-Then restart `DC01`, set `"join": true` on the members and deploy the blueprint again: only the missing VMs are created. A member already created without joining is left unchanged: delete it first, or join it by hand.
+| Item | Value |
+|---|---|
+| NetBIOS name | The first part of the domain in uppercase: `lab.local` gives `LAB` |
+| Domain administrator account | `LAB\Administrator`, with the lab password |
+| Restore mode (DSRM) password | The lab password |
+
+With a controller, the lab password must follow the Windows rule: 8 characters or more, from 3 of these 4 kinds: uppercase, lowercase, digits, symbols.
+
+When the controller already exists, a new deployment that creates members checks its role first: it starts it if needed, promotes it if it is not one yet, then waits for the domain. A member already created without joining is left unchanged: delete it first, or join it by hand.

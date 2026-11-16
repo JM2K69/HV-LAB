@@ -281,8 +281,13 @@
                                                          Header="{Binding [LABS_ColDns], Source={StaticResource Loc}}"
                                                          Text="{x:Bind Dns, Mode=TwoWay}" PlaceholderText="192.168.100.1"/>
                                                 <Grid Grid.Row="1" Grid.Column="5" Width="120">
-                                                    <CheckBox Content="{Binding [LABS_ColJoin], Source={StaticResource Loc}}" VerticalAlignment="Bottom"
-                                                              IsChecked="{x:Bind Join, Mode=TwoWay}" Visibility="{x:Bind IsWindows, Mode=OneWay}"/>
+                                                    <StackPanel VerticalAlignment="Bottom" Visibility="{x:Bind IsWindows, Mode=OneWay}">
+                                                        <CheckBox Content="{Binding [LABS_ColDc], Source={StaticResource Loc}}"
+                                                                  IsChecked="{x:Bind DomainController, Mode=TwoWay}" IsEnabled="{x:Bind CanBeDc, Mode=OneWay}"
+                                                                  ToolTipService.ToolTip="{Binding [LABS_DcTip], Source={StaticResource Loc}}"/>
+                                                        <CheckBox Content="{Binding [LABS_ColJoin], Source={StaticResource Loc}}"
+                                                                  IsChecked="{x:Bind Join, Mode=TwoWay}" IsEnabled="{x:Bind CanJoin, Mode=OneWay}"/>
+                                                    </StackPanel>
                                                     <TextBox Header="{Binding [LABS_ColUser], Source={StaticResource Loc}}" FontFamily="Consolas"
                                                              Text="{x:Bind User, Mode=TwoWay}" Visibility="{x:Bind IsLinux, Mode=OneWay}"/>
                                                 </Grid>

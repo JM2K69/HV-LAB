@@ -88,7 +88,11 @@ public class GeneratedScriptTests
         await Run("copy to guest",     () => hv.CopyToGuestAsync(id, @"D:\Tools\it's $(x).ps1", @"C:\HV-LAB"));
         await Run("copy vm disk",      () => vhdx.CopyVmDiskAsync(Name, @"D:\Bases\it's.vhdx"));
 
-        return labels.Zip(runner.Scripts).ToList();
+        // Scripts run inside a guest (PowerShell Direct carries them as base64): parsed as they are
+        return labels.Zip(runner.Scripts)
+                     .Append(("dc feature", LabBlueprintService.FeatureScript))
+                     .Append(("dc promotion", LabBlueprintService.PromotionScript("lab.local", "P@ss'\"$(x)`")))
+                     .ToList();
     }
 
     [Fact]

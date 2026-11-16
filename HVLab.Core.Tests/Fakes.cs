@@ -100,8 +100,14 @@ internal sealed class FakeHyperVService : IHyperVService
     { Calls.Add($"type {vmId} {text} {language} {pressEnter}"); return Task.CompletedTask; }
     public Task SendCtrlAltDelAsync(string vmId) { Calls.Add($"cad {vmId}"); return Task.CompletedTask; }
     public string GuestOutput { get; set; } = "";
+    /// <summary>When set, answers PowerShell Direct calls from (account, script), or throws as a guest not ready yet.</summary>
+    public Func<string, string, string>? Guest { get; set; }
     public Task<string> InvokeInGuestAsync(string vmId, string account, string password, string script)
-    { Calls.Add($"guest {vmId} {account} {script}"); return Task.FromResult(GuestOutput); }
+    {
+        Calls.Add($"guest {vmId} {account} {script}");
+        try { return Task.FromResult(Guest?.Invoke(account, script) ?? GuestOutput); }
+        catch (Exception ex) { return Task.FromException<string>(ex); }
+    }
     public Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder)
     { Calls.Add($"copy {vmId} {sourcePath} {guestFolder}"); return Task.CompletedTask; }
     /// <summary>When set, keystrokes wait for it (to test that keys typed meanwhile are batched).</summary>
@@ -160,6 +166,8 @@ internal sealed class FakeHyperVService : IHyperVService
     public Dictionary<string, string?> CreatedMacs { get; } = [];
     /// <summary>Secure Boot template and cloud-init seed of each differencing VM, by VM name.</summary>
     public Dictionary<string, (string Template, CloudInitSeed? Seed)> CreatedFirmware { get; } = [];
+    /// <summary>Created VMs appear in the list (Off), as on a host.</summary>
+    public bool AddCreatedVms { get; set; }
 
     public Task CreateBlankVmAsync(string vmName, string switchName, long memoryMB, int cpuCount, int generation,
         string vmFolder, long diskSizeGB, bool secureBoot = true, bool pxeBoot = false, string? notes = null,
@@ -179,6 +187,8 @@ internal sealed class FakeHyperVService : IHyperVService
         CreatedAnswers[vmName] = answerFileContent;
         CreatedMacs[vmName] = staticMac;
         CreatedFirmware[vmName] = (secureBootTemplate, cloudInit);
+        Calls.Add($"create {vmName}");
+        if (AddCreatedVms) Vms.Add(new VirtualMachine { Id = $"ID-{vmName}", Name = vmName, State = "Off" });
         return Task.CompletedTask;
     }
 }

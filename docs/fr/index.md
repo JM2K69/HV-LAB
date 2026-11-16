@@ -62,7 +62,7 @@ C'est une application WinUI 3 / .NET 10 qui n'a besoin de rien d'autre sur la ma
 
     ---
 
-    Composez un lab entier dans un formulaire : commutateur, NAT, domaine, VM avec leur image de base, IP fixe et jonction au domaine. HV-LAB génère le JSON, crée seulement ce qui manque, et exporte des VM existantes en blueprint.
+    Composez un lab entier dans un formulaire : commutateur, NAT, domaine, VM avec leur image de base, IP fixe et jonction au domaine. HV-LAB génère le JSON, crée seulement ce qui manque, promeut le contrôleur de domaine avant ses membres, et exporte des VM existantes en blueprint.
 
     [:octicons-arrow-right-24: Blueprints de lab](guide/labs.md)
 

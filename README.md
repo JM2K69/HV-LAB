@@ -28,7 +28,7 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - multi-select, Hyper-V VM groups, delete with the VM's own disks (never the base image);
   - lab operations on a selection: start in sequence (by name, each VM waiting for the previous one's heartbeat), one checkpoint for the whole lab;
   - VMs addressed by their Hyper-V GUID, so VMs with the same name are never confused; each VM runs one action at a time.
-- **Labs page**: compose a whole lab in a form (switch, NAT, domain, VMs with their base image, size, static IP and domain join); HV-LAB generates the JSON blueprint, shows the plan, and deploys only what is missing, then groups the VMs. Existing VMs export to a blueprint.
+- **Labs page**: compose a whole lab in a form (switch, NAT, domain, VMs with their base image, size, static IP and domain join); HV-LAB generates the JSON blueprint, shows the plan, and deploys only what is missing, then groups the VMs. A VM ticked as domain controller is created first and promoted (AD DS and DNS) before its members join the domain. Existing VMs export to a blueprint.
 - **Quick VM**: size presets, blank disk or differencing disk, Gen 1/2, Secure Boot, PXE, bulk creation (`PREFIX-01…nn`).
 - **Create VM**: differencing disk from a base image with an injected `unattend.xml`:
   - computer name, administrator password (required) and optional auto-logon;

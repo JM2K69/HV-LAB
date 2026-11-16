@@ -9,11 +9,11 @@ Ouvrez la page **Labs** dans le menu de gauche, ou avec le bouton **Labs** de la
 1. Cliquez sur **Nouveau lab**. Le formulaire part d'un exemple : un contrôleur de domaine, un serveur membre et un serveur Linux, sur les images de base les plus récentes de l'hôte.
 2. Carte **Lab** : nom du lab (il devient le nom du groupe Hyper-V), mot de passe, langue et fuseau horaire.
 3. Carte **Réseau** : le commutateur, à choisir dans la liste ou à saisir (un nom inconnu est créé en commutateur interne), et le NAT créé avec lui, avec sa passerelle et son préfixe.
-4. Carte **Domaine Active Directory** : le domaine, le compte autorisé à joindre et l'unité d'organisation. Seules les VM cochées **Domaine** le rejoignent.
+4. Carte **Domaine Active Directory** : le domaine, le compte autorisé à joindre et l'unité d'organisation. La VM cochée **Contrôleur** crée le domaine ; seules les VM cochées **Domaine** le rejoignent.
 5. Carte **Machines virtuelles**, une ligne par VM :
     - **Nom** et **Image de base**, choisie parmi les images de l'hôte ; `*` remplace n'importe quoi et la version la plus récente est prise ;
     - **RAM (Mo)**, **vCPU**, **IP fixe** et **DNS** ;
-    - **Domaine** pour une VM Windows, **Utilisateur** pour une VM Linux ;
+    - **Contrôleur** et **Domaine** pour une VM Windows, **Utilisateur** pour une VM Linux ;
     - les flèches changent l'ordre de création, la corbeille retire la VM ;
     - **Ajouter une VM** ajoute une ligne.
 6. Cliquez sur **Enregistrer**. Un lab non enregistré est signalé par **Modifications non enregistrées**, et HV-LAB demande avant de les abandonner.
@@ -30,12 +30,12 @@ Un brouillon peut être enregistré sans mot de passe ; seul le déploiement l'e
 - **existe déjà** : elle reste inchangée ;
 - **impossible** : par exemple quand aucune image de base ne correspond.
 
-**Déployer** enregistre le lab, affiche le plan, puis demande confirmation. HV-LAB crée seulement ce qui manque : le commutateur et son NAT, puis les VM dans l'ordre des lignes. Il place ensuite les VM dans un groupe Hyper-V nommé d'après le lab.
+**Déployer** enregistre le lab, affiche le plan, puis demande confirmation. HV-LAB crée seulement ce qui manque : le commutateur et son NAT, le [contrôleur de domaine](#le-controleur-de-domaine) s'il y en a un, puis les autres VM dans l'ordre des lignes. Il place ensuite les VM dans un groupe Hyper-V nommé d'après le lab.
 
 Quand une ligne est **impossible**, rien n'est déployé. Déployer à nouveau le même lab crée seulement ce qui manque, par exemple une VM que vous avez supprimée.
 
 !!! note "Les VM ne sont pas démarrées"
-    Sélectionnez les VM du lab (le filtre **Groupe** les affiche), puis utilisez **Démarrer en séquence** : elles démarrent une à une, par ordre de nom. Voir [Plusieurs VM à la fois](virtual-machines.md#plusieurs-vm-a-la-fois).
+    Seul le contrôleur de domaine reste démarré après le déploiement. Sélectionnez les VM du lab (le filtre **Groupe** les affiche), puis utilisez **Démarrer en séquence** : elles démarrent une à une, par ordre de nom. Voir [Plusieurs VM à la fois](virtual-machines.md#plusieurs-vm-a-la-fois).
 
 ## Exporter des VM en blueprint
 
@@ -59,8 +59,8 @@ Les commentaires (`//`) et les virgules finales sont acceptés.
   "password": "Lab#2026",
   "domain": { "name": "lab.local", "user": "Administrator" },
   "vms": [
-    { "name": "DC01",  "base": "WindowsServer2025*", "memoryMB": 4096, "ip": "192.168.100.10", "dns": "127.0.0.1" },
-    { "name": "SRV01", "base": "WindowsServer2025*", "ip": "192.168.100.11", "dns": "192.168.100.10", "join": true },
+    { "name": "DC01",  "base": "WindowsServer2025*", "memoryMB": 4096, "ip": "192.168.100.10", "domainController": true },
+    { "name": "SRV01", "base": "WindowsServer2025*", "ip": "192.168.100.11", "join": true },
     { "name": "WEB01", "base": "LinuxAlma*", "ip": "192.168.100.20", "user": "web" }
   ]
 }
@@ -90,7 +90,8 @@ Le NAT n'est créé qu'avec le commutateur. Quand le commutateur existe déjà, 
 | `memoryMB` | Mémoire, en Mo | `2048` |
 | `cpu` | Processeurs | `2` |
 | `ip` | Adresse IPv4 fixe. Elle nécessite `nat`. | DHCP |
-| `dns` | Serveurs DNS, séparés par des virgules | La passerelle du NAT |
+| `dns` | Serveurs DNS, séparés par des virgules | Le contrôleur de domaine du lab s'il y en a un, sinon la passerelle du NAT |
+| `domainController` | Windows Server : créé en premier et promu contrôleur du domaine de `domain` (un seul par lab) | `false` |
 | `join` | Windows : rejoindre le domaine de `domain` pendant l'installation | `false` |
 | `user` | Linux : l'utilisateur sudo | `labadmin` |
 
@@ -98,14 +99,22 @@ L'identifiant d'OS est la partie du nom de fichier qui suit `BASE_`, par exemple
 
 ## Le contrôleur de domaine
 
-HV-LAB ne promeut pas le contrôleur de domaine. Dans l'exemple, `DC01` est créé comme un simple Windows Server, avec lui-même comme serveur DNS. Installez AD DS dessus avant de déployer les membres qui joignent le domaine, ou déployez-les plus tard.
+Cochez **Contrôleur** sur une VM Windows Server en IP fixe (`"domainController": true` dans le fichier). Au déploiement, HV-LAB :
 
-Par exemple, une fois `DC01` démarré, utilisez **Exécuter une commande…** dans [sa fenêtre](virtual-machines.md#automatisation-invites-windows) :
+1. crée cette VM avant les autres, quelle que soit sa ligne ;
+2. la démarre et attend la fin de l'installation de Windows ;
+3. installe AD DS et crée une nouvelle forêt avec son serveur DNS, par [PowerShell Direct](virtual-machines.md#automatisation-invites-windows) ;
+4. la redémarre et attend que le domaine réponde ;
+5. crée ensuite les autres VM : celles cochées **Domaine** rejoignent le domaine à leur premier démarrage.
 
-```powershell
-Install-WindowsFeature AD-Domain-Services -IncludeManagementTools
-Install-ADDSForest -DomainName lab.local -InstallDns -Force -NoRebootOnCompletion `
-    -SafeModeAdministratorPassword (ConvertTo-SecureString 'Lab#2026' -AsPlainText -Force)
-```
+Comptez 10 à 15 minutes pour un contrôleur et ses membres. Les autres VM du lab utilisent le contrôleur comme serveur DNS, sauf si leur champ **DNS** est rempli.
 
-Redémarrez ensuite `DC01`, passez `"join": true` sur les membres et déployez à nouveau le blueprint : seules les VM manquantes sont créées. Un membre déjà créé sans avoir joint le domaine reste inchangé : supprimez-le d'abord, ou joignez-le à la main.
+| Élément | Valeur |
+|---|---|
+| Nom NetBIOS | La première partie du domaine en majuscules : `lab.local` donne `LAB` |
+| Compte administrateur du domaine | `LAB\Administrator`, avec le mot de passe du lab |
+| Mot de passe du mode restauration (DSRM) | Le mot de passe du lab |
+
+Avec un contrôleur, le mot de passe du lab doit respecter la règle de Windows : 8 caractères ou plus, avec 3 de ces 4 types : majuscules, minuscules, chiffres, symboles.
+
+Quand le contrôleur existe déjà, un nouveau déploiement qui crée des membres vérifie d'abord son rôle : il le démarre au besoin, le promeut s'il ne l'est pas encore, puis attend le domaine. Un membre déjà créé sans avoir joint le domaine reste inchangé : supprimez-le d'abord, ou joignez-le à la main.

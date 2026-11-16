@@ -136,6 +136,56 @@ public class HyperVLiveLabTests
     }
 
     [LiveGuestFact]
+    public async Task A_domain_controller_is_promoted_and_its_member_joins()
+    {
+        var tag = Tag();
+        var server = (await Vhdx.GetBaseVhdxListAsync(BasesFolder))
+                         .Where(b => b.IsBuilt && !b.IsLinux && b.OsIdentifier.Contains("Server", StringComparison.OrdinalIgnoreCase))
+                         .OrderByDescending(b => b.OsIdentifier.Contains("Core", StringComparison.OrdinalIgnoreCase))
+                         .ThenBy(b => new FileInfo(b.FilePath).Length)
+                         .FirstOrDefault() ?? throw new Xunit.Sdk.XunitException($"no Windows Server base in {BasesFolder}");
+        var domain = $"hvlt{tag}.lab";
+        var domainAdmin = $@"{LabBlueprintService.NetBiosName(domain)}\Administrator";
+        // The member is listed first: the controller is created and promoted before it anyway
+        var lab = new LabBlueprint
+        {
+            Name = $"HVLT-AD-{tag}", Switch = $"HVLT-ADSW-{tag}",
+            Nat = new LabNat { Gateway = "172.31.252.1", PrefixLength = 24 },
+            Password = $"Hv!{tag}-Lab9",
+            Domain = new LabDomain { Name = domain },
+            Vms =
+            [
+                new LabVm { Name = $"HVLT-M-{tag}", Base = server.OsIdentifier, Ip = "172.31.252.11", Join = true },
+                new LabVm { Name = $"HVLT-DC-{tag}", Base = server.OsIdentifier, Ip = "172.31.252.10", DomainController = true },
+            ],
+        };
+        var names = lab.Vms.Select(v => v.Name).ToList();
+        var svc = new LabBlueprintService(Hv, Nat, Vhdx) { BaseFolder = () => BasesFolder, VmsFolder = () => Folder };
+        try
+        {
+            Assert.Null(lab.Validate());
+            await svc.DeployAsync(lab);
+            var dc = await GetAsync(names[1]);
+            Assert.Equal("Running", dc.State);
+
+            // The member joins the domain during its first boot (its DNS: the controller)
+            var member = await GetAsync(names[0]);
+            Assert.Equal("Off", member.State);
+            await Hv.PowerAsync(member.Id, VmPowerAction.Start);
+            await UntilAsync(async () =>
+            {
+                var joined = await Hv.InvokeInGuestAsync(member.Id, domainAdmin, lab.Password, "(Get-CimInstance Win32_ComputerSystem).Domain");
+                return joined.Equals(domain, StringComparison.OrdinalIgnoreCase) ? joined : throw new InvalidOperationException($"domain: {joined}");
+            }, GuestReady);
+
+            // The directory lists it
+            var computers = await Hv.InvokeInGuestAsync(dc.Id, domainAdmin, lab.Password, "(Get-ADComputer -Filter *).Name -join ','");
+            Assert.Contains(InputValidator.ToComputerName(names[0]), computers, StringComparison.OrdinalIgnoreCase);
+        }
+        finally { await CleanupAsync(names, sw: lab.Switch, nat: $"{lab.Name}-NAT", group: lab.Name); }
+    }
+
+    [LiveGuestFact]
     public async Task A_lab_deploys_boots_and_answers_through_powershell_direct()
     {
         var tag = Tag();

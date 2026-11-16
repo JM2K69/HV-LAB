@@ -55,13 +55,42 @@ public sealed class LabBlueprint
             if (vm.Ip is { Length: > 0 } ip && InputValidator.ParseIpv4(ip) is null) return T("LAB_ErrIp", vm.Name);
             if (vm.Ip is { Length: > 0 } && Gateway is null) return T("LAB_ErrGateway", vm.Name);
         }
+        if (Vms.Count(v => v.DomainController) > 1) return T("LAB_ErrTwoDc");
+        if (DomainController is { } dc)
+        {
+            if (Domain is null) return T("LAB_ErrDcNoDomain", dc.Name);
+            if (dc.Ip is not { Length: > 0 }) return T("LAB_ErrDcIp", dc.Name);
+            if (dc.Join) return T("LAB_ErrDcJoin", dc.Name);
+            if (requirePassword && !IsComplex(Password)) return T("LAB_ErrDcPassword");
+        }
         var duplicate = Vms.GroupBy(v => v.Name, StringComparer.OrdinalIgnoreCase).FirstOrDefault(g => g.Count() > 1);
         return duplicate is null ? null : T("LAB_ErrDuplicate", duplicate.Key);
     }
 
+    /// <summary>
+    /// The Windows rule for the domain administrator and the restore mode passwords: 8 characters or more, from at
+    /// least three of uppercase, lowercase, digits and symbols.
+    /// </summary>
+    internal static bool IsComplex(string password)
+        => password.Length >= 8
+           && new[] { password.Any(char.IsUpper), password.Any(char.IsLower), password.Any(char.IsDigit),
+                      password.Any(c => !char.IsLetterOrDigit(c)) }.Count(b => b) >= 3;
+
     /// <summary>Gateway of the static IPs: the NAT's.</summary>
     [JsonIgnore] public string? Gateway => Nat?.Gateway;
     [JsonIgnore] public int PrefixLength => Nat?.PrefixLength ?? 24;
+
+    /// <summary>The VM promoted to the first domain controller of <see cref="Domain"/>, if any.</summary>
+    [JsonIgnore] public LabVm? DomainController => Vms.FirstOrDefault(v => v.DomainController);
+
+    /// <summary>
+    /// DNS servers of a VM: its own, else the domain controller for the other VMs of a lab that has one (they find the
+    /// domain), else the NAT gateway.
+    /// </summary>
+    public string? DnsOf(LabVm vm)
+        => vm.Dns is { Length: > 0 } dns ? dns
+         : DomainController is { Ip: { Length: > 0 } dcIp } dc && dc != vm ? dcIp
+         : Gateway;
 }
 
 public sealed class LabNat
@@ -91,6 +120,11 @@ public sealed class LabVm
     public string? Dns { get; set; }
     /// <summary>Windows: join the lab domain during setup.</summary>
     public bool Join { get; set; }
+    /// <summary>
+    /// Windows Server: deploying promotes it to the first domain controller of a new forest (AD DS and DNS), before
+    /// the members are created.
+    /// </summary>
+    public bool DomainController { get; set; }
     /// <summary>Linux: the sudo user cloud-init creates.</summary>
     public string? User { get; set; }
 }
@@ -119,6 +153,7 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
         var vms      = await hv.GetVirtualMachinesAsync();
         var bases    = await vhdx.GetBaseVhdxListAsync(BaseFolder());
         var steps    = new List<LabStep>();
+        var dc       = lab.DomainController;
 
         var switchExists = switches.Any(s => s.Name.Equals(lab.Switch, StringComparison.OrdinalIgnoreCase));
         steps.Add(new("switch", lab.Switch, switchExists ? Exists : Create, switchExists ? "" : T("LAB_InternalSwitch")));
@@ -126,17 +161,28 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
             steps.Add(new("nat", $"{lab.Name}-NAT", Create, NatService.NetworkPrefix(n.Gateway, n.PrefixLength)));
         foreach (var vm in lab.Vms)
         {
-            if (vms.Any(v => v.Name.Equals(vm.Name, StringComparison.OrdinalIgnoreCase)))
+            var exists = vms.Any(v => v.Name.Equals(vm.Name, StringComparison.OrdinalIgnoreCase));
+            if (exists)
                 steps.Add(new("vm", vm.Name, Exists, ""));
-            else if (PickBase(bases, vm.Base) is { } b)
-                steps.Add(new("vm", vm.Name, Create, $"{b.Name} · {vm.MemoryMB} MB · {vm.Cpu} vCPU{(vm.Ip is { Length: > 0 } ip ? " · " + ip : "")}"));
-            else
+            else if (PickBase(bases, vm.Base) is not { } b)
                 steps.Add(new("vm", vm.Name, Missing, T("LAB_NoBase", vm.Base)));
+            else if (vm == dc && !IsServer(b))
+                steps.Add(new("vm", vm.Name, Missing, T("LAB_DcNeedsServer", vm.Name)));
+            else
+                steps.Add(new("vm", vm.Name, Create, $"{b.Name} · {vm.MemoryMB} MB · {vm.Cpu} vCPU{(vm.Ip is { Length: > 0 } ip ? " · " + ip : "")}"));
+            // An existing DC is checked (and promoted if it is not yet) before members that join are created
+            if (vm == dc && lab.Domain is { } d)
+                steps.Add(new("domain", d.Name, exists ? Exists : Create, T(exists ? "LAB_DcChecked" : "LAB_DcPromote", vm.Name)));
         }
         return steps;
     }
 
-    /// <summary>Creates what the plan says (switch, NAT, VMs in order), then groups the lab's VMs.</summary>
+    private static bool IsServer(BaseVhdx b) => !b.IsLinux && b.OsIdentifier.Contains("Server", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Creates what the plan says (switch, NAT, VMs in order), then groups the lab's VMs. A domain controller comes
+    /// first: it is started and promoted before the members, which then join its domain during their own setup.
+    /// </summary>
     public async Task DeployAsync(LabBlueprint lab, IProgress<string>? progress = null, CancellationToken ct = default)
     {
         var plan = await PlanAsync(lab);
@@ -154,46 +200,144 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
             }
         }
 
-        foreach (var vm in lab.Vms.Where(v => plan.Any(s => s.Kind == "vm" && s.Name == v.Name && s.Action == Create)))
+        var toCreate = lab.Vms.Where(v => plan.Any(s => s.Kind == "vm" && s.Name == v.Name && s.Action == Create)).ToList();
+        if (lab.DomainController is { } dc && lab.Domain is { } domain)
         {
-            ct.ThrowIfCancellationRequested();
-            progress?.Report(T("LAB_CreatingVm", vm.Name));
-            var b = PickBase(bases, vm.Base)!;
-            var ip = vm.Ip is { Length: > 0 } ? new StaticIpConfig(vm.Ip, lab.PrefixLength, lab.Gateway!,
-                                                     InputValidator.ParseDnsServers(vm.Dns ?? lab.Gateway) ?? []) : null;
-            if (b.IsLinux)
-            {
-                var user = vm.User ?? "labadmin";
-                var seed = CloudInitGenerator.Generate(new CloudInitConfig
-                {
-                    HostName = InputValidator.ToComputerName(vm.Name).ToLowerInvariant(), UserName = user, Password = lab.Password,
-                    TimeZone = lab.TimeZone, Language = lab.Language, StaticIp = ip,
-                });
-                await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
-                    VmsFolder(), null, b.SecureBoot, false, VmNotes.Build(DateTime.Now, user, lab.Password, vm.Ip),
-                    b.SecureBootTemplate, seed, ct: ct);
-                continue;
-            }
-
-            var mac = ip is null ? null : InputValidator.NewHyperVMac();
-            var answer = AnswerFileGenerator.Generate(new AnswerFileConfig
-            {
-                ComputerName = InputValidator.ToComputerName(vm.Name), AdminPassword = lab.Password,
-                ProductKey = KmsKeyCatalog.SuggestForOs(b.OsIdentifier)?.Key ?? "",
-                UILanguage = lab.Language, InputLocale = AnswerFileGenerator.GetInputLocale(lab.Language),
-                SystemLocale = lab.Language, UserLocale = lab.Language, TimeZone = lab.TimeZone,
-                OsFamily = b.OsIdentifier.Contains("server", StringComparison.OrdinalIgnoreCase) ? OsFamily.Server : OsFamily.Client,
-                StaticIp = ip, MacAddress = mac ?? "",
-                JoinDomain = vm.Join && lab.Domain is { } d ? d.Name : "",
-                DomainUser = lab.Domain?.User ?? "", DomainPassword = lab.Password, DomainOu = lab.Domain?.Ou ?? "",
-            });
-            await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
-                VmsFolder(), answer, true, false,
-                VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, lab.Password, vm.Ip), ct: ct, staticMac: mac);
+            var newDc = toCreate.Remove(dc);
+            if (newDc) await CreateVmAsync(lab, dc, bases, progress, ct);
+            if (newDc || toCreate.Any(v => v.Join)) await EnsureDomainControllerAsync(lab, dc, domain, progress, ct);
         }
+        foreach (var vm in toCreate) await CreateVmAsync(lab, vm, bases, progress, ct);
 
         progress?.Report(T("VM_Grouping", lab.Name));
         await hv.AddToGroupAsync(lab.Name, lab.Vms.Select(v => v.Name).ToList());
+    }
+
+    private async Task CreateVmAsync(LabBlueprint lab, LabVm vm, IReadOnlyList<BaseVhdx> bases, IProgress<string>? progress, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        progress?.Report(T("LAB_CreatingVm", vm.Name));
+        var b = PickBase(bases, vm.Base)!;
+        var ip = vm.Ip is { Length: > 0 } ? new StaticIpConfig(vm.Ip, lab.PrefixLength, lab.Gateway!,
+                                                 InputValidator.ParseDnsServers(lab.DnsOf(vm)) ?? []) : null;
+        if (b.IsLinux)
+        {
+            var user = vm.User ?? "labadmin";
+            var seed = CloudInitGenerator.Generate(new CloudInitConfig
+            {
+                HostName = InputValidator.ToComputerName(vm.Name).ToLowerInvariant(), UserName = user, Password = lab.Password,
+                TimeZone = lab.TimeZone, Language = lab.Language, StaticIp = ip,
+            });
+            await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
+                VmsFolder(), null, b.SecureBoot, false, VmNotes.Build(DateTime.Now, user, lab.Password, vm.Ip),
+                b.SecureBootTemplate, seed, ct: ct);
+            return;
+        }
+
+        var mac = ip is null ? null : InputValidator.NewHyperVMac();
+        var answer = AnswerFileGenerator.Generate(new AnswerFileConfig
+        {
+            ComputerName = InputValidator.ToComputerName(vm.Name), AdminPassword = lab.Password,
+            ProductKey = KmsKeyCatalog.SuggestForOs(b.OsIdentifier)?.Key ?? "",
+            UILanguage = lab.Language, InputLocale = AnswerFileGenerator.GetInputLocale(lab.Language),
+            SystemLocale = lab.Language, UserLocale = lab.Language, TimeZone = lab.TimeZone,
+            OsFamily = b.OsIdentifier.Contains("server", StringComparison.OrdinalIgnoreCase) ? OsFamily.Server : OsFamily.Client,
+            StaticIp = ip, MacAddress = mac ?? "",
+            JoinDomain = vm.Join && !vm.DomainController && lab.Domain is { } d ? d.Name : "",
+            DomainUser = lab.Domain?.User ?? "", DomainPassword = lab.Password, DomainOu = lab.Domain?.Ou ?? "",
+        });
+        await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
+            VmsFolder(), answer, true, false,
+            VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, lab.Password, vm.Ip), ct: ct, staticMac: mac);
+    }
+
+    // ─── Domain controller ──────────────────────────────────────────────────
+
+    /// <summary>Pause between two tries while a guest boots or its services start (shortened by the tests).</summary>
+    public TimeSpan GuestPoll { get; init; } = TimeSpan.FromSeconds(15);
+    /// <summary>First boot of a Windows base (specialize, OOBE) until the administrator can log on.</summary>
+    public TimeSpan GuestSetupTimeout { get; init; } = TimeSpan.FromMinutes(30);
+    /// <summary>Restart after the promotion until the directory answers.</summary>
+    public TimeSpan DirectoryTimeout { get; init; } = TimeSpan.FromMinutes(20);
+
+    /// <summary>
+    /// Starts the domain controller, waits for its setup, promotes it unless it already is one (a new forest with its
+    /// DNS, through PowerShell Direct), then waits until the directory answers after the restart.
+    /// </summary>
+    private async Task EnsureDomainControllerAsync(LabBlueprint lab, LabVm dc, LabDomain domain, IProgress<string>? progress, CancellationToken ct)
+    {
+        var vm = (await hv.GetVirtualMachinesAsync()).FirstOrDefault(v => v.Name.Equals(dc.Name, StringComparison.OrdinalIgnoreCase))
+                 ?? throw new InvalidOperationException(T("LAB_DcMissing", dc.Name));
+        if (!vm.IsRunning)
+        {
+            progress?.Report(T("LAB_DcStarting", dc.Name));
+            await hv.PowerAsync(vm.Id, vm.IsPaused ? VmPowerAction.Resume : VmPowerAction.Start);
+        }
+
+        var admin = AnswerFileGenerator.AdministratorAccount;
+        var domainAdmin = $@"{NetBiosName(domain.Name)}\{admin}";
+        // Win32_ComputerSystem.DomainRole: 4 and 5 are domain controllers
+        progress?.Report(T("LAB_DcWaiting", dc.Name));
+        var role = await UntilGuestAsync(dc.Name, vm.Id, [admin, domainAdmin], lab.Password,
+            "(Get-CimInstance Win32_ComputerSystem).DomainRole", _ => true, GuestSetupTimeout, ct);
+        if (!(int.TryParse(role, out var r) && r >= 4))
+        {
+            progress?.Report(T("LAB_DcPromoting", dc.Name, domain.Name));
+            await hv.InvokeInGuestAsync(vm.Id, admin, lab.Password, FeatureScript);
+            await hv.InvokeInGuestAsync(vm.Id, admin, lab.Password, PromotionScript(domain.Name, lab.Password));
+        }
+
+        progress?.Report(T("LAB_DcWaitingAd", dc.Name, domain.Name));
+        await UntilGuestAsync(dc.Name, vm.Id, [domainAdmin], lab.Password,
+            "(Get-ADDomain -Current LocalComputer -ErrorAction Stop).DNSRoot",
+            root => root.Equals(domain.Name, StringComparison.OrdinalIgnoreCase), DirectoryTimeout, ct);
+    }
+
+    internal const string FeatureScript = "Install-WindowsFeature AD-Domain-Services -IncludeManagementTools -ErrorAction Stop | Out-Null";
+
+    /// <summary>
+    /// A new forest with its DNS server; the restart is left to shutdown.exe a few seconds later, so the PowerShell
+    /// Direct session ends cleanly first. The restore mode password is the lab password.
+    /// </summary>
+    internal static string PromotionScript(string domain, string password) => $$"""
+        $safe = ConvertTo-SecureString '{{PowerShellRunner.Esc(password)}}' -AsPlainText -Force
+        Install-ADDSForest -DomainName '{{PowerShellRunner.Esc(domain)}}' -DomainNetbiosName '{{PowerShellRunner.Esc(NetBiosName(domain))}}' -SafeModeAdministratorPassword $safe -InstallDns -NoRebootOnCompletion -Force -WarningAction SilentlyContinue -ErrorAction Stop | Out-Null
+        shutdown.exe /r /t 15 /c 'HV-LAB' | Out-Null
+        """;
+
+    /// <summary>lab.local → LAB: the first label in uppercase, 15 characters at most, as Windows proposes it.</summary>
+    internal static string NetBiosName(string domain)
+    {
+        var label = domain.Split('.')[0].ToUpperInvariant();
+        return label.Length > 15 ? label[..15] : label;
+    }
+
+    /// <summary>
+    /// Runs <paramref name="script"/> in the guest until its output satisfies <paramref name="accept"/>, with each
+    /// account in turn; past <paramref name="timeout"/> the last error is reported.
+    /// </summary>
+    private async Task<string> UntilGuestAsync(string name, string vmId, IReadOnlyList<string> accounts, string password,
+                                               string script, Func<string, bool> accept, TimeSpan timeout, CancellationToken ct)
+    {
+        var deadline = DateTime.UtcNow + timeout;
+        var last = "";
+        while (true)
+        {
+            foreach (var account in accounts)
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    var output = (await hv.InvokeInGuestAsync(vmId, account, password, script)).Trim();
+                    if (accept(output)) return output;
+                    last = output;
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException) { last = ex.Message; }
+            }
+            if (DateTime.UtcNow >= deadline)
+                throw new TimeoutException(T("LAB_GuestTimeout", name, (int)timeout.TotalMinutes, last));
+            await Task.Delay(GuestPoll, ct);
+        }
     }
 
     /// <summary>

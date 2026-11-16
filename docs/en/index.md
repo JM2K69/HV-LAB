@@ -62,7 +62,7 @@ It is a WinUI 3 / .NET 10 application and needs nothing else on the computer. It
 
     ---
 
-    Compose a whole lab in a form: switch, NAT, domain, VMs with their base image, static IP and domain join. HV-LAB generates the JSON, creates only what is missing, and exports existing VMs to a blueprint.
+    Compose a whole lab in a form: switch, NAT, domain, VMs with their base image, static IP and domain join. HV-LAB generates the JSON, creates only what is missing, promotes the domain controller before its members, and exports existing VMs to a blueprint.
 
     [:octicons-arrow-right-24: Lab blueprints](guide/labs.md)
 

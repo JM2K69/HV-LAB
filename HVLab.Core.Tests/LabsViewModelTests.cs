@@ -12,10 +12,15 @@ public class LabsViewModelTests
         var folder = Directory.CreateTempSubdirectory("hvlab-labs-").FullName;
         foreach (var name in new[] { "BASE_WindowsServer2025Standard_10.0.26100.4652_50", "BASE_LinuxAlma_9.6.0.0_40" })
             File.WriteAllBytes(Path.Combine(folder, name + ".vhdx"), [1]);
-        var hv = new FakeHyperVService { Switches = [new VirtualSwitch { Name = "LAN", SwitchType = "Internal" }] };
+        // Created VMs appear, and a promoted DC answers at once (the template has one)
+        var hv = new FakeHyperVService
+        {
+            Switches = [new VirtualSwitch { Name = "LAN", SwitchType = "Internal" }], AddCreatedVms = true,
+            Guest = (_, script) => script.Contains("DomainRole") ? "5" : script.Contains("Get-ADDomain") ? "lab.local" : "",
+        };
         var labs = new LabBlueprintService(hv, new FakeNatService(), new VhdxService(new FakePowerShellRunner(_ => "[]")))
         {
-            BaseFolder = () => folder, VmsFolder = () => folder,
+            BaseFolder = () => folder, VmsFolder = () => folder, GuestPoll = TimeSpan.Zero,
         };
         var dialogs = new FakeDialogService();
         return (new LabsViewModel(labs, hv, new VhdxService(new FakePowerShellRunner(_ => "[]")), dialogs), hv, dialogs, folder);
@@ -111,6 +116,7 @@ public class LabsViewModelTests
         vm.Password = "Lab#2026";
         await vm.DeployCommand.ExecuteAsync(null);
         Assert.Equal(["DC01", "SRV01", "WEB01"], hv.CreatedNotes.Keys.Order());
+        Assert.Contains("power ID-DC01 Start", hv.Calls);                // the template's DC is started and checked
         Assert.Contains(hv.Calls, c => c.StartsWith("group LAB-AD"));
         Assert.True(vm.HasSuccess);
         Assert.False(vm.IsDirty);
