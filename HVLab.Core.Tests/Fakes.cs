@@ -158,7 +158,7 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0) => Task.CompletedTask;
     public Task CreateInternalSwitchAsync(string name, int vlanId = 0) { Calls.Add($"internal-switch {name}"); return Task.CompletedTask; }
     public Task CreatePrivateSwitchAsync(string name) => Task.CompletedTask;
-    public Task RemoveVSwitchAsync(string name) => Task.CompletedTask;
+    public Task RemoveVSwitchAsync(string name) { Calls.Add($"remove-switch {name}"); return Task.CompletedTask; }
     public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(PhysicalAdapters.ToList());
     /// <summary>Notes passed to each created VM, by VM name.</summary>
     public Dictionary<string, string?> CreatedNotes { get; } = [];

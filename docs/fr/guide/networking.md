@@ -49,6 +49,8 @@ Les cartes reliées à aucun commutateur sont regroupées sous **Cartes non conn
 
 Pour supprimer un commutateur, utilisez le bouton de suppression sur sa ligne et confirmez.
 
+Hyper-V accepte deux commutateurs du même nom, mais HV-LAB refuse un nom déjà utilisé. La suppression et le changement de type visent le commutateur par son identifiant Hyper-V : un homonyme créé ailleurs n'est jamais touché.
+
 ## Changer le type d'un commutateur
 
 Le bouton ✎ d'un commutateur change son type sur place, sans le supprimer : les VM restent connectées.

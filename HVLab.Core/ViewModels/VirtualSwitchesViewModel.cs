@@ -135,7 +135,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
         Status = string.Format(LocalizationService.Instance["SW_DeletingSwitch"], sw.Name);
         try
         {
-            await _hvService.RemoveVSwitchAsync(sw.Name);
+            await _hvService.RemoveVSwitchAsync(sw.Target);   // by GUID: never a namesake
             Status = string.Format(LocalizationService.Instance["SW_DeletedSwitch"], sw.Name);
             await RefreshAsync();
         }
@@ -216,7 +216,7 @@ public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatServ
         Status = T("SW_ChangingType", sw.Name);
         try
         {
-            await _hvService.ChangeSwitchTypeAsync(sw.Name, EditSwitchType, EditIsExternal ? EditSwitchAdapter?.Name : null);
+            await _hvService.ChangeSwitchTypeAsync(sw.Target, EditSwitchType, EditIsExternal ? EditSwitchAdapter?.Name : null);
             Status = T("SW_TypeChanged", sw.Name);
             await RefreshAsync();
         }

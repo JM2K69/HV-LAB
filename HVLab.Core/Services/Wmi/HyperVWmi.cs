@@ -520,6 +520,7 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
                 : vlans.FirstOrDefault(v => S(v, "InstanceID").StartsWith(S(hostPort, "InstanceID"), StringComparison.OrdinalIgnoreCase));
             result.Add(new VirtualSwitch
             {
+                Id                = guid,
                 Name              = S(sw, "ElementName"),
                 SwitchType        = WmiMap.SwitchType(external is not null, hostPort is not null),
                 Notes             = notes.GetValueOrDefault(guid, ""),

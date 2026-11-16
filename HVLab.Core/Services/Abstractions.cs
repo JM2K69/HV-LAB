@@ -86,7 +86,8 @@ public interface IHyperVService
     /// Changes the type of a switch in place (External needs <paramref name="netAdapter"/>). On failure the previous
     /// type and the host adapter's static IPv4 addresses are put back before the error is reported.
     /// </summary>
-    Task ChangeSwitchTypeAsync(string name, string newType, string? netAdapter);
+    /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
+    Task ChangeSwitchTypeAsync(string switchIdOrName, string newType, string? netAdapter);
     /// <summary>Current Internet connection sharing: public and private connection names, null when off.</summary>
     Task<IcsStatus?> GetIcsStatusAsync();
     /// <summary>
@@ -107,10 +108,12 @@ public interface IHyperVService
     Task SetEnhancedSessionHostAsync(bool enabled);
 
     Task<List<VirtualSwitch>> GetVirtualSwitchesAsync();
+    // A name already used by a switch is refused (Hyper-V would accept the namesake)
     Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0);
     Task CreateInternalSwitchAsync(string name, int vlanId = 0);
     Task CreatePrivateSwitchAsync(string name);
-    Task RemoveVSwitchAsync(string name);
+    /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
+    Task RemoveVSwitchAsync(string switchIdOrName);
     Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync();
 
     /// <param name="notes">Hyper-V notes of the VM (see <see cref="VmNotes"/>).</param>

@@ -182,6 +182,49 @@ public class SwitchViewModelTests
     }
 
     [Fact]
+    public async Task Switches_are_removed_and_changed_by_guid()
+    {
+        var (vm, hv, _, _) = Create();
+        // Two switches with the same name: Hyper-V allows it
+        var id = Guid.NewGuid().ToString().ToUpperInvariant();
+        hv.Switches = [new VirtualSwitch { Id = id, Name = "LAB", SwitchType = "Internal" },
+                       new VirtualSwitch { Id = Guid.NewGuid().ToString().ToUpperInvariant(), Name = "LAB", SwitchType = "Private" }];
+        await vm.RefreshAsync();
+        var first = vm.VirtualSwitches.Single(s => s.Id == id);
+        await vm.RemoveSwitchAsync(first);
+        Assert.Contains($"remove-switch {id}", hv.Calls);
+
+        vm.BeginChangeType(first);
+        vm.EditSwitchType = "Private";
+        await vm.ApplyChangeTypeAsync();
+        Assert.Contains($"switch-type {id} Private ", hv.Calls);
+    }
+
+    [Fact]
+    public void A_switch_is_addressed_by_guid_or_by_an_exact_unique_name()
+    {
+        var id = Guid.NewGuid();
+        Assert.Equal($"(Get-VMSwitch -Id '{id}' -ErrorAction Stop)", HyperVService.SwitchExpr(id.ToString().ToUpperInvariant()));
+        var byName = HyperVService.SwitchExpr("LAB[1]");
+        Assert.Contains("Where-Object Name -eq 'LAB[1]'", byName);        // literal match: [1] is not a wildcard
+        Assert.Contains("Err_SwitchNotUnique", byName);                     // namesakes: nothing is touched
+        Assert.DoesNotContain("Get-VMSwitch -Name", byName);
+    }
+
+    [Fact]
+    public async Task A_switch_name_already_used_is_refused()
+    {
+        var runner = new FakePowerShellRunner(_ => "");
+        var hv = new HyperVService(runner);
+        await hv.CreateInternalSwitchAsync("LAB");
+        await hv.CreatePrivateSwitchAsync("LAB");
+        await hv.CreateExternalSwitchAsync("LAB", "Ethernet");
+        Assert.All(runner.Scripts, s => Assert.Contains("##Err_SwitchExists|LAB", s));
+        Assert.All(runner.Scripts, s => Assert.True(s.IndexOf("Err_SwitchExists", StringComparison.Ordinal)
+                                                   < s.IndexOf("New-VMSwitch", StringComparison.Ordinal)));
+    }
+
+    [Fact]
     public async Task Connection_sharing_refuses_a_switch_that_has_a_nat()
     {
         var (vm, hv, _, _) = Create();
@@ -210,7 +253,7 @@ public class NetworkScriptTests
         var runner = new FakePowerShellRunner(_ => "");
         await new HyperVService(runner).ChangeSwitchTypeAsync("LAB", "External", "Wi-Fi");
         var script = runner.Scripts.Single();
-        Assert.Contains("Set-VMSwitch -Name $name -NetAdapterName $adapter -AllowManagementOS $true", script);
+        Assert.Contains("Set-VMSwitch -VMSwitch $sw -NetAdapterName $adapter -AllowManagementOS $true", script);
         Assert.Contains("Restore-HostIps", script);
         Assert.Contains("throw $failure", script);
         await Assert.ThrowsAsync<ArgumentException>(() => new HyperVService(runner).ChangeSwitchTypeAsync("LAB", "Bogus", null));

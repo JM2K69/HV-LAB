@@ -62,6 +62,8 @@ public class GeneratedScriptTests
         await Run("internal switch",   () => hv.CreateInternalSwitchAsync(Switch, 20));
         await Run("private switch",    () => hv.CreatePrivateSwitchAsync(Switch));
         await Run("remove switch",     () => hv.RemoveVSwitchAsync(Switch));
+        await Run("remove switch (id)",() => hv.RemoveVSwitchAsync(id));
+        await Run("switch type (id)",  () => hv.ChangeSwitchTypeAsync(id, "Private", null));
         await Run("switch type",       () => hv.ChangeSwitchTypeAsync(Switch, "External", "Ethernet 'x'"));
         await Run("switch type",       () => hv.ChangeSwitchTypeAsync(Switch, "Internal", null));
         await Run("ics status",        hv.GetIcsStatusAsync);

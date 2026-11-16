@@ -132,6 +132,32 @@ public class HyperVLiveChangeTests
     }
 
     [LiveChangeFact]
+    public async Task Switch_namesakes_are_never_touched_by_name()
+    {
+        var name = Unique("HVLT-DUP");
+        try
+        {
+            await Hv.CreatePrivateSwitchAsync(name);
+            var refused = await Assert.ThrowsAsync<PowerShellException>(() => Hv.CreatePrivateSwitchAsync(name));
+            Assert.Contains(name, refused.Message);
+
+            // A namesake made outside HV-LAB: Hyper-V allows it
+            await Ps.RunAsync($"New-VMSwitch -Name '{name}' -SwitchType Private -ErrorAction Stop | Out-Null");
+            var twins = (await Hv.GetVirtualSwitchesAsync()).Where(s => s.Name == name).ToList();
+            Assert.Equal(2, twins.Count);
+            await Assert.ThrowsAsync<PowerShellException>(() => Hv.RemoveVSwitchAsync(name));
+            Assert.Equal(2, (await Hv.GetVirtualSwitchesAsync()).Count(s => s.Name == name));
+
+            // By GUID: that switch and no other
+            await Hv.ChangeSwitchTypeAsync(twins[0].Id, "Internal", null);
+            Assert.Equal("Internal", (await Hv.GetVirtualSwitchesAsync()).Single(s => s.Id == twins[0].Id).SwitchType);
+            await Hv.RemoveVSwitchAsync(twins[0].Id);
+            Assert.Equal(twins[1].Id, Assert.Single(await Hv.GetVirtualSwitchesAsync(), s => s.Name == name).Id);
+        }
+        finally { await CleanupAsync(sw: name); }   // by name on purpose: removes every HVLT namesake left
+    }
+
+    [LiveChangeFact]
     public void A_data_folder_prepared_by_someone_else_is_hardened_and_cleaned()
     {
         var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Unique("HVLT-DATA"));

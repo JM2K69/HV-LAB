@@ -49,6 +49,8 @@ Adapters connected to no switch are grouped under **Adapters not connected**.
 
 To delete a switch, use the delete button on its row and confirm.
 
+Hyper-V accepts two switches with the same name, but HV-LAB refuses a name that is already used. Delete and type change address the switch by its Hyper-V ID: a namesake created elsewhere is never touched.
+
 ## Change the type of a switch
 
 The ✎ button of a switch changes its type in place, without deleting it: the VMs stay connected.

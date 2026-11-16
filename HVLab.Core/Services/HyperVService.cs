@@ -247,6 +247,22 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                "if ($hvlMatch.Count -ne 1) { throw ('##Err_VmNotUnique|' + '" + name + "' + '|' + $hvlMatch.Count) }; $hvlMatch[0])";
     }
 
+    /// <summary>
+    /// PowerShell expression of exactly one switch: by its GUID (what the UI passes), else by a name matched literally
+    /// that must be unique. Hyper-V accepts two switches with the same name, and Remove-VMSwitch -Name removes both.
+    /// </summary>
+    internal static string SwitchExpr(string switchIdOrName)
+    {
+        if (Guid.TryParse(switchIdOrName, out var id)) return $"(Get-VMSwitch -Id '{id}' -ErrorAction Stop)";
+        var name = Esc(switchIdOrName);
+        return "$($hvlSw = @(Get-VMSwitch | Where-Object Name -eq '" + name + "'); " +
+               "if ($hvlSw.Count -ne 1) { throw ('##Err_SwitchNotUnique|' + '" + name + "' + '|' + $hvlSw.Count) }; $hvlSw[0])";
+    }
+
+    /// <summary>Refuses a switch name already used: a namesake would make every later action by name ambiguous.</summary>
+    private static string NoSwitchNamesake(string name)
+        => $"if (@(Get-VMSwitch | Where-Object Name -eq '{Esc(name)}').Count -gt 0) {{ throw '##Err_SwitchExists|{Esc(name)}' }}";
+
     public async Task<VmDeletePlan> GetDeletePlanAsync(string name)
     {
         // The VM's own disks and checkpoint disks. Differencing parents are followed only while they stay inside
@@ -604,6 +620,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             : string.Empty;
         var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
+            {{NoSwitchNamesake(name)}}
             New-VMSwitch -Name '{{Esc(name)}}' -NetAdapterName '{{Esc(netAdapter)}}' -AllowManagementOS $true -ErrorAction Stop
             {{vlanScript}}
             """;
@@ -617,6 +634,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
             : string.Empty;
         var script = $$"""
             Import-Module Hyper-V -ErrorAction Stop
+            {{NoSwitchNamesake(name)}}
             New-VMSwitch -Name '{{Esc(name)}}' -SwitchType Internal -ErrorAction Stop
             {{vlanScript}}
             """;
@@ -624,12 +642,14 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
     }
 
     public async Task CreatePrivateSwitchAsync(string name)
-        => await RunScriptAsync(
-            $"New-VMSwitch -Name '{Esc(name)}' -SwitchType Private -ErrorAction Stop");
+        => await RunScriptAsync($"""
+            {NoSwitchNamesake(name)}
+            New-VMSwitch -Name '{Esc(name)}' -SwitchType Private -ErrorAction Stop
+            """);
 
-    public async Task RemoveVSwitchAsync(string name)
+    public async Task RemoveVSwitchAsync(string switchIdOrName)
         => await RunScriptAsync(
-            $"Remove-VMSwitch -Name '{Esc(name)}' -Force -ErrorAction Stop");
+            $"Remove-VMSwitch -VMSwitch {SwitchExpr(switchIdOrName)} -Force -ErrorAction Stop");
 
     // ─── Network Adapters and topology ──────────────────────────────────────
 
@@ -640,17 +660,17 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 
     public Task<Dictionary<string, string>> GetHostAddressesAsync() => Wmi(_wmi.GetHostAddresses);
 
-    public Task ChangeSwitchTypeAsync(string name, string newType, string? netAdapter)
+    public Task ChangeSwitchTypeAsync(string switchIdOrName, string newType, string? netAdapter)
     {
         if (newType is not ("External" or "Internal" or "Private")) throw new ArgumentException(newType, nameof(newType));
         if (newType == "External" && string.IsNullOrWhiteSpace(netAdapter))
             throw new ArgumentException(LocalizationService.Instance["SW_ErrNoAdapter"]);
         return RunScriptAsync($$"""
             Import-Module Hyper-V -ErrorAction Stop
-            $name    = '{{Esc(name)}}'
             $newType = '{{newType}}'
             $adapter = '{{Esc(netAdapter ?? "")}}'
-            $sw      = Get-VMSwitch -Name $name -ErrorAction Stop
+            $sw      = {{SwitchExpr(switchIdOrName)}}
+            $name    = $sw.Name
             $oldType = "$($sw.SwitchType)"
             $oldMgmt = [bool]$sw.AllowManagementOS
             $oldAdapter = if ($sw.NetAdapterInterfaceDescription) {
@@ -668,13 +688,13 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
                 }
             }
             try {
-                if ($newType -eq 'External') { Set-VMSwitch -Name $name -NetAdapterName $adapter -AllowManagementOS $true -ErrorAction Stop }
-                else                         { Set-VMSwitch -Name $name -SwitchType $newType -ErrorAction Stop }
+                if ($newType -eq 'External') { Set-VMSwitch -VMSwitch $sw -NetAdapterName $adapter -AllowManagementOS $true -ErrorAction Stop }
+                else                         { Set-VMSwitch -VMSwitch $sw -SwitchType $newType -ErrorAction Stop }
             } catch {
                 $failure = $_
                 try {
-                    if ($oldType -eq 'External' -and $oldAdapter) { Set-VMSwitch -Name $name -NetAdapterName $oldAdapter -AllowManagementOS $oldMgmt -ErrorAction Stop }
-                    elseif ($oldType -ne 'External')              { Set-VMSwitch -Name $name -SwitchType $oldType -ErrorAction Stop }
+                    if ($oldType -eq 'External' -and $oldAdapter) { Set-VMSwitch -VMSwitch $sw -NetAdapterName $oldAdapter -AllowManagementOS $oldMgmt -ErrorAction Stop }
+                    elseif ($oldType -ne 'External')              { Set-VMSwitch -VMSwitch $sw -SwitchType $oldType -ErrorAction Stop }
                     Restore-HostIps
                 } catch {}
                 throw $failure
