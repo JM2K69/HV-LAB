@@ -127,6 +127,8 @@ public sealed class LabVm
     public bool DomainController { get; set; }
     /// <summary>Linux: the sudo user cloud-init creates.</summary>
     public string? User { get; set; }
+    /// <summary>Free tags written into the VM notes (the VM list filters and searches them).</summary>
+    public List<string>? Tags { get; set; }
 }
 
 /// <summary>One line of a deployment plan: what exists, what will be created, what cannot be.</summary>
@@ -229,7 +231,7 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
                 TimeZone = lab.TimeZone, Language = lab.Language, StaticIp = ip,
             });
             await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
-                VmsFolder(), null, b.SecureBoot, false, VmNotes.Build(DateTime.Now, user, lab.Password, vm.Ip),
+                VmsFolder(), null, b.SecureBoot, false, VmNotes.Build(DateTime.Now, user, lab.Password, vm.Ip, tags: vm.Tags),
                 b.SecureBootTemplate, seed, ct: ct);
             return;
         }
@@ -248,7 +250,8 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
         });
         await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
             VmsFolder(), answer, true, false,
-            VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, lab.Password, vm.Ip), ct: ct, staticMac: mac);
+            VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, lab.Password, vm.Ip, tags: vm.Tags),
+            ct: ct, staticMac: mac);
     }
 
     // ─── Domain controller ──────────────────────────────────────────────────
@@ -366,6 +369,7 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
                 // The startup RAM: a running VM with dynamic memory uses more or less than it was given
                 Name = v.Name, Base = BaseOf(v), MemoryMB = v.StartupMemoryMB > 0 ? v.StartupMemoryMB : v.MemoryMB, Cpu = v.ProcessorCount,
                 Ip = v.Credentials.IpAddress is { Length: > 0 } ip ? ip : null,
+                Tags = v.Tags.Count > 0 ? v.Tags.ToList() : null,
             }).ToList(),
         };
     }

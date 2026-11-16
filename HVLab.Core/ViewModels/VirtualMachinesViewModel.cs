@@ -117,9 +117,19 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
 
     partial void OnSelectedGroupChanged(string? value) => SyncVisible();
 
+    // ─── Tag filter ─────────────────────────────────────────────────────────
+
+    /// <summary>"All tags" followed by the tags of the host's VMs (kept in their notes).</summary>
+    public ObservableCollection<string> TagFilters { get; } = [T("VM_TagAll")];
+    [ObservableProperty] private string? selectedTag;
+
+    private bool ShowsAllTags => string.IsNullOrEmpty(SelectedTag) || SelectedTag == TagFilters[0];
+
+    partial void OnSelectedTagChanged(string? value) => SyncVisible();
+
     // ─── Search and state filter ────────────────────────────────────────────
 
-    /// <summary>Matches the name, IP address, guest OS and group (case-insensitive, any part).</summary>
+    /// <summary>Matches the name, IP address, guest OS, group and tags (case-insensitive, any part).</summary>
     [ObservableProperty] private string searchText = "";
     partial void OnSearchTextChanged(string value) => SyncVisible();
 
@@ -133,6 +143,7 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
     internal bool Matches(VirtualMachine v)
     {
         if (!ShowsAllGroups && v.GroupName != SelectedGroup) return false;
+        if (!ShowsAllTags && !v.Tags.Contains(SelectedTag!, StringComparer.OrdinalIgnoreCase)) return false;
         var stateOk = StateFilterIndex switch
         {
             1 => v.IsRunning,
@@ -143,7 +154,8 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         if (!stateOk) return false;
         var q = SearchText.Trim();
         return q.Length == 0
-            || new[] { v.Name, v.IpAddress, v.GuestOs, v.GroupName }.Any(f => f.Contains(q, StringComparison.OrdinalIgnoreCase));
+            || new[] { v.Name, v.IpAddress, v.GuestOs, v.GroupName }.Concat(v.Tags)
+                   .Any(f => f.Contains(q, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshGroups()
@@ -152,6 +164,12 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         foreach (var g in Groups.Skip(1).Where(g => !names.Contains(g)).ToList()) Groups.Remove(g);
         foreach (var g in names.Where(g => !Groups.Contains(g))) Groups.Add(g);
         if (!ShowsAllGroups && !Groups.Contains(SelectedGroup!)) SelectedGroup = Groups[0];
+
+        var tags = VirtualMachines.SelectMany(v => v.Tags).Distinct(StringComparer.OrdinalIgnoreCase)
+                                  .Order(StringComparer.OrdinalIgnoreCase).ToList();
+        foreach (var t in TagFilters.Skip(1).Where(t => !tags.Contains(t)).ToList()) TagFilters.Remove(t);
+        foreach (var t in tags.Where(t => !TagFilters.Skip(1).Contains(t))) TagFilters.Add(t);
+        if (!ShowsAllTags && !TagFilters.Skip(1).Contains(SelectedTag!)) SelectedTag = TagFilters[0];
     }
 
     /// <summary>Brings <see cref="VisibleMachines"/> in line with the filter, keeping row instances (and the selection).</summary>
@@ -397,6 +415,36 @@ public partial class VirtualMachinesViewModel(IHyperVService hvService, IDialogS
         var name = await _dialogs.PromptAsync(T("VM_GroupTitle"), T("VM_GroupName"), suggested);
         if (name is null) return;
         await RunAsync(T("VM_Grouping", name), () => _hvService.AddToGroupAsync(name, _selection.Select(v => v.Target).ToList()));
+    }
+
+    [RelayCommand]
+    private Task TagSelectedAsync() => EditTagsAsync(_selection);
+
+    /// <summary>
+    /// Edits the tags of <paramref name="vms"/>. The prompt shows the tags they all share: a tag added there goes to
+    /// every VM, a tag removed leaves every VM, and the tags that only some VMs have stay as they are.
+    /// </summary>
+    public async Task EditTagsAsync(IReadOnlyList<VirtualMachine> vms)
+    {
+        if (vms.Count == 0) return;
+        var common = vms.Skip(1).Aggregate(vms[0].Tags.AsEnumerable(),
+                                           (shared, v) => shared.Intersect(v.Tags, StringComparer.OrdinalIgnoreCase)).ToList();
+        var subject = vms.Count == 1 ? vms[0].Name : T("VM_SelectionCount", vms.Count);
+        var answer = await _dialogs.PromptAsync(T("VM_TagsTitle", subject), T("VM_TagsLabel"), string.Join(", ", common),
+                                                allowEmpty: true);
+        if (answer is null) return;
+        var wanted = VmNotes.ParseTags(answer);
+        await RunAsync(T("VM_Tagging", vms.Count), async () =>
+        {
+            foreach (var v in vms)
+            {
+                var tags = v.Tags.Where(t => !common.Contains(t, StringComparer.OrdinalIgnoreCase)).Concat(wanted)
+                                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                if (tags.Order(StringComparer.OrdinalIgnoreCase).SequenceEqual(v.Tags.Order(StringComparer.OrdinalIgnoreCase),
+                                                                               StringComparer.OrdinalIgnoreCase)) continue;
+                await _hvService.SetNotesAsync(v.Target, VmNotes.WithTags(v.Notes, tags));
+            }
+        });
     }
 
     [RelayCommand]

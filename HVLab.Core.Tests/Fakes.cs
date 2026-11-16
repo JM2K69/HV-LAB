@@ -46,9 +46,11 @@ internal sealed class FakeDialogService(bool answer = true) : IDialogService
         return Task.FromResult((answer, optionLabel is not null && (Option ?? optionDefault)));
     }
 
-    public Task<string?> PromptAsync(string title, string label, string initialValue)
+    public string? LastPromptInitial { get; private set; }
+    public Task<string?> PromptAsync(string title, string label, string initialValue, bool allowEmpty = false)
     {
         Calls++;
+        LastPromptInitial = initialValue;
         return Task.FromResult(PromptAnswer);
     }
 }
@@ -131,6 +133,13 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task RenameCheckpointAsync(string vmName, string checkpointId, string newName)
     { Calls.Add($"rename-checkpoint {vmName} {checkpointId} {newName}"); return Task.CompletedTask; }
     public Task<VmSettings> GetVmSettingsAsync(string vmName) => Task.FromResult(Settings.Clone());
+    public Task SetNotesAsync(string vmId, string notes)
+    {
+        var tags = VmNotes.ReadTags(notes);
+        Calls.Add($"notes {vmId} {(tags.Count > 0 ? string.Join(",", tags) : "-")}");
+        foreach (var v in Vms.Where(v => v.Id == vmId || v.Name == vmId)) v.Notes = notes;
+        return Task.CompletedTask;
+    }
     public Task SetVmSettingsAsync(string vmName, VmSettings before, VmSettings after)
     { Calls.Add($"settings {vmName} {string.Join(" | ", HyperVService.SettingsScript(before, after))}"); return Task.CompletedTask; }
     public Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames)

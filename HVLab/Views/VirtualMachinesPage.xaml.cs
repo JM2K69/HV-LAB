@@ -40,6 +40,14 @@ public sealed partial class VirtualMachinesPage : Page
         await ViewModel.ExportBlueprintAsync(selected.Contains(vm) && selected.Count > 1 ? selected : [vm]);
     }
 
+    /// <summary>Tags of the row's VM, or of the selection when the row is part of it.</summary>
+    private async void Tags_Click(object sender, RoutedEventArgs e)
+    {
+        if (VmOf(sender) is not { } vm) return;
+        var selected = VmList.SelectedItems.OfType<VirtualMachine>().ToList();
+        await ViewModel.EditTagsAsync(selected.Contains(vm) && selected.Count > 1 ? selected : [vm]);
+    }
+
     private void Search_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
         SearchBox.Focus(FocusState.Keyboard);

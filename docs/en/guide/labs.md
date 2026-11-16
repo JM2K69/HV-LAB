@@ -14,6 +14,7 @@ Open the **Labs** page from the left menu, or with the **Labs** button of the **
     - **Name** and **Base image**, picked from the images of the host; `*` matches anything and the newest version is used;
     - **RAM (MB)**, **vCPU**, **Static IP** and **DNS**;
     - **Controller** and **Domain** for a Windows VM, **User** for a Linux VM;
+    - **Tags**, comma-separated, written into the VM notes;
     - the arrows change the creation order, the bin removes the VM;
     - **Add a VM** adds a row.
 6. Click **Save**. An unsaved lab shows **Unsaved changes**, and HV-LAB asks before discarding them.
@@ -44,7 +45,7 @@ When an item is **impossible**, nothing is deployed. Deploying the same lab agai
 - in the bar shown when several VMs are selected: it exports the selection;
 - in the **⋯** menu of a row, or its right-click menu: it exports that VM, or the selected VMs when the row is part of a multi-selection.
 
-HV-LAB writes `<VMs folder>\Blueprints\<name>.json`, named after the group of the VMs, or else after the common start of their names; an existing file is never overwritten (`<name>-2.json`…). The **Labs** page then opens on that lab: its switch, its NAT and, for each VM, its base image, memory, processors and static IP. Fill in the password before you deploy it.
+HV-LAB writes `<VMs folder>\Blueprints\<name>.json`, named after the group of the VMs, or else after the common start of their names; an existing file is never overwritten (`<name>-2.json`…). The **Labs** page then opens on that lab: its switch, its NAT and, for each VM, its base image, memory, processors, static IP and tags. Fill in the password before you deploy it.
 
 ## File format
 
@@ -94,6 +95,7 @@ The NAT is only created together with the switch. When the switch already exists
 | `domainController` | Windows Server: created first and promoted to domain controller of `domain` (one per lab) | `false` |
 | `join` | Windows: join the domain of `domain` during setup | `false` |
 | `user` | Linux: the sudo user | `labadmin` |
+| `tags` | [Tags](virtual-machines.md#several-vms-at-once) of the VM, for example `["web", "prod"]` | None |
 
 The OS identifier is the part of the file name that follows `BASE_`, for example `WindowsServer2025Standard(DesktopExperience)` or `LinuxAlmaLinux`. A Windows VM is created as with [Create a VM](create-vm.md), a Linux VM as a [Linux clone](linux.md).
 

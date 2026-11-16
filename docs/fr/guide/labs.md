@@ -14,6 +14,7 @@ Ouvrez la page **Labs** dans le menu de gauche, ou avec le bouton **Labs** de la
     - **Nom** et **Image de base**, choisie parmi les images de l'hôte ; `*` remplace n'importe quoi et la version la plus récente est prise ;
     - **RAM (Mo)**, **vCPU**, **IP fixe** et **DNS** ;
     - **Contrôleur** et **Domaine** pour une VM Windows, **Utilisateur** pour une VM Linux ;
+    - **Étiquettes**, séparées par des virgules, écrites dans les notes de la VM ;
     - les flèches changent l'ordre de création, la corbeille retire la VM ;
     - **Ajouter une VM** ajoute une ligne.
 6. Cliquez sur **Enregistrer**. Un lab non enregistré est signalé par **Modifications non enregistrées**, et HV-LAB demande avant de les abandonner.
@@ -44,7 +45,7 @@ Quand une ligne est **impossible**, rien n'est déployé. Déployer à nouveau l
 - dans la barre qui s'affiche quand plusieurs VM sont sélectionnées : il exporte la sélection ;
 - dans le menu **⋯** d'une ligne, ou son menu du clic droit : il exporte cette VM, ou les VM sélectionnées quand la ligne fait partie d'une sélection multiple.
 
-HV-LAB écrit `<dossier des VM>\Blueprints\<nom>.json`, nommé d'après le groupe des VM, sinon d'après le début commun de leurs noms ; un fichier existant n'est jamais écrasé (`<nom>-2.json`…). La page **Labs** s'ouvre ensuite sur ce lab : son commutateur, son NAT et, pour chaque VM, son image de base, sa mémoire, ses processeurs et son IP fixe. Renseignez le mot de passe avant de le déployer.
+HV-LAB écrit `<dossier des VM>\Blueprints\<nom>.json`, nommé d'après le groupe des VM, sinon d'après le début commun de leurs noms ; un fichier existant n'est jamais écrasé (`<nom>-2.json`…). La page **Labs** s'ouvre ensuite sur ce lab : son commutateur, son NAT et, pour chaque VM, son image de base, sa mémoire, ses processeurs, son IP fixe et ses étiquettes. Renseignez le mot de passe avant de le déployer.
 
 ## Format du fichier
 
@@ -94,6 +95,7 @@ Le NAT n'est créé qu'avec le commutateur. Quand le commutateur existe déjà, 
 | `domainController` | Windows Server : créé en premier et promu contrôleur du domaine de `domain` (un seul par lab) | `false` |
 | `join` | Windows : rejoindre le domaine de `domain` pendant l'installation | `false` |
 | `user` | Linux : l'utilisateur sudo | `labadmin` |
+| `tags` | [Étiquettes](virtual-machines.md#plusieurs-vm-a-la-fois) de la VM, par exemple `["web", "prod"]` | Aucune |
 
 L'identifiant d'OS est la partie du nom de fichier qui suit `BASE_`, par exemple `WindowsServer2025Standard(DesktopExperience)` ou `LinuxAlmaLinux`. Une VM Windows est créée comme avec [Créer une VM](create-vm.md), une VM Linux comme un [clone Linux](linux.md).
 

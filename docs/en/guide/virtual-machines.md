@@ -24,13 +24,13 @@ The **Virtual Machines** page lists every VM on the host. It reads Hyper-V direc
 The header has two rows:
 
 - the title, the **Labs** button, which opens the lab editor (see [Lab blueprints](labs.md)), and **Refresh** (++f5++);
-- the search box **Search (Ctrl+F): name, IP, OS, group**, the state filter and the **Group** filter.
+- the search box **Search (Ctrl+F): name, IP, OS, group, tag**, the state filter and the **Group** and **Tag** filters.
 
-++ctrl+f++ puts the cursor in the search box. The search matches the name, the IP address, the guest OS and the group of each VM. The state filter shows **All**, **Running**, **Stopped** or **Saved or paused** VMs. The automatic refresh keeps the search, the filters and the selection.
+++ctrl+f++ puts the cursor in the search box. The search matches the name, the IP address, the guest OS, the group and the tags of each VM. The state filter shows **All**, **Running**, **Stopped** or **Saved or paused** VMs. The automatic refresh keeps the search, the filters and the selection.
 
 | Column | Content |
 |---|---|
-| Name | The VM, with its Hyper-V group underneath |
+| Name | The VM, with its Hyper-V group and its tags underneath |
 | State | Running, Off, Saved, Paused… |
 | RAM | Memory in use (startup memory when the VM is off) |
 | CPU | Processors, and the load in % while the VM runs |
@@ -162,6 +162,7 @@ Select several VMs with ++ctrl++ or ++shift++. A bar then acts on all of them:
 | Export as blueprint | Writes the selected VMs to a [blueprint](labs.md#export-vms-as-a-blueprint) |
 | Lab checkpoint… | Asks for a name, then gives every selected VM a checkpoint with that same name. Running VMs are paused while it is taken, then resume. |
 | Group…, Remove from group | Hyper-V VM groups |
+| Tags… | Tags of the selected VMs (see below) |
 | Delete | Deletes the stopped VMs, after a confirmation |
 
 **Groups** are Hyper-V VM groups:
@@ -169,6 +170,14 @@ Select several VMs with ++ctrl++ or ++shift++. A bar then acts on all of them:
 - the **Group** list at the top of the page filters the VMs by group;
 - a series created in bulk becomes a group named after its prefix (an option of [Create a VM](create-vm.md#identity) and Quick VM);
 - a [deployed lab](labs.md) becomes a group named after the lab.
+
+**Tags** are free labels (`web`, `prod`, `customer-x`…), and a VM can have several:
+
+- **Tags…**, in the **⋯** menu of a row or in the selection bar, edits them, comma-separated; an empty box removes them all;
+- on several VMs, the box offers the tags they all have: a tag added goes to every VM, a tag removed leaves every VM, and the tags of a single VM stay;
+- they show under the name (`#web · #prod`), the **Tag** list filters the page, and the search finds them;
+- they are written into the Hyper-V notes of the VM (a `Tags:` line): they travel with the VM and show in Hyper-V Manager;
+- a [blueprint](labs.md) can give them to each VM.
 
 ### Keyboard shortcuts
 

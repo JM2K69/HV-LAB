@@ -18,7 +18,8 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
 
 - **Tableau de bord** : VM démarrées et arrêtées, commutateurs et images de base en un coup d'œil, capacité de l'hôte (mémoire et vCPU des VM démarrées, espace disque libre). L'environnement Hyper-V (module, service `vmms`) est vérifié au démarrage.
 - **Machines virtuelles**, lues via WMI (quelques dizaines de millisecondes, rafraîchies toutes les 3 s) :
-  - recherche (Ctrl+F : nom, IP, OS, groupe), filtres par état et par groupe ;
+  - recherche (Ctrl+F : nom, IP, OS, groupe, étiquette), filtres par état, par groupe et par étiquette ;
+  - étiquettes libres par VM (`web`, `prod`…), gardées dans les notes Hyper-V, modifiables sur une VM ou une sélection ;
   - charge CPU, mémoire, durée de fonctionnement, signal de vie et adresse IP en direct ;
   - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, `vmconnect` (une fenêtre par VM), depuis la ligne ou son menu du clic droit ;
   - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, un badge de session avancée, et des onglets pour la console, les points de contrôle et les paramètres ;

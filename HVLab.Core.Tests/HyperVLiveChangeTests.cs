@@ -69,6 +69,10 @@ public class HyperVLiveChangeTests
             await Hv.SetVmSettingsAsync(vm.Id, before, after);
             Assert.Equal(2, (await Hv.GetVmSettingsAsync(vm.Id)).ProcessorCount);
 
+            // Tags: written into the notes by GUID, read back through WMI
+            await Hv.SetNotesAsync(vm.Id, VmNotes.WithTags(vm.Notes, ["web", "prod'1"]));
+            Assert.Equal(["web", "prod'1"], (await FindAsync(name))!.Tags);
+
             // Checkpoints: create, rename, apply, remove
             await Hv.CreateCheckpointAsync(vm.Id, "cp1");
             var cp = Assert.Single(await Hv.GetCheckpointsAsync(vm.Id), c => !c.IsNow);

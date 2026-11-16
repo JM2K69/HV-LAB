@@ -24,13 +24,13 @@ La page **Machines Virtuelles** liste toutes les VM de l'hôte. Elle lit Hyper-V
 L'en-tête tient sur deux lignes :
 
 - le titre, le bouton **Labs**, qui ouvre l'éditeur de labs (voir [Blueprints de lab](labs.md)), et **Actualiser** (++f5++) ;
-- la zone **Rechercher (Ctrl+F) : nom, IP, OS, groupe**, le filtre d'état et le filtre **Groupe**.
+- la zone **Rechercher (Ctrl+F) : nom, IP, OS, groupe, étiquette**, le filtre d'état et les filtres **Groupe** et **Étiquette**.
 
-++ctrl+f++ place le curseur dans la zone de recherche. La recherche porte sur le nom, l'adresse IP, le système invité et le groupe de chaque VM. Le filtre d'état affiche les VM **Toutes**, **En cours**, **Arrêtées** ou **Enregistrées ou en pause**. Le rafraîchissement automatique garde la recherche, les filtres et la sélection.
+++ctrl+f++ place le curseur dans la zone de recherche. La recherche porte sur le nom, l'adresse IP, le système invité, le groupe et les étiquettes de chaque VM. Le filtre d'état affiche les VM **Toutes**, **En cours**, **Arrêtées** ou **Enregistrées ou en pause**. Le rafraîchissement automatique garde la recherche, les filtres et la sélection.
 
 | Colonne | Contenu |
 |---|---|
-| Nom | La VM, avec son groupe Hyper-V en dessous |
+| Nom | La VM, avec son groupe Hyper-V et ses étiquettes en dessous |
 | État | En cours, Arrêtée, Enregistrée, En pause… |
 | RAM | Mémoire utilisée (mémoire de démarrage si la VM est arrêtée) |
 | CPU | Processeurs, et la charge en % quand la VM tourne |
@@ -162,6 +162,7 @@ Sélectionnez plusieurs VM avec ++ctrl++ ou ++shift++. Une barre agit alors sur 
 | Exporter en blueprint | Écrit les VM sélectionnées dans un [blueprint](labs.md#exporter-des-vm-en-blueprint) |
 | Point de contrôle du lab… | Demande un nom, puis crée sur chaque VM sélectionnée un point de contrôle de ce même nom. Les VM démarrées sont suspendues le temps de la capture, puis reprennent. |
 | Regrouper…, Retirer du groupe | Groupes de VM Hyper-V |
+| Étiquettes… | Étiquettes des VM sélectionnées (voir ci-dessous) |
 | Supprimer | Supprime les VM arrêtées, après confirmation |
 
 Les **groupes** sont des groupes de VM Hyper-V :
@@ -169,6 +170,14 @@ Les **groupes** sont des groupes de VM Hyper-V :
 - la liste **Groupe** en haut de la page filtre les VM par groupe ;
 - une série créée en lot devient un groupe nommé d'après son préfixe (option de [Créer une VM](create-vm.md#identite) et de Quick VM) ;
 - un [lab déployé](labs.md) devient un groupe nommé d'après le lab.
+
+Les **étiquettes** sont libres (`web`, `prod`, `client-x`…), et une VM peut en avoir plusieurs :
+
+- **Étiquettes…**, dans le menu **⋯** d'une ligne ou dans la barre de sélection, les modifie, séparées par des virgules ; une zone vide les retire toutes ;
+- sur plusieurs VM, la boîte propose les étiquettes qu'elles ont toutes : une étiquette ajoutée va sur chaque VM, une étiquette retirée quitte chaque VM, et les étiquettes propres à une VM restent ;
+- elles s'affichent sous le nom (`#web · #prod`), la liste **Étiquette** filtre la page, et la recherche les trouve ;
+- elles sont écrites dans les notes Hyper-V de la VM (ligne `Étiquettes :`) : elles suivent la VM et se lisent dans le Gestionnaire Hyper-V ;
+- un [blueprint](labs.md) peut les donner à chaque VM.
 
 ### Raccourcis clavier
 

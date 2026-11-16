@@ -14,8 +14,9 @@ public static class VmNotes
     /// <param name="protect">
     /// DPAPI-protect the password (readable back by this Windows account on this host only); null = the Settings choice.
     /// </param>
+    /// <param name="tags">Tags of the VM (a lab blueprint gives them), written as their own line.</param>
     public static string Build(DateTime created, string? account = null, string? password = null, string? ipAddress = null,
-                               bool? protect = null)
+                               bool? protect = null, IEnumerable<string>? tags = null)
     {
         var lines = new List<string> { T("Notes_Created", created) };
         if (string.IsNullOrEmpty(account)) lines.Add(T("Notes_NoAnswerFile"));
@@ -27,6 +28,42 @@ public static class VmNotes
                 : T("Notes_Password", password ?? ""));
         }
         if (!string.IsNullOrEmpty(ipAddress)) lines.Add(T("Notes_Ip", ipAddress));
+        var notes = string.Join(Environment.NewLine, lines);
+        return tags is null ? notes : WithTags(notes, tags);
+    }
+
+    // ─── Tags ───────────────────────────────────────────────────────────────
+    // A line of the notes ("Tags: web, prod"): Hyper-V has no tags of its own, and the notes travel with the VM
+    // (export, Hyper-V Manager).
+
+    private static readonly string[] TagsLabels = ["Étiquettes :", "Tags:"];
+
+    /// <summary>The tags of the notes, in either UI language; none when there is no tags line.</summary>
+    public static IReadOnlyList<string> ReadTags(string? notes)
+    {
+        foreach (var raw in (notes ?? "").Split('\n'))
+            if (After(raw.TrimEnd('\r'), TagsLabels) is { Length: > 0 } value) return ParseTags(value);
+        return [];
+    }
+
+    /// <summary>"web, prod; db" → web, prod, db: trimmed, without empty or duplicate tags (any case), 40 characters each.</summary>
+    public static IReadOnlyList<string> ParseTags(string? text)
+        => (text ?? "").Split([',', ';', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                       .Select(t => new string(t.Where(c => !char.IsControl(c)).ToArray()))
+                       .Select(t => t.Length > 40 ? t[..40].TrimEnd() : t)
+                       .Where(t => t.Length > 0)
+                       .Distinct(StringComparer.OrdinalIgnoreCase)
+                       .ToList();
+
+    /// <summary>The notes with their tags line replaced by <paramref name="tags"/> (gone when there is none); every other line is kept.</summary>
+    public static string WithTags(string? notes, IEnumerable<string> tags)
+    {
+        var lines = (notes ?? "").Split('\n').Select(l => l.TrimEnd('\r'))
+                                 .Where(l => !TagsLabels.Any(label => l.StartsWith(label, StringComparison.Ordinal)))
+                                 .ToList();
+        while (lines.Count > 0 && lines[^1].Length == 0) lines.RemoveAt(lines.Count - 1);
+        var clean = ParseTags(string.Join(",", tags));
+        if (clean.Count > 0) lines.Add(T("Notes_Tags", string.Join(", ", clean)));
         return string.Join(Environment.NewLine, lines);
     }
 

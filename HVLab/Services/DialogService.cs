@@ -51,7 +51,7 @@ public sealed class DialogService(Func<XamlRoot?>? root = null) : IDialogService
         return (confirmed, confirmed && optionLabel is not null && option.IsChecked == true);
     }
 
-    public async Task<string?> PromptAsync(string title, string label, string initialValue)
+    public async Task<string?> PromptAsync(string title, string label, string initialValue, bool allowEmpty = false)
     {
         var xamlRoot = Root;
         if (xamlRoot is null) return null;
@@ -67,7 +67,9 @@ public sealed class DialogService(Func<XamlRoot?>? root = null) : IDialogService
             DefaultButton     = ContentDialogButton.Primary,
             XamlRoot          = xamlRoot,
         };
-        return await dialog.ShowAsync() == ContentDialogResult.Primary && input.Text.Trim() is { Length: > 0 } text ? text : null;
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return null;
+        var text = input.Text.Trim();
+        return text.Length > 0 || allowEmpty ? text : null;
     }
 
     public async Task<string?> PromptTextAsync(string title, string label, string initialValue)

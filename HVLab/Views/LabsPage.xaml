@@ -231,7 +231,7 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <Grid.RowDefinitions>
-                                                    <RowDefinition/><RowDefinition/>
+                                                    <RowDefinition/><RowDefinition/><RowDefinition/>
                                                 </Grid.RowDefinitions>
 
                                                 <!-- Line 1: OS, name, base image, order and removal -->
@@ -291,6 +291,11 @@
                                                     <TextBox Header="{Binding [LABS_ColUser], Source={StaticResource Loc}}" FontFamily="Consolas"
                                                              Text="{x:Bind User, Mode=TwoWay}" Visibility="{x:Bind IsLinux, Mode=OneWay}"/>
                                                 </Grid>
+
+                                                <!-- Line 3: tags, written into the VM notes -->
+                                                <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
+                                                         Header="{Binding [LABS_ColTags], Source={StaticResource Loc}}"
+                                                         Text="{x:Bind Tags, Mode=TwoWay}" PlaceholderText="web, prod"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

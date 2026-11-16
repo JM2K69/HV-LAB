@@ -102,7 +102,17 @@ public partial class VirtualMachine : ObservableObject
         OnPropertyChanged(nameof(Credentials));
         OnPropertyChanged(nameof(HasCredentials));
         OnPropertyChanged(nameof(AccountLine));
+        OnPropertyChanged(nameof(Tags));
+        OnPropertyChanged(nameof(Subtitle));
     }
+
+    partial void OnGroupNameChanged(string value) => OnPropertyChanged(nameof(Subtitle));
+
+    /// <summary>Free tags kept in the notes (<see cref="VmNotes.ReadTags"/>), to filter and search the list.</summary>
+    public IReadOnlyList<string> Tags => VmNotes.ReadTags(Notes);
+
+    /// <summary>Second line of the row: the group, then the tags (#web · #prod).</summary>
+    public string Subtitle => string.Join(" · ", new[] { GroupName }.Concat(Tags.Select(t => "#" + t)).Where(s => s.Length > 0));
 
     /// <summary>Independent copy: every view gets its own rows from one shared WMI snapshot.</summary>
     public VirtualMachine Copy()

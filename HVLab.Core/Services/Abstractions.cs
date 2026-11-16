@@ -74,6 +74,8 @@ public interface IHyperVService
     // Settings after creation
     Task<VmSettings> GetVmSettingsAsync(string vmName);
     Task SetVmSettingsAsync(string vmName, VmSettings before, VmSettings after);
+    /// <summary>Replaces the Hyper-V notes of the VM (credentials and tags lines, see <see cref="VmNotes"/>).</summary>
+    Task SetNotesAsync(string vmId, string notes);
 
     // Hyper-V VM groups
     Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames);
@@ -189,8 +191,9 @@ public interface IDialogService
     Task<(bool Confirmed, bool Option)> ConfirmWithOptionAsync(string title, string content, string primaryButtonText,
                                                               string? optionLabel, bool optionDefault);
 
-    /// <summary>Asks for one line of text; null when cancelled or left empty.</summary>
-    Task<string?> PromptAsync(string title, string label, string initialValue);
+    /// <summary>Asks for one line of text; null when cancelled or (unless <paramref name="allowEmpty"/>) left empty.</summary>
+    /// <param name="allowEmpty">An empty answer is returned as "" (e.g. removing every tag), not as a cancel.</param>
+    Task<string?> PromptAsync(string title, string label, string initialValue, bool allowEmpty = false);
 
     /// <summary>Asks for several lines (a script); null when cancelled or left empty.</summary>
     Task<string?> PromptTextAsync(string title, string label, string initialValue);

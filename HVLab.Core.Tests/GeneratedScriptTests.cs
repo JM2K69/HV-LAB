@@ -56,6 +56,7 @@ public class GeneratedScriptTests
         await Run("rename checkpoint", () => hv.RenameCheckpointAsync(id, Guid.NewGuid().ToString(), "new 'n' $(x)"));
         await Run("get settings",      () => hv.GetVmSettingsAsync(id));
         await Run("set settings",      () => hv.SetVmSettingsAsync(id, before, after));
+        await Run("set notes",         () => hv.SetNotesAsync(id, VmNotes.WithTags(notes, ["web'x", "$(y)"])));
         await Run("group",             () => hv.AddToGroupAsync("G'1 $(x)", [id, Name]));
         await Run("ungroup",           () => hv.RemoveFromGroupsAsync([id, Name]));
         await Run("external switch",   () => hv.CreateExternalSwitchAsync(Switch, "Ethernet 'x'", 10));

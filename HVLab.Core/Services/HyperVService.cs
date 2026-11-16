@@ -134,6 +134,9 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
     // Multi-line, and may hold a password: embedded like the answer file
     private static string NotesLiteral(string? notes) => string.IsNullOrEmpty(notes) ? "''" : PsLiteral(notes);
 
+    public Task SetNotesAsync(string vmId, string notes)
+        => RunScriptAsync($"Set-VM -VM {VmExpr(vmId)} -Notes ({NotesLiteral(notes)}) -ErrorAction Stop");
+
     // ─── Environment ────────────────────────────────────────────────────────
 
     /// <summary>Quick host check through WMI: Hyper-V PowerShell module present and vmms service running.</summary>

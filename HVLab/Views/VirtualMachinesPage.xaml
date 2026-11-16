@@ -85,6 +85,12 @@
                           PlaceholderText="{Binding [VM_GroupAll], Source={StaticResource Loc}}"
                           AutomationProperties.Name="{Binding [VM_GroupFilter], Source={StaticResource Loc}}"
                           ToolTipService.ToolTip="{Binding [VM_GroupFilter], Source={StaticResource Loc}}"/>
+                <ComboBox MinWidth="170"
+                          ItemsSource="{x:Bind ViewModel.TagFilters}"
+                          SelectedItem="{x:Bind ViewModel.SelectedTag, Mode=TwoWay}"
+                          PlaceholderText="{Binding [VM_TagAll], Source={StaticResource Loc}}"
+                          AutomationProperties.Name="{Binding [VM_TagFilter], Source={StaticResource Loc}}"
+                          ToolTipService.ToolTip="{Binding [VM_TagFilter], Source={StaticResource Loc}}"/>
             </StackPanel>
         </Grid>
 
@@ -146,6 +152,9 @@
                     </Button>
                     <Button Command="{x:Bind ViewModel.GroupSelectedCommand}"
                             Content="{Binding [VM_BulkGroup], Source={StaticResource Loc}}"/>
+                    <Button Command="{x:Bind ViewModel.TagSelectedCommand}"
+                            ToolTipService.ToolTip="{Binding [VM_TagsTip], Source={StaticResource Loc}}"
+                            Content="{Binding [VM_Tags], Source={StaticResource Loc}}"/>
                     <Button Command="{x:Bind ViewModel.UngroupSelectedCommand}"
                             Content="{Binding [VM_BulkUngroup], Source={StaticResource Loc}}"/>
                     <Button Command="{x:Bind ViewModel.RemoveSelectedCommand}">
@@ -218,7 +227,7 @@
                             <ColumnDefinition Width="{StaticResource ColActions}"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Name (and its group) -->
+                        <!-- Name (and its group, then its tags) -->
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE7F8;" FontSize="14"
                                       Foreground="{ThemeResource AccentFillColorDefaultBrush}"/>
@@ -226,7 +235,7 @@
                                 <TextBlock Text="{x:Bind Name, Mode=OneWay}"
                                            TextTrimming="CharacterEllipsis" FontWeight="Medium"
                                            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}"/>
-                                <TextBlock Text="{x:Bind GroupName, Mode=OneWay}" FontSize="11"
+                                <TextBlock Text="{x:Bind Subtitle, Mode=OneWay}" FontSize="11"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                            TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
@@ -326,6 +335,10 @@
                                         <MenuFlyoutItem Text="{Binding [LAB_Export], Source={StaticResource Loc}}" Tag="{x:Bind}"
                                                         Click="ExportBlueprint_Click">
                                             <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE81E;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                        <MenuFlyoutItem Text="{Binding [VM_Tags], Source={StaticResource Loc}}" Tag="{x:Bind}"
+                                                        Click="Tags_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8EC;"/></MenuFlyoutItem.Icon>
                                         </MenuFlyoutItem>
                                         <MenuFlyoutItem Text="{Binding [VM_Settings], Source={StaticResource Loc}}" Tag="{x:Bind}"
                                                         Click="Settings_Click">
