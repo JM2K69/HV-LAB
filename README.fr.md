@@ -22,9 +22,8 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - étiquettes libres par VM (`web`, `prod`…), gardées dans les notes Hyper-V, modifiables sur une VM ou une sélection ;
   - charge CPU, mémoire, durée de fonctionnement, signal de vie et adresse IP en direct ;
   - démarrage, arrêt propre, extinction, enregistrement, pause/reprise, redémarrage, réinitialisation, `vmconnect` (une fenêtre par VM), depuis la ligne ou son menu du clic droit ;
-  - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, un badge de session avancée, et des onglets pour la console, les points de contrôle et les paramètres ;
+  - une fenêtre par VM (double-clic) avec l'écran en direct, les identifiants (copie, ou saisie dans la VM avec le bon clavier), SSH et Bureau à distance, un badge de session avancée, et des onglets pour les points de contrôle et les paramètres ; le travail dans la VM passe par la console native d'Hyper-V (`vmconnect`) ;
   - automatisation des VM Windows : exécuter une commande PowerShell (PowerShell Direct, sans réseau) ou copier un fichier dans la VM ;
-  - console intégrée : l'écran de la VM à sa résolution réelle, zoom (ajuster, 50–200 %, Ctrl + molette), clavier et souris envoyés à la VM, saisie du presse-papiers, plein écran ;
   - arbre des points de contrôle (créer, appliquer, renommer, supprimer), paramètres après création (CPU, virtualisation imbriquée, mémoire, ISO, commutateur, VLAN) ;
   - sélection multiple, groupes de VM Hyper-V, suppression avec les disques de la VM (jamais l'image de base) ;
   - opérations de lab sur une sélection : démarrage en séquence (par nom, chaque VM attendant le signal de vie de la précédente), un point de contrôle pour tout le lab ;
@@ -152,7 +151,7 @@ HV-LAB/
 - **MVVM** avec CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
 - **Injection de dépendances** avec Microsoft.Extensions.DependencyInjection : `IHyperVService` (fait de `IHostService`, `IVmService`, `IGuestService` et `INetworkService`, une seule instance), `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` et `IThemeService`.
 - **Accès à Hyper-V** :
-  - WMI (`System.Management`) pour le travail rapide et fréquent : liste des VM, alimentation, liste des points de contrôle, commutateurs, NAT, écran, clavier et souris ;
+  - WMI (`System.Management`) pour le travail rapide et fréquent : liste des VM, alimentation, liste des points de contrôle, commutateurs, NAT, aperçu de l'écran, saisie du mot de passe ;
   - Windows PowerShell 5.1 pour les opérations lourdes et rares (création, disques, paramètres, images de base) ;
   - les scripts tournent dans un pool de 3 `powershell.exe` maximum gardés ouverts (module Hyper-V importé une seule fois), via l'entrée standard, avec annulation et délais ;
   - les erreurs sont traduites dans la langue de l'interface ;

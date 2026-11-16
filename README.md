@@ -22,9 +22,8 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - free tags per VM (`web`, `prod`…), kept in the Hyper-V notes, edited on one VM or a selection;
   - live CPU load, memory, uptime, heartbeat and IP address;
   - start, clean shutdown, turn off, save, pause/resume, restart, reset, `vmconnect` (one window per VM), from the row or its right-click menu;
-  - a window per VM (double-click) with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop, an enhanced-session badge, and tabs for the console, checkpoints and settings;
+  - a window per VM (double-click) with the live screen, the credentials (copy, or type them into the VM with the right keyboard layout), SSH and Remote Desktop, an enhanced-session badge, and tabs for checkpoints and settings; working in the VM goes through the native Hyper-V console (`vmconnect`);
   - guest automation for Windows VMs: run a PowerShell command (PowerShell Direct, no network needed) or copy a file into the VM;
-  - built-in console: the VM screen at its real resolution, zoom (fit, 50–200 %, Ctrl + wheel), keyboard and mouse sent to the VM, type the clipboard, full screen;
   - checkpoint tree (create, apply, rename, delete), settings after creation (CPU, nested virtualization, memory, ISO, switch, VLAN);
   - multi-select, Hyper-V VM groups, delete with the VM's own disks (never the base image);
   - lab operations on a selection: start in sequence (by name, each VM waiting for the previous one's heartbeat), one checkpoint for the whole lab;
@@ -152,7 +151,7 @@ HV-LAB/
 - **MVVM** with CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
 - **Dependency injection** with Microsoft.Extensions.DependencyInjection: `IHyperVService` (made of `IHostService`, `IVmService`, `IGuestService` and `INetworkService`, one instance), `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` and `IThemeService`.
 - **Hyper-V access**:
-  - WMI (`System.Management`) for the fast and frequent work: VM list, power actions, checkpoints list, switches, NAT, screen, keyboard and mouse;
+  - WMI (`System.Management`) for the fast and frequent work: VM list, power actions, checkpoints list, switches, NAT, screen preview, typing the password;
   - Windows PowerShell 5.1 for the heavy, rare operations (creation, disks, settings, base images);
   - scripts run in a pool of up to 3 warm `powershell.exe` workers (Hyper-V module imported once), streamed over stdin, with cancellation and timeouts;
   - errors are translated into the UI language;

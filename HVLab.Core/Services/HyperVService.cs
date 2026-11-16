@@ -16,7 +16,7 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
 {
     private readonly IHyperVWmi _wmi = wmi ?? new Wmi.HyperVWmi();
 
-    /// <summary>Singleton: the container disposes it when the app exits (cached WMI console devices).</summary>
+    /// <summary>Singleton: the container disposes it when the app exits (cached WMI keyboard devices).</summary>
     public void Dispose()
     {
         (_wmi as IDisposable)?.Dispose();
@@ -366,13 +366,6 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
         });
 
     public Task SendCtrlAltDelAsync(string vmId) => Wmi(() => _wmi.TypeCtrlAltDel(vmId));
-
-    // ─── Integrated console ─────────────────────────────────────────────────
-
-    public Task SendScancodesAsync(string vmId, byte[] scancodes) => Wmi(() => _wmi.TypeScancodes(vmId, scancodes));
-    public Task MouseMoveAsync(string vmId, int x, int y)         => Wmi(() => _wmi.MouseMove(vmId, x, y));
-    public Task MouseButtonAsync(string vmId, int button, bool down) => Wmi(() => _wmi.MouseButton(vmId, button, down));
-    public Task MouseWheelAsync(string vmId, int delta)           => Wmi(() => _wmi.MouseWheel(vmId, delta));
 
     public Task<bool> GetEnhancedSessionHostAsync() => Wmi(_wmi.GetEnhancedSessionHost);
 

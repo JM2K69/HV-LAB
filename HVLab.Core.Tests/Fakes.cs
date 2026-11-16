@@ -112,15 +112,6 @@ internal sealed class FakeHyperVService : IHyperVService
     }
     public Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder)
     { Calls.Add($"copy {vmId} {sourcePath} {guestFolder}"); return Task.CompletedTask; }
-    /// <summary>When set, keystrokes wait for it (to test that keys typed meanwhile are batched).</summary>
-    public TaskCompletionSource? KeyGate { get; set; }
-    public Task SendScancodesAsync(string vmId, byte[] scancodes)
-    { Calls.Add($"keys {vmId} {Convert.ToHexString(scancodes)}"); return KeyGate?.Task ?? Task.CompletedTask; }
-    /// <summary>When set, mouse moves wait for it (to test that moves are coalesced).</summary>
-    public TaskCompletionSource? MoveGate { get; set; }
-    public Task MouseMoveAsync(string vmId, int x, int y) { Calls.Add($"move {vmId} {x},{y}"); return MoveGate?.Task ?? Task.CompletedTask; }
-    public Task MouseButtonAsync(string vmId, int button, bool down) { Calls.Add($"button {vmId} {button} {down}"); return Task.CompletedTask; }
-    public Task MouseWheelAsync(string vmId, int delta) { Calls.Add($"wheel {vmId} {delta}"); return Task.CompletedTask; }
     public bool EnhancedSessionHost { get; set; } = true;
     public Task<bool> GetEnhancedSessionHostAsync() => Task.FromResult(EnhancedSessionHost);
     public Task SetEnhancedSessionHostAsync(bool enabled)

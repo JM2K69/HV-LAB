@@ -45,7 +45,7 @@ Each row has three buttons:
 
 - **Start**;
 - **Shut down**, a clean shutdown through the guest;
-- **Connect (vmconnect)**, which opens *Virtual Machine Connection* (`vmconnect`). One window per VM: a second click brings the open window to the front. Do not mix it up with the [built-in console](#built-in-console), a tab of the VM window.
+- **Connect (vmconnect)**, which opens *Virtual Machine Connection* (`vmconnect`). One window per VM: a second click brings the open window to the front. That is where you work in the VM; the VM window only shows a preview of it.
 
 The **⋯** menu holds the other actions. A right-click on the row, or the menu key, opens the same menu.
 
@@ -56,7 +56,6 @@ The **⋯** menu holds the other actions. A right-click on the row, or the menu 
 | Restart | Clean restart through the guest |
 | Reset | Hard reset |
 | Save state / Pause / Resume | Hyper-V saved and paused states |
-| Built-in console | Opens the VM window on its **Console** tab |
 | Export as blueprint | Writes this VM, or the selected VMs when the row is part of a multi-selection, to a [blueprint](labs.md#export-vms-as-a-blueprint) |
 | Settings… | Opens the VM window on its **Settings** tab |
 | Delete | See [Delete a VM](#delete-a-vm) |
@@ -84,7 +83,7 @@ Double-click a VM, press ++enter++ or choose **Open the VM window** in its menu 
     - **Type the password**: types it into the VM, then presses Enter. Choose the **VM keyboard** (`fr-FR`, `en-US`…) so that an AZERTY guest receives the right characters;
     - **Ctrl+Alt+Del**.
 - the **Automation (Windows guests)** card, described below;
-- the **Console**, **Checkpoints** and **Settings** tabs, described below.
+- the **Checkpoints** and **Settings** tabs, described below.
 
 ++f5++ refreshes the window and reloads the checkpoint tree.
 
@@ -100,18 +99,9 @@ Both go through Hyper-V, not through the network:
 - the command uses **PowerShell Direct**, over the VMBus: the VM needs no network and no firewall rule;
 - the copy uses `Copy-VMFile` and the *Guest Service Interface* integration service, which HV-LAB turns on automatically.
 
-### Built-in console
+### Working in the VM
 
-The **Console** tab shows the VM screen at its real resolution and sends it keyboard and mouse through WMI. It works from the BIOS and OS setup on, with no network in the VM and no credentials.
-
-- **Zoom**: *Fit* (the whole screen in the window) or 50 to 200 %. At 100 %, a VM pixel is a screen pixel, whatever the Windows scaling. ++ctrl++ + wheel changes the level.
-- **Keyboard and mouse**: click the screen; a coloured border shows that keys and mouse go to the VM. ++ctrl+alt+left++ (as in `vmconnect`) or a click outside the screen releases them, and also leaves full screen: keys still held are released in the VM.
-- Keys are sent as **physical codes**: the VM applies its own layout (an AZERTY guest gets AZERTY). Keys typed while a call to the VM is still running are sent together, in the next call.
-- ++ctrl+alt+del++ and the Windows key stay with the host: use the **Ctrl+Alt+Del** button.
-- **Type the clipboard** types the text copied on the host, with the VM keyboard chosen next to it.
-- **Full screen** shows the console alone; the same button leaves it.
-
-The screen refreshes about 4 to 5 times per second, the limit of WMI. For fluid typing, a shared clipboard, sound or another resolution, use **Connect (vmconnect)** in enhanced session, turned on in **Settings > Hyper-V host**, or SSH.
+The preview sends no keyboard or mouse input. To work in the VM, use **Connect (vmconnect)**, the native Hyper-V console: it works from the firmware and the OS setup on, with no network. In enhanced session, turned on in **Settings > Hyper-V host**, it offers a shared clipboard, sound and any resolution. SSH and Remote Desktop stay available once the VM has an IP address.
 
 ### Checkpoints
 

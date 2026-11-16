@@ -27,11 +27,6 @@ public interface IHyperVWmi
     List<VmNetworkAdapter> GetVmNetworkAdapters();
     Dictionary<string, string> GetHostAddresses();
     List<NetworkAdapterInfo> GetPhysicalAdapters();
-
-    // Integrated console: absolute mouse (synthetic, generation 2) or relative PS/2 mouse (generation 1)
-    void MouseMove(string vmId, int x, int y);
-    void MouseButton(string vmId, int button, bool down);
-    void MouseWheel(string vmId, int delta);
     bool GetEnhancedSessionHost();
     /// <summary>Host memory and processors, and the free space of the drives holding <paramref name="folders"/>.</summary>
     HostCapacity GetHostCapacity(IEnumerable<string> folders);
@@ -95,19 +90,16 @@ public interface IVmService
         IProgress<string>? progress = null, CancellationToken ct = default, string? staticMac = null);
 }
 
-/// <summary>Inside a running VM: its screen, keyboard and mouse (WMI), and the guest automation of Windows guests.</summary>
+/// <summary>
+/// Inside a running VM: a preview of its screen, the password or Ctrl+Alt+Del typed on its keyboard (WMI), and the
+/// guest automation of Windows guests. Working in the VM itself is left to vmconnect.
+/// </summary>
 public interface IGuestService
 {
     Task<VmThumbnail?> GetThumbnailAsync(string vmId, int maxWidth, int maxHeight);
     /// <summary>Types <paramref name="text"/> into the VM as the keys of the guest layout <paramref name="language"/> (fr-FR…).</summary>
     Task TypeTextAsync(string vmId, string text, string language, bool pressEnter);
     Task SendCtrlAltDelAsync(string vmId);
-
-    // Integrated console (WMI): raw key scancodes and mouse
-    Task SendScancodesAsync(string vmId, byte[] scancodes);
-    Task MouseMoveAsync(string vmId, int x, int y);
-    Task MouseButtonAsync(string vmId, int button, bool down);
-    Task MouseWheelAsync(string vmId, int delta);
 
     // Guest automation (Windows guests): PowerShell Direct over VMBus, no network needed
     /// <summary>Runs <paramref name="script"/> in the guest as <paramref name="account"/>; returns its output as text.</summary>

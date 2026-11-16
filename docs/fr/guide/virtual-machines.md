@@ -45,7 +45,7 @@ Chaque ligne a trois boutons :
 
 - **Démarrer** ;
 - **Arrêter**, un arrêt propre par l'invité ;
-- **Connexion vmconnect**, qui ouvre *Connexion à une machine virtuelle* (`vmconnect`). Une seule fenêtre par VM : un second clic ramène au premier plan la fenêtre déjà ouverte. À ne pas confondre avec la [console intégrée](#console-integree), un onglet de la fenêtre de la VM.
+- **Connexion vmconnect**, qui ouvre *Connexion à une machine virtuelle* (`vmconnect`). Une seule fenêtre par VM : un second clic ramène au premier plan la fenêtre déjà ouverte. C'est là qu'on travaille dans la VM ; la fenêtre de la VM n'en montre qu'un aperçu.
 
 Le menu **⋯** regroupe les autres actions. Un clic droit sur la ligne, ou la touche menu, ouvre le même menu.
 
@@ -56,7 +56,6 @@ Le menu **⋯** regroupe les autres actions. Un clic droit sur la ligne, ou la t
 | Redémarrer | Redémarrage propre par l'invité |
 | Réinitialiser | Réinitialisation matérielle |
 | Enregistrer l'état / Suspendre / Reprendre | États enregistré et en pause d'Hyper-V |
-| Console intégrée | Ouvre la fenêtre de la VM sur son onglet **Console** |
 | Exporter en blueprint | Écrit cette VM, ou les VM sélectionnées quand la ligne fait partie d'une sélection multiple, dans un [blueprint](labs.md#exporter-des-vm-en-blueprint) |
 | Paramètres… | Ouvre la fenêtre de la VM sur son onglet **Paramètres** |
 | Supprimer | Voir [Supprimer une VM](#supprimer-une-vm) |
@@ -84,7 +83,7 @@ Double-cliquez sur une VM, appuyez sur ++enter++ ou choisissez **Ouvrir la fenê
     - **Taper le mot de passe** : le saisit dans la VM, puis appuie sur Entrée. Choisissez le **clavier de la VM** (`fr-FR`, `en-US`…) pour qu'un invité AZERTY reçoive les bons caractères ;
     - **Ctrl+Alt+Suppr**.
 - la carte **Automatisation (invités Windows)**, décrite ci-dessous ;
-- les onglets **Console**, **Points de contrôle** et **Paramètres**, décrits ci-dessous.
+- les onglets **Points de contrôle** et **Paramètres**, décrits ci-dessous.
 
 ++f5++ actualise la fenêtre et recharge l'arbre des points de contrôle.
 
@@ -100,18 +99,9 @@ Les deux passent par Hyper-V, pas par le réseau :
 - la commande utilise **PowerShell Direct**, par le VMBus : la VM n'a besoin ni de réseau ni de règle de pare-feu ;
 - la copie utilise `Copy-VMFile` et le service d'intégration *Interface de services d'invité*, qu'HV-LAB active automatiquement.
 
-### Console intégrée
+### Travailler dans la VM
 
-L'onglet **Console** affiche l'écran de la VM à sa résolution réelle et lui envoie clavier et souris par WMI. Elle fonctionne dès le BIOS et l'installation de l'OS, sans réseau dans la VM et sans identifiants.
-
-- **Zoom** : *Ajuster* (l'écran entier dans la fenêtre) ou 50 à 200 %. À 100 %, un pixel de la VM est un pixel de l'écran, quelle que soit la mise à l'échelle de Windows. ++ctrl++ + molette change de niveau.
-- **Clavier et souris** : cliquez dans l'écran ; une bordure de couleur indique que les touches et la souris vont à la VM. ++ctrl+alt+left++ (comme dans `vmconnect`) ou un clic hors de l'écran les libère, et quitte aussi le plein écran : les touches encore enfoncées sont relâchées dans la VM.
-- Les touches sont envoyées comme **codes physiques** : la VM applique sa propre disposition (un invité AZERTY reçoit de l'AZERTY). Les touches tapées pendant qu'un appel à la VM est encore en cours partent ensemble, dans l'appel suivant.
-- ++ctrl+alt+del++ et la touche Windows restent à l'hôte : utilisez le bouton **Ctrl+Alt+Suppr**.
-- **Taper le presse-papiers** saisit le texte copié sur l'hôte, avec le clavier de la VM choisi à côté.
-- **Plein écran** n'affiche plus que la console ; le même bouton en sort.
-
-L'écran se rafraîchit environ 4 à 5 fois par seconde, la limite de WMI. Pour une frappe fluide, le presse-papiers partagé, le son ou une autre résolution, utilisez **Connexion vmconnect** en session avancée, à activer dans **Paramètres > Hôte Hyper-V**, ou SSH.
+L'aperçu n'envoie ni clavier ni souris. Pour travailler dans la VM, utilisez **Connexion vmconnect**, la console native d'Hyper-V : elle fonctionne dès le BIOS et l'installation de l'OS, sans réseau. En session avancée, à activer dans **Paramètres > Hôte Hyper-V**, elle offre presse-papiers partagé, son et résolution libre. SSH et Bureau à distance restent disponibles dès que la VM a une adresse IP.
 
 ### Points de contrôle
 

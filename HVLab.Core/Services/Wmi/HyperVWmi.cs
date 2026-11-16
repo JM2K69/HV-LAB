@@ -380,11 +380,10 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         => First(V2, $"SELECT * FROM Msvm_Keyboard WHERE SystemName = '{Id(vmId)}'")
            ?? throw new InvalidOperationException(T("Err_NoKeyboard"));
 
-    // ─── Integrated console: mouse ──────────────────────────────────────────
+    // ─── Keyboard device cache ──────────────────────────────────────────────
 
-    // Console input sends many small calls: the device objects are cached per VM (dropped on failure)
+    // Typing sends a call per batch of scancodes: the device objects are cached per VM (dropped on failure)
     private readonly ConcurrentDictionary<string, ManagementObject?> _devices = new();
-    private readonly ConcurrentDictionary<string, (int X, int Y)> _ps2Positions = new();
     private readonly ConcurrentDictionary<string, ManagementBaseObject> _inParams = new();
 
     /// <summary>Device of a running VM; a missing device is not cached (it appears once the guest has booted).</summary>
@@ -403,7 +402,7 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         for (var attempt = 0; attempt < 2; attempt++)
         {
             var device = Device(cls, vmId)
-                ?? throw new InvalidOperationException(T(cls == "Msvm_Keyboard" ? "Err_NoKeyboard" : "Err_NoMouse"));
+                ?? throw new InvalidOperationException(T("Err_NoKeyboard"));
             var deviceKey = $"{cls}|{Id(vmId)}";
             try
             {
@@ -422,7 +421,7 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         }
     }
 
-    /// <summary>Releases the cached console devices (the service is a singleton: called when the app exits).</summary>
+    /// <summary>Releases the cached keyboard devices (the service is a singleton: called when the app exits).</summary>
     public void Dispose()
     {
         foreach (var device in _devices.Values) device?.Dispose();
@@ -432,39 +431,6 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         _managementService?.Dispose();
         _managementService = null;
         _screens.Clear();
-    }
-
-    /// <summary>Synthetic mouse (absolute pixels) when the guest has one, else PS/2 relative moves.</summary>
-    private bool HasSyntheticMouse(string vmId) => Device("Msvm_SyntheticMouse", vmId) is not null;
-
-    public void MouseMove(string vmId, int x, int y)
-    {
-        if (HasSyntheticMouse(vmId))
-        {
-            Invoke("Msvm_SyntheticMouse", vmId, "SetAbsolutePosition", ("HorizontalPosition", x), ("VerticalPosition", y));
-            return;
-        }
-        var last = _ps2Positions.GetValueOrDefault(Id(vmId));
-        foreach (var (dx, dy) in ConsoleInput.RelativeSteps(x - last.X, y - last.Y))
-            Invoke("Msvm_Ps2Mouse", vmId, "SetRelativePosition", ("HorizontalDelta", dx), ("VerticalDelta", dy));
-        _ps2Positions[Id(vmId)] = (x, y);
-    }
-
-    /// <summary>Button 1 = left, 2 = right, 3 = middle.</summary>
-    public void MouseButton(string vmId, int button, bool down)
-    {
-        if (HasSyntheticMouse(vmId))
-            Invoke("Msvm_SyntheticMouse", vmId, "SetButtonState", ("ButtonIndex", (uint)button), ("IsDown", down));
-        else
-            Invoke("Msvm_Ps2Mouse", vmId, "SetButtonState", ("ButtonIndex", (uint)button), ("ButtonState", down));
-    }
-
-    public void MouseWheel(string vmId, int delta)
-    {
-        if (HasSyntheticMouse(vmId))
-            Invoke("Msvm_SyntheticMouse", vmId, "SetScrollPosition", ("ScrollPositionDelta", delta));
-        else
-            Invoke("Msvm_Ps2Mouse", vmId, "SetScrollPosition", ("ScrollPositionDelta", (sbyte)Math.Clamp(delta / 40, -127, 127)));
     }
 
     /// <summary>Host setting that lets vmconnect open enhanced sessions (clipboard, drives, dynamic resolution).</summary>
