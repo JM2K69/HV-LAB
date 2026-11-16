@@ -15,6 +15,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IPowerShellRunner, PowerShellRunner>();
         services.AddSingleton<IHyperVWmi, Services.Wmi.HyperVWmi>();
         services.AddSingleton<IHyperVService, HyperVService>();
+        // Its parts, each the same instance: one PowerShell pool, one shared VM list snapshot
+        services.AddSingleton<IHostService>(sp => sp.GetRequiredService<IHyperVService>());
+        services.AddSingleton<IVmService>(sp => sp.GetRequiredService<IHyperVService>());
+        services.AddSingleton<IGuestService>(sp => sp.GetRequiredService<IHyperVService>());
+        services.AddSingleton<INetworkService>(sp => sp.GetRequiredService<IHyperVService>());
         services.AddSingleton<IVhdxService, VhdxService>();
         services.AddSingleton<INatService, NatService>();
         services.AddSingleton<AppStartupCache>();

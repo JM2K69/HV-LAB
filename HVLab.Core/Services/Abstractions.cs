@@ -37,32 +37,28 @@ public interface IHyperVWmi
     HostCapacity GetHostCapacity(IEnumerable<string> folders);
 }
 
-/// <summary>Hyper-V host operations: VMs, switches, network adapters, environment.</summary>
-public interface IHyperVService
+/// <summary>The Hyper-V host itself: environment check, capacity, enhanced session mode.</summary>
+public interface IHostService
 {
     Task<HyperVEnvironment> GetEnvironmentStatusAsync();
     Task StartHyperVServiceAsync();
-
-    Task<List<VirtualMachine>> GetVirtualMachinesAsync();
     Task<HostCapacity> GetHostCapacityAsync();
+
+    // Enhanced session mode of the host (vmconnect with clipboard, drives, dynamic resolution)
+    Task<bool> GetEnhancedSessionHostAsync();
+    Task SetEnhancedSessionHostAsync(bool enabled);
+}
+
+/// <summary>Virtual machines: list, power, delete, checkpoints, settings, notes, groups and creation.</summary>
+public interface IVmService
+{
+    Task<List<VirtualMachine>> GetVirtualMachinesAsync();
     Task PowerAsync(string vmId, VmPowerAction action);
     /// <summary>Disks that a delete with files would remove (and the shared parents it keeps).</summary>
     Task<VmDeletePlan> GetDeletePlanAsync(string name);
     /// <param name="files">Files of <see cref="GetDeletePlanAsync"/> to delete after the VM, or null to keep every file.</param>
     Task RemoveVMAsync(string name, IReadOnlyList<string>? files = null);
     void ConnectToVMConsole(string name);
-
-    // Detail pane
-    Task<VmThumbnail?> GetThumbnailAsync(string vmId, int maxWidth, int maxHeight);
-    /// <summary>Types <paramref name="text"/> into the VM as the keys of the guest layout <paramref name="language"/> (fr-FR…).</summary>
-    Task TypeTextAsync(string vmId, string text, string language, bool pressEnter);
-    Task SendCtrlAltDelAsync(string vmId);
-
-    // Guest automation (Windows guests): PowerShell Direct over VMBus, no network needed
-    /// <summary>Runs <paramref name="script"/> in the guest as <paramref name="account"/>; returns its output as text.</summary>
-    Task<string> InvokeInGuestAsync(string vmId, string account, string password, string script);
-    /// <summary>Copies a host file into <paramref name="guestFolder"/> (Guest Service Interface), creating the folder.</summary>
-    Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder);
 
     // Checkpoints (list through WMI, changes through PowerShell)
     Task<List<CheckpointRow>> GetCheckpointsAsync(string vmId);
@@ -81,43 +77,6 @@ public interface IHyperVService
     Task AddToGroupAsync(string groupName, IReadOnlyList<string> vmNames);
     Task RemoveFromGroupsAsync(IReadOnlyList<string> vmNames);
 
-    // Network: topology data (WMI), switch type changes and connection sharing (PowerShell)
-    Task<List<VmNetworkAdapter>> GetVmNetworkAdaptersAsync();
-    Task<Dictionary<string, string>> GetHostAddressesAsync();
-    /// <summary>
-    /// Changes the type of a switch in place (External needs <paramref name="netAdapter"/>). On failure the previous
-    /// type and the host adapter's static IPv4 addresses are put back before the error is reported.
-    /// </summary>
-    /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
-    Task ChangeSwitchTypeAsync(string switchIdOrName, string newType, string? netAdapter);
-    /// <summary>Current Internet connection sharing: public and private connection names, null when off.</summary>
-    Task<IcsStatus?> GetIcsStatusAsync();
-    /// <summary>
-    /// Shares <paramref name="publicAdapter"/> with the internal switch <paramref name="switchName"/>: Windows then gives
-    /// its host adapter 192.168.137.1/24 and hands out DHCP addresses to the VMs. Any other sharing is turned off first.
-    /// </summary>
-    Task EnableIcsAsync(string publicAdapter, string switchName);
-    Task DisableIcsAsync();
-
-    // Integrated console (WMI): raw key scancodes and mouse
-    Task SendScancodesAsync(string vmId, byte[] scancodes);
-    Task MouseMoveAsync(string vmId, int x, int y);
-    Task MouseButtonAsync(string vmId, int button, bool down);
-    Task MouseWheelAsync(string vmId, int delta);
-
-    // Enhanced session mode of the host (vmconnect with clipboard, drives, dynamic resolution)
-    Task<bool> GetEnhancedSessionHostAsync();
-    Task SetEnhancedSessionHostAsync(bool enabled);
-
-    Task<List<VirtualSwitch>> GetVirtualSwitchesAsync();
-    // A name already used by a switch is refused (Hyper-V would accept the namesake)
-    Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0);
-    Task CreateInternalSwitchAsync(string name, int vlanId = 0);
-    Task CreatePrivateSwitchAsync(string name);
-    /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
-    Task RemoveVSwitchAsync(string switchIdOrName);
-    Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync();
-
     /// <param name="notes">Hyper-V notes of the VM (see <see cref="VmNotes"/>).</param>
     Task CreateBlankVmAsync(
         string vmName, string switchName,
@@ -135,6 +94,65 @@ public interface IHyperVService
         string secureBootTemplate = BaseImageInfo.WindowsSecureBootTemplate, CloudInitSeed? cloudInit = null,
         IProgress<string>? progress = null, CancellationToken ct = default, string? staticMac = null);
 }
+
+/// <summary>Inside a running VM: its screen, keyboard and mouse (WMI), and the guest automation of Windows guests.</summary>
+public interface IGuestService
+{
+    Task<VmThumbnail?> GetThumbnailAsync(string vmId, int maxWidth, int maxHeight);
+    /// <summary>Types <paramref name="text"/> into the VM as the keys of the guest layout <paramref name="language"/> (fr-FR…).</summary>
+    Task TypeTextAsync(string vmId, string text, string language, bool pressEnter);
+    Task SendCtrlAltDelAsync(string vmId);
+
+    // Integrated console (WMI): raw key scancodes and mouse
+    Task SendScancodesAsync(string vmId, byte[] scancodes);
+    Task MouseMoveAsync(string vmId, int x, int y);
+    Task MouseButtonAsync(string vmId, int button, bool down);
+    Task MouseWheelAsync(string vmId, int delta);
+
+    // Guest automation (Windows guests): PowerShell Direct over VMBus, no network needed
+    /// <summary>Runs <paramref name="script"/> in the guest as <paramref name="account"/>; returns its output as text.</summary>
+    Task<string> InvokeInGuestAsync(string vmId, string account, string password, string script);
+    /// <summary>Copies a host file into <paramref name="guestFolder"/> (Guest Service Interface), creating the folder.</summary>
+    Task CopyToGuestAsync(string vmId, string sourcePath, string guestFolder);
+}
+
+/// <summary>Virtual switches, network adapters, topology data and connection sharing.</summary>
+public interface INetworkService
+{
+    Task<List<VirtualSwitch>> GetVirtualSwitchesAsync();
+    // A name already used by a switch is refused (Hyper-V would accept the namesake)
+    Task CreateExternalSwitchAsync(string name, string netAdapter, int vlanId = 0);
+    Task CreateInternalSwitchAsync(string name, int vlanId = 0);
+    Task CreatePrivateSwitchAsync(string name);
+    /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
+    Task RemoveVSwitchAsync(string switchIdOrName);
+    /// <summary>
+    /// Changes the type of a switch in place (External needs <paramref name="netAdapter"/>). On failure the previous
+    /// type and the host adapter's static IPv4 addresses are put back before the error is reported.
+    /// </summary>
+    /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
+    Task ChangeSwitchTypeAsync(string switchIdOrName, string newType, string? netAdapter);
+
+    // Topology data (WMI)
+    Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync();
+    Task<List<VmNetworkAdapter>> GetVmNetworkAdaptersAsync();
+    Task<Dictionary<string, string>> GetHostAddressesAsync();
+
+    /// <summary>Current Internet connection sharing: public and private connection names, null when off.</summary>
+    Task<IcsStatus?> GetIcsStatusAsync();
+    /// <summary>
+    /// Shares <paramref name="publicAdapter"/> with the internal switch <paramref name="switchName"/>: Windows then gives
+    /// its host adapter 192.168.137.1/24 and hands out DHCP addresses to the VMs. Any other sharing is turned off first.
+    /// </summary>
+    Task EnableIcsAsync(string publicAdapter, string switchName);
+    Task DisableIcsAsync();
+}
+
+/// <summary>
+/// Every Hyper-V operation (one <see cref="HyperVService"/> implements all four parts). Code that needs one part only
+/// takes that part: the host, the VMs, a guest, or the network.
+/// </summary>
+public interface IHyperVService : IHostService, IVmService, IGuestService, INetworkService;
 
 /// <summary>WIM analysis and base VHDX images.</summary>
 public interface IVhdxService

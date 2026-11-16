@@ -58,7 +58,7 @@ HV-LAB/
 ## Architecture
 
 - **MVVM** with CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`). The view models live in `HVLab.Core`, which has no WinUI reference and is unit-tested.
-- **Dependency injection** with Microsoft.Extensions.DependencyInjection: `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` and `IThemeService`.
+- **Dependency injection** with Microsoft.Extensions.DependencyInjection: `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` and `IThemeService`. `IHyperVService` gathers four parts, served by the same instance: `IHostService` (host), `IVmService` (VMs), `IGuestService` (screen, keyboard, PowerShell Direct) and `INetworkService` (switches, adapters, connection sharing). A view model that needs one part only takes that part. A unit test checks that every view model resolves.
 - **Frequent Hyper-V operations** go through WMI from C# (`System.Management`, `HyperVWmi`): VM list with live CPU, memory, IP and notes, power actions, screen thumbnail, keyboard, checkpoint list, switches and NAT networks. A query takes a few tens of milliseconds, where `Get-VM` takes over a second.
 - **Heavy, rare operations** (base images, VM creation, disks, settings, checkpoint and group changes) go through Windows PowerShell 5.1:
     - scripts run in a pool of up to 3 warm `powershell.exe` workers, with the Hyper-V module imported once;

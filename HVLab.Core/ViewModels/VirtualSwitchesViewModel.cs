@@ -6,10 +6,10 @@ using HVLab.Services;
 
 namespace HVLab.ViewModels;
 
-public partial class VirtualSwitchesViewModel(IHyperVService hvService, INatService natService, IDialogService dialogs)
+public partial class VirtualSwitchesViewModel(INetworkService hvService, INatService natService, IDialogService dialogs)
     : PageViewModelBase
 {
-    private readonly IHyperVService _hvService  = hvService;
+    private readonly INetworkService _hvService = hvService;
     private readonly INatService    _natService = natService;
     private readonly IDialogService _dialogs    = dialogs;
 

@@ -191,7 +191,7 @@ public partial class BaseVhdxViewModel : PageViewModelBase
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
-    public BaseVhdxViewModel(IVhdxService vhdxService, IDialogService dialogs, IHyperVService hvService)
+    public BaseVhdxViewModel(IVhdxService vhdxService, IDialogService dialogs, IVmService hvService)
     {
         _vhdxService = vhdxService;
         _dialogs     = dialogs;
@@ -202,7 +202,7 @@ public partial class BaseVhdxViewModel : PageViewModelBase
 
     // ─── Base from an existing VM (Linux, or a customized and sysprepped Windows) ──
 
-    private readonly IHyperVService _hvService;
+    private readonly IVmService _hvService;
 
     public ObservableCollection<string> SourceVms { get; } = [];
     public List<string> SourceFamilies { get; } = ["Linux", "Windows"];

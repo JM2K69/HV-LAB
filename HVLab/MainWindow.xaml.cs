@@ -48,7 +48,7 @@ public sealed partial class MainWindow : Window
 
     private async void EnvStartService_Click(object sender, RoutedEventArgs e)
     {
-        var hv = App.GetService<IHyperVService>();
+        var hv = App.GetService<IHostService>();
         EnvStartServiceButton.IsEnabled = false;
         try
         {

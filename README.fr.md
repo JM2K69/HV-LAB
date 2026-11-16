@@ -150,7 +150,7 @@ HV-LAB/
 
 **Architecture** :
 - **MVVM** avec CommunityToolkit.Mvvm (`[ObservableProperty]`, `[RelayCommand]`).
-- **Injection de dépendances** avec Microsoft.Extensions.DependencyInjection : `IHyperVService`, `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` et `IThemeService`.
+- **Injection de dépendances** avec Microsoft.Extensions.DependencyInjection : `IHyperVService` (fait de `IHostService`, `IVmService`, `IGuestService` et `INetworkService`, une seule instance), `IVhdxService`, `INatService`, `IPowerShellRunner`, `IDialogService` et `IThemeService`.
 - **Accès à Hyper-V** :
   - WMI (`System.Management`) pour le travail rapide et fréquent : liste des VM, alimentation, liste des points de contrôle, commutateurs, NAT, écran, clavier et souris ;
   - Windows PowerShell 5.1 pour les opérations lourdes et rares (création, disques, paramètres, images de base) ;

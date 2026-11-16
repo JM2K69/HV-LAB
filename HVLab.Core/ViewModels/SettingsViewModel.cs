@@ -16,7 +16,7 @@ public partial class SettingsViewModel : ObservableObject
     public List<string> Languages { get; } = ["fr", "en"];
 
     private readonly IThemeService _theme;
-    private readonly IHyperVService? _hvService;
+    private readonly IHostService? _hvService;
 
     /// <summary>DPAPI-protect the password written into the notes of new VMs (off by default).</summary>
     [ObservableProperty] private bool protectNotesPassword = AppSettings.Current.ProtectNotesPassword;
@@ -60,7 +60,7 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    public SettingsViewModel(IThemeService theme, IHyperVService? hvService = null)
+    public SettingsViewModel(IThemeService theme, IHostService? hvService = null)
     {
         _theme = theme;
         _hvService = hvService;
