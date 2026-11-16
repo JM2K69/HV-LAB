@@ -123,10 +123,13 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
         if (vms.Count == 0) return vms;
         var byId = vms.ToDictionary(v => v.Id);
 
-        // Memory of stopped VMs: startup RAM of the realized settings (snapshot settings belong to other IDs)
+        // Startup RAM of the realized settings (snapshot settings belong to other IDs), also the memory of stopped VMs
         foreach (var m in Rows(V2, "SELECT InstanceID, VirtualQuantity FROM Msvm_MemorySettingData"))
-            if (WmiMap.OwnerId(S(m, "InstanceID")) is { } id && byId.TryGetValue(id, out var vm) && vm.MemoryMB == 0)
-                vm.MemoryMB = L(m, "VirtualQuantity");
+            if (WmiMap.OwnerId(S(m, "InstanceID")) is { } id && byId.TryGetValue(id, out var vm))
+            {
+                vm.StartupMemoryMB = L(m, "VirtualQuantity");
+                if (vm.MemoryMB == 0) vm.MemoryMB = vm.StartupMemoryMB;
+            }
 
         // Switch of the first adapter: port allocation → Msvm_VirtualEthernetSwitch.Name
         var switchNames = Rows(V2, "SELECT Name, ElementName FROM Msvm_VirtualEthernetSwitch")

@@ -219,7 +219,8 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
             },
             Vms = vms.Select(v => new LabVm
             {
-                Name = v.Name, Base = BaseOf(v), MemoryMB = v.MemoryMB, Cpu = v.ProcessorCount,
+                // The startup RAM: a running VM with dynamic memory uses more or less than it was given
+                Name = v.Name, Base = BaseOf(v), MemoryMB = v.StartupMemoryMB > 0 ? v.StartupMemoryMB : v.MemoryMB, Cpu = v.ProcessorCount,
                 Ip = v.Credentials.IpAddress is { Length: > 0 } ip ? ip : null,
             }).ToList(),
         };

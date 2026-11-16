@@ -16,7 +16,10 @@ public partial class VirtualMachine : ObservableObject
 
     [ObservableProperty] private string state          = string.Empty;
     [ObservableProperty] private int    processorCount;
+    /// <summary>RAM in use: the assigned memory while the VM runs (dynamic memory moves it), else the startup RAM.</summary>
     [ObservableProperty] private long   memoryMB;
+    /// <summary>Startup RAM of the VM settings, what a blueprint export keeps.</summary>
+    [ObservableProperty] private long   startupMemoryMB;
     [ObservableProperty] private string switchName     = string.Empty;
     [ObservableProperty] private string uptime         = string.Empty;
     [ObservableProperty] private string vlanInfo       = string.Empty;  // ex: "10", "10,20", "—"
@@ -116,6 +119,7 @@ public partial class VirtualMachine : ObservableObject
         State          = fresh.State;
         ProcessorCount = fresh.ProcessorCount;
         MemoryMB       = fresh.MemoryMB;
+        StartupMemoryMB = fresh.StartupMemoryMB;
         SwitchName     = fresh.SwitchName;
         Uptime         = fresh.Uptime;
         VlanInfo       = fresh.VlanInfo;

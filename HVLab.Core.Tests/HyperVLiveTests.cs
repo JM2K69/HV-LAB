@@ -6,15 +6,15 @@ using HVLab.Services.Wmi;
 namespace HVLab.Core.Tests;
 
 /// <summary>
-/// Runs only on a Hyper-V host, elevated, with HVLAB_LIVE=1 or 2 (never in CI). Level 2 also runs the tests that
-/// change the host, so it includes these read-only ones.
+/// Runs only on a Hyper-V host, elevated, with HVLAB_LIVE=1, 2 or 3 (never in CI). The levels add up: 2 also changes
+/// the host, 3 also boots guests, and each includes these read-only tests.
 /// </summary>
 public sealed class LiveFactAttribute : FactAttribute
 {
     public LiveFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("HVLAB_LIVE") is not ("1" or "2"))
-            Skip = "Hyper-V live test: set HVLAB_LIVE=1 (or 2) and run elevated";
+        if (Environment.GetEnvironmentVariable("HVLAB_LIVE") is not ("1" or "2" or "3"))
+            Skip = "Hyper-V live test: set HVLAB_LIVE=1 (or 2, 3) and run elevated";
         else if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
             Skip = "Hyper-V live test: needs elevation";
     }
@@ -54,6 +54,7 @@ public class HyperVLiveTests
             Assert.Equal(p.GetProperty("Generation").GetInt32(), w.Generation);
             Assert.Equal(p.GetProperty("Cpu").GetInt32(), w.ProcessorCount);
             Assert.Equal(p.GetProperty("Switch").GetString(), w.SwitchName);
+            Assert.Equal(p.GetProperty("StartupMB").GetInt64(), w.StartupMemoryMB);
             if (w.State == "Off") Assert.Equal(p.GetProperty("StartupMB").GetInt64(), w.MemoryMB);
         }
     }

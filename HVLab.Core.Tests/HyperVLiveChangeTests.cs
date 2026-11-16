@@ -6,14 +6,14 @@ using HVLab.Services.Wmi;
 namespace HVLab.Core.Tests;
 
 /// <summary>
-/// Runs only with HVLAB_LIVE=2, elevated, on a Hyper-V host (never in CI). These tests CHANGE the host: they create
-/// and delete their own HVLT-* VMs, switches and NAT, nothing else, and clean up even when they fail.
+/// Runs only with HVLAB_LIVE=2 or 3, elevated, on a Hyper-V host (never in CI). These tests CHANGE the host: they
+/// create and delete their own HVLT-* VMs, switches and NAT, nothing else, and clean up even when they fail.
 /// </summary>
 public sealed class LiveChangeFactAttribute : FactAttribute
 {
     public LiveChangeFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("HVLAB_LIVE") != "2")
+        if (Environment.GetEnvironmentVariable("HVLAB_LIVE") is not ("2" or "3"))
             Skip = "Hyper-V live test that changes the host: set HVLAB_LIVE=2 and run elevated";
         else if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
             Skip = "Hyper-V live test: needs elevation";

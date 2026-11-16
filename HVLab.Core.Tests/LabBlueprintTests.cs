@@ -159,6 +159,17 @@ public class LabBlueprintTests
     }
 
     [Fact]
+    public async Task An_export_keeps_the_startup_memory_of_a_running_vm()
+    {
+        var labs = new LabBlueprintService(new FakeHyperVService(), new FakeNatService(),
+                                           new VhdxService(new FakePowerShellRunner(_ => "[]")));
+        // Dynamic memory: the running VM was given 2048 MB and uses 2682 MB now
+        var running = new VirtualMachine { Name = "SRV01", State = "Running", MemoryMB = 2682, StartupMemoryMB = 2048 };
+        var bp = await labs.ExportAsync("LAB", [running]);
+        Assert.Equal(2048, bp.Vms.Single().MemoryMB);
+    }
+
+    [Fact]
     public void The_host_gateway_is_the_first_address_of_the_nat()
         => Assert.Equal("192.168.100.1", LabBlueprintService.HostGateway("192.168.100.0/24"));
 }
