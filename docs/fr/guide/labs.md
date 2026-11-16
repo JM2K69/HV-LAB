@@ -15,6 +15,7 @@ Ouvrez la page **Labs** dans le menu de gauche, ou avec le bouton **Labs** de la
     - **RAM (Mo)**, **vCPU**, **IP fixe** et **DNS** ;
     - **Contrôleur** et **Domaine** pour une VM Windows, **Utilisateur** pour une VM Linux ;
     - **Étiquettes**, séparées par des virgules, écrites dans les notes de la VM ;
+    - pour une VM Linux, les **commandes au premier démarrage**, une par ligne ;
     - les flèches changent l'ordre de création, la corbeille retire la VM ;
     - **Ajouter une VM** ajoute une ligne.
 6. Cliquez sur **Enregistrer**. Un lab non enregistré est signalé par **Modifications non enregistrées**, et HV-LAB demande avant de les abandonner.
@@ -96,6 +97,7 @@ Le NAT n'est créé qu'avec le commutateur. Quand le commutateur existe déjà, 
 | `join` | Windows : rejoindre le domaine de `domain` pendant l'installation | `false` |
 | `user` | Linux : l'utilisateur sudo | `labadmin` |
 | `tags` | [Étiquettes](virtual-machines.md#plusieurs-vm-a-la-fois) de la VM, par exemple `["web", "prod"]` | Aucune |
+| `commands` | Linux : [commandes au premier démarrage](linux.md), par exemple `["dnf -y install nginx"]` | Aucune |
 
 L'identifiant d'OS est la partie du nom de fichier qui suit `BASE_`, par exemple `WindowsServer2025Standard(DesktopExperience)` ou `LinuxAlmaLinux`. Une VM Windows est créée comme avec [Créer une VM](create-vm.md), une VM Linux comme un [clone Linux](linux.md).
 

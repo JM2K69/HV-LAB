@@ -90,6 +90,10 @@ In **Create VM**, choose the Linux base. The **Answer file** section becomes **c
 | Language | Sets the console keyboard layout: `fr`, `us`, `gb`, `de`, `es` or `it`. |
 | Time zone | Converted to its Linux name, for example `Romance Standard Time` → `Europe/Paris`. |
 | Static IP address | Off by default: the clone uses DHCP. Turned on, it asks for the 1st VM's address, the prefix, the gateway and the DNS servers. |
+| Commands at first boot | Optional, one per line, for example `dnf -y install nginx`. Run once, as root, at the end of the first boot (cloud-init `runcmd`). A line that starts with `#` is ignored. |
+
+!!! warning "No secret in the commands"
+    The commands are written in clear on the `CIDATA` disk, which stays attached to the clone. Do not put a password in them.
 
 In bulk mode, the address goes up by one for each clone: `ALMA-01` gets `192.168.100.10`, `ALMA-02` gets `192.168.100.11`, and so on.
 
@@ -101,7 +105,7 @@ In bulk mode, the address goes up by one for each clone: `ALMA-01` gets `192.168
 1. The differencing disk is created on the base.
 2. A 64 MB disk, `<VM>-cidata.vhdx`, is created next to it, with a FAT volume labelled `CIDATA` that holds:
     - `meta-data`: a unique instance ID and the host name;
-    - `user-data`: the user, a SHA-512 crypt hash of its password (`hashed_passwd`), the SSH key, the time zone and the keyboard;
+    - `user-data`: the user, a SHA-512 crypt hash of its password (`hashed_passwd`), the SSH key, the time zone, the keyboard and the first-boot commands;
     - `network-config`: the static IP, when one is set.
 3. The clone keeps the template VM's generation and Secure Boot template.
 4. Its [Hyper-V notes](create-vm.md#vm-notes) hold the creation date, the user, its password and the IP.

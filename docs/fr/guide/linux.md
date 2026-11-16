@@ -90,6 +90,10 @@ Dans **Créer une VM**, choisissez la base Linux. La section **Fichier de répon
 | Langue | Donne la disposition du clavier en console : `fr`, `us`, `gb`, `de`, `es` ou `it`. |
 | Fuseau horaire | Converti en nom Linux, par exemple `Romance Standard Time` → `Europe/Paris`. |
 | Adresse IP fixe | Désactivée par défaut : le clone utilise le DHCP. Activée, elle demande l'adresse de la 1re VM, le préfixe, la passerelle et les serveurs DNS. |
+| Commandes au premier démarrage | Facultatives, une par ligne, par exemple `dnf -y install nginx`. Exécutées une fois, en root, à la fin du premier démarrage (`runcmd` de cloud-init). Une ligne qui commence par `#` est ignorée. |
+
+!!! warning "Pas de secret dans les commandes"
+    Les commandes sont écrites en clair sur le disque `CIDATA`, qui reste attaché au clone. N'y mettez pas de mot de passe.
 
 En mode lot, l'adresse augmente de 1 à chaque clone : `ALMA-01` reçoit `192.168.100.10`, `ALMA-02` reçoit `192.168.100.11`, et ainsi de suite.
 
@@ -101,7 +105,7 @@ En mode lot, l'adresse augmente de 1 à chaque clone : `ALMA-01` reçoit `192.16
 1. Le disque différentiel est créé sur la base.
 2. Un disque de 64 Mo, `<VM>-cidata.vhdx`, est créé à côté, avec un volume FAT nommé `CIDATA` qui contient :
     - `meta-data` : un identifiant d'instance unique et le nom d'hôte ;
-    - `user-data` : l'utilisateur, une empreinte SHA-512 crypt de son mot de passe (`hashed_passwd`), la clé SSH, le fuseau horaire et le clavier ;
+    - `user-data` : l'utilisateur, une empreinte SHA-512 crypt de son mot de passe (`hashed_passwd`), la clé SSH, le fuseau horaire, le clavier et les commandes de premier démarrage ;
     - `network-config` : l'IP fixe, si elle est définie.
 3. Le clone reprend la génération et le modèle Secure Boot de la VM modèle.
 4. Ses [notes Hyper-V](create-vm.md#notes-de-la-vm) contiennent la date de création, l'utilisateur, son mot de passe et l'IP.

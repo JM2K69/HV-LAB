@@ -45,7 +45,7 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - remplacer une image existante demande une confirmation ;
   - la progression s'affiche en direct et la construction peut être annulée ;
   - chaque base affiche les VM construites dessus, et une base encore utilisée ne peut pas être supprimée.
-- **Bases Linux** : une VM Linux préparée (cloud-init) devient une base, et chaque clone reçoit au premier démarrage son nom d'hôte, son utilisateur, son mot de passe et son IP fixe.
+- **Bases Linux** : une VM Linux préparée (cloud-init) devient une base, et chaque clone reçoit au premier démarrage son nom d'hôte, son utilisateur, son mot de passe et son IP fixe, puis exécute les commandes que vous lui donnez (`runcmd`).
 - **Commutateurs & NAT** :
   - une vue **topologie** : chaque commutateur avec sa sortie (carte, NAT, partage de connexion, hôte, isolé) et ses VM avec état, IP et VLAN ;
   - commutateurs externes, internes et privés avec VLAN, et changement de type sur place avec retour arrière ;

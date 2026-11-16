@@ -15,6 +15,7 @@ Open the **Labs** page from the left menu, or with the **Labs** button of the **
     - **RAM (MB)**, **vCPU**, **Static IP** and **DNS**;
     - **Controller** and **Domain** for a Windows VM, **User** for a Linux VM;
     - **Tags**, comma-separated, written into the VM notes;
+    - for a Linux VM, the **commands at first boot**, one per line;
     - the arrows change the creation order, the bin removes the VM;
     - **Add a VM** adds a row.
 6. Click **Save**. An unsaved lab shows **Unsaved changes**, and HV-LAB asks before discarding them.
@@ -96,6 +97,7 @@ The NAT is only created together with the switch. When the switch already exists
 | `join` | Windows: join the domain of `domain` during setup | `false` |
 | `user` | Linux: the sudo user | `labadmin` |
 | `tags` | [Tags](virtual-machines.md#several-vms-at-once) of the VM, for example `["web", "prod"]` | None |
+| `commands` | Linux: [commands at first boot](linux.md), for example `["dnf -y install nginx"]` | None |
 
 The OS identifier is the part of the file name that follows `BASE_`, for example `WindowsServer2025Standard(DesktopExperience)` or `LinuxAlmaLinux`. A Windows VM is created as with [Create a VM](create-vm.md), a Linux VM as a [Linux clone](linux.md).
 

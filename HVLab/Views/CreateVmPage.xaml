@@ -259,6 +259,15 @@
                                              FontFamily="Consolas" FontSize="11"/>
                                 </StackPanel>
                             </Grid>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="{Binding [CVM_LinuxCommands], Source={StaticResource Loc}}" FontSize="12"/>
+                                <TextBox AutomationProperties.Name="{Binding [CVM_LinuxCommands], Source={StaticResource Loc}}"
+                                         ToolTipService.ToolTip="{Binding [CVM_LinuxCommandsTip], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.LinuxCommands, Mode=TwoWay}"
+                                         AcceptsReturn="True" TextWrapping="NoWrap" Height="96"
+                                         FontFamily="Consolas" FontSize="12"
+                                         PlaceholderText="dnf -y install nginx&#x0a;systemctl enable --now nginx"/>
+                            </StackPanel>
                         </StackPanel>
 
                         <!-- Static IP for both: Linux through cloud-init, Windows through unattend.xml on a static MAC.

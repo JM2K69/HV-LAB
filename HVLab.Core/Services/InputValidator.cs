@@ -55,6 +55,14 @@ public static partial class InputValidator
             ? "Val_SshKey" : null;
     }
 
+    /// <summary>
+    /// First-boot commands of a Linux clone: single lines without control characters (tabs aside), 1000 characters
+    /// at most each. They land in the cloud-init user-data quoted, so any shell syntax is kept as typed.
+    /// </summary>
+    public static string? CheckLinuxCommands(IEnumerable<string>? commands)
+        => (commands ?? []).Any(c => c.Length > 1000 || c.Any(ch => char.IsControl(ch) && ch != '\t'))
+            ? "Val_LinuxCommands" : null;
+
     /// <summary>Dotted IPv4 address (a.b.c.d).</summary>
     public static string? CheckIpv4(string? address)
         => ParseIpv4(address) is null ? "Val_Ipv4" : null;

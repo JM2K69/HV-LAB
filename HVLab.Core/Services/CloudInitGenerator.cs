@@ -18,6 +18,8 @@ public class CloudInitConfig
     /// <summary>UI language of the form (fr-FR…), which gives the keyboard layout.</summary>
     public string Language     { get; set; } = "fr-FR";
     public StaticIpConfig? StaticIp { get; set; }
+    /// <summary>Shell commands run once, as root, at the end of the first boot (cloud-init runcmd), in order.</summary>
+    public IReadOnlyList<string> RunCommands { get; set; } = [];
 }
 
 /// <summary>Files of a NoCloud seed (volume labelled CIDATA); NetworkConfig is null for DHCP.</summary>
@@ -64,9 +66,23 @@ public static class CloudInitGenerator
         if (TimeZoneInfo.TryConvertWindowsIdToIanaId(c.TimeZone, out var iana))
             user.Append($"timezone: {iana}\n");
         user.Append($"keyboard:\n  layout: {KeyboardLayout(c.Language)}\n");
+        if (c.RunCommands.Count > 0)
+        {
+            // Each item is run by sh -c; quoted, so YAML never reads a colon or a # of the command as its own
+            user.Append("runcmd:\n");
+            foreach (var command in c.RunCommands) user.Append($"  - {Q(command)}\n");
+        }
 
         return new CloudInitSeed(meta, user.ToString(), c.StaticIp is { } ip ? NetworkConfig(ip) : null);
     }
+
+    /// <summary>
+    /// The commands of a text box: one per line, trimmed; blank lines and # comment lines are dropped.
+    /// </summary>
+    public static IReadOnlyList<string> ParseCommands(string? text)
+        => (text ?? "").Split('\n').Select(l => l.Trim().TrimEnd('\r').Trim())
+                       .Where(l => l.Length > 0 && !l.StartsWith('#'))
+                       .ToList();
 
     private static string NetworkConfig(StaticIpConfig ip)
     {

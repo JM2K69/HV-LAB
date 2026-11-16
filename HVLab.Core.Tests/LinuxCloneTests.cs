@@ -31,6 +31,58 @@ public class CloudInitTests
     }
 
     [Fact]
+    public void First_boot_commands_become_quoted_runcmd_items()
+    {
+        Assert.DoesNotContain("runcmd", CloudInitGenerator.Generate(Config()).UserData);
+
+        var config = Config();
+        config.RunCommands = CloudInitGenerator.ParseCommands(
+            "  dnf -y install nginx  \r\n\r\n# a comment\nsh -c 'echo \"a: b\" > /tmp/x' # trailing\n");
+        Assert.Equal(["dnf -y install nginx", "sh -c 'echo \"a: b\" > /tmp/x' # trailing"], config.RunCommands);
+        var user = CloudInitGenerator.Generate(config).UserData;
+        Assert.EndsWith("runcmd:\n  - \"dnf -y install nginx\"\n  - \"sh -c 'echo \\\"a: b\\\" > /tmp/x' # trailing\"\n", user);
+    }
+
+    [Theory]
+    [InlineData("systemctl enable --now nginx", true)]
+    [InlineData("printf 'a\tb'", true)]
+    [InlineData("echo \u0007bell", false)]
+    public void First_boot_commands_are_single_lines(string command, bool valid)
+    {
+        Assert.Equal(valid, InputValidator.CheckLinuxCommands([command]) is null);
+        Assert.NotNull(InputValidator.CheckLinuxCommands([new string('x', 1001)]));
+    }
+
+    [Fact]
+    public async Task A_blueprint_gives_its_linux_vms_their_first_boot_commands()
+    {
+        var bases = Directory.CreateTempSubdirectory("hvlab-runcmd-").FullName;
+        File.WriteAllBytes(Path.Combine(bases, "BASE_LinuxAlma_9.6.0.0_40.vhdx"), [1]);
+        var hv = new FakeHyperVService();
+        var labs = new LabBlueprintService(hv, new FakeNatService(), new VhdxService(new FakePowerShellRunner(_ => "[]")))
+        {
+            BaseFolder = () => bases, VmsFolder = () => bases,
+        };
+        var lab = LabBlueprint.Parse("""
+            { "name": "LAB", "switch": "LAN", "password": "Lab#2026",
+              "vms": [ { "name": "WEB01", "base": "LinuxAlma*", "commands": ["dnf -y install nginx"] } ] }
+            """);
+        Assert.Null(lab.Validate());
+        await labs.DeployAsync(lab);
+        Assert.Contains("runcmd:\n  - \"dnf -y install nginx\"", hv.CreatedFirmware["WEB01"].Seed!.UserData);
+
+        lab.Vms[0].Commands = ["echo \u0007"];
+        Assert.StartsWith(LocalizationService.T("Val_LinuxCommands"), lab.Validate());
+
+        // The Labs editor: one command per line, Linux only
+        var row = LabVmRow.From(new LabVm { Name = "WEB01", Base = "LinuxAlma*", Commands = ["a", "b"] });
+        Assert.Equal($"a{Environment.NewLine}b", row.Commands);
+        Assert.Equal(["a", "b"], row.ToVm().Commands);
+        row.Base = "WindowsServer2025*";
+        Assert.Null(row.ToVm().Commands);
+    }
+
+    [Fact]
     public void Static_ip_seed_has_a_network_config_for_eth0()
     {
         var seed = CloudInitGenerator.Generate(Config(new StaticIpConfig("192.168.100.10", 24, "192.168.100.1", ["1.1.1.1"])));

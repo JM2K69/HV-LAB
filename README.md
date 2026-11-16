@@ -45,7 +45,7 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - overwriting an existing image asks for confirmation;
   - progress is shown live and the build can be cancelled;
   - each base shows the VMs built on it, and a base still in use cannot be deleted.
-- **Linux bases**: a prepared Linux VM (cloud-init) becomes a base, and each clone gets its own host name, user, password and static IP on first boot.
+- **Linux bases**: a prepared Linux VM (cloud-init) becomes a base, and each clone gets its own host name, user, password and static IP on first boot, then runs the commands you give it (`runcmd`).
 - **Switches & NAT**:
   - a **topology** view: each switch with its uplink (adapter, NAT, connection sharing, host, isolated) and its VMs with state, IP and VLAN;
   - External, Internal and Private switches with VLAN, and a type change in place with rollback;

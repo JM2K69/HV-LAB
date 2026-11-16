@@ -44,7 +44,8 @@ public class HyperVLiveLabTests
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "HV-LAB", "livetests");
 
     // A /24 no other test uses (the NAT test takes 172.31.254.0/28)
-    private const string Gateway = "172.31.253.1", WinIp = "172.31.253.10", LinuxIp = "172.31.253.11";
+    private const string Gateway = "172.31.253.1", WinIp = "172.31.253.10", LinuxIp = "172.31.253.11",
+                         LinuxRunCmdIp = "172.31.253.12";
 
     /// <summary>Windows setup from a base (specialize, OOBE) until the administrator can log on.</summary>
     private static readonly TimeSpan GuestReady = TimeSpan.FromMinutes(25);
@@ -202,8 +203,10 @@ public class HyperVLiveLabTests
             Password = $"Hv!{tag}-Lab9",
             Vms = [new LabVm { Name = $"HVLT-W-{tag}", Base = win.OsIdentifier, Ip = WinIp }],
         };
+        // Its first-boot command adds a second address: SSH answering there proves that runcmd ran
         if (linux is not null)
-            lab.Vms.Add(new LabVm { Name = $"HVLT-L-{tag}", Base = linux.OsIdentifier, Ip = LinuxIp, User = "hvlt" });
+            lab.Vms.Add(new LabVm { Name = $"HVLT-L-{tag}", Base = linux.OsIdentifier, Ip = LinuxIp, User = "hvlt",
+                                    Commands = [$"ip addr add {LinuxRunCmdIp}/24 dev eth0"] });
         var names = lab.Vms.Select(v => v.Name).ToList();
         var svc = new LabBlueprintService(Hv, Nat, Vhdx) { BaseFolder = () => BasesFolder, VmsFolder = () => Folder };
         var file = Path.Combine(Folder, $"hvlt-{tag}.txt");
@@ -246,14 +249,16 @@ public class HyperVLiveLabTests
             Assert.Equal(tag, await Hv.InvokeInGuestAsync(w.Id, creds.Account, creds.Password,
                 $@"Get-Content -LiteralPath 'C:\HVLT\hvlt-{tag}.txt'"));
 
-            // Linux: cloud-init gave the clone its static IP, and its SSH server answers there
+            // Linux: cloud-init gave the clone its static IP, and its SSH server answers there, then on the
+            // address its first-boot command added
             if (linux is not null)
-                await UntilAsync(async () =>
-                {
-                    using var tcp = new TcpClient();
-                    await tcp.ConnectAsync(LinuxIp, 22).WaitAsync(TimeSpan.FromSeconds(5));
-                    return true;
-                }, TimeSpan.FromMinutes(10));
+                foreach (var address in new[] { LinuxIp, LinuxRunCmdIp })
+                    await UntilAsync(async () =>
+                    {
+                        using var tcp = new TcpClient();
+                        await tcp.ConnectAsync(address, 22).WaitAsync(TimeSpan.FromSeconds(5));
+                        return true;
+                    }, TimeSpan.FromMinutes(10));
 
             // Lab checkpoint, as the VM list takes it: running VMs paused, one checkpoint each, resumed
             var cp = $"HVLT-CP-{tag}";

@@ -29,6 +29,8 @@ public sealed partial class LabVmRow : ObservableObject
     [ObservableProperty] private string user = "labadmin";
     /// <summary>Comma-separated, as typed; the blueprint keeps a clean list.</summary>
     [ObservableProperty] private string tags = "";
+    /// <summary>Linux: first-boot commands, one per line.</summary>
+    [ObservableProperty] private string commands = "";
 
     /// <summary>Linux base (cloud-init: a sudo user) or Windows (unattend: can join the domain).</summary>
     public bool IsLinux   => Base.StartsWith("Linux", StringComparison.OrdinalIgnoreCase);
@@ -42,6 +44,7 @@ public sealed partial class LabVmRow : ObservableObject
         Name = vm.Name, Base = vm.Base, MemoryMB = vm.MemoryMB, Cpu = vm.Cpu,
         Ip = vm.Ip ?? "", Dns = vm.Dns ?? "", Join = vm.Join, DomainController = vm.DomainController,
         User = vm.User ?? "labadmin", Tags = string.Join(", ", vm.Tags ?? []),
+        Commands = string.Join(Environment.NewLine, vm.Commands ?? []),
     };
 
     public LabVm ToVm() => new()
@@ -53,6 +56,7 @@ public sealed partial class LabVmRow : ObservableObject
         DomainController = IsWindows && DomainController,
         User = IsLinux && User.Trim().Length > 0 ? User.Trim() : null,
         Tags = VmNotes.ParseTags(Tags) is { Count: > 0 } list ? list.ToList() : null,
+        Commands = IsLinux && CloudInitGenerator.ParseCommands(Commands) is { Count: > 0 } run ? run.ToList() : null,
     };
 }
 

@@ -54,6 +54,7 @@ public sealed class LabBlueprint
             if (string.IsNullOrWhiteSpace(vm.Base)) return T("LAB_ErrBase", vm.Name);
             if (vm.Ip is { Length: > 0 } ip && InputValidator.ParseIpv4(ip) is null) return T("LAB_ErrIp", vm.Name);
             if (vm.Ip is { Length: > 0 } && Gateway is null) return T("LAB_ErrGateway", vm.Name);
+            if (InputValidator.CheckLinuxCommands(vm.Commands) is { } cmd) return $"{T(cmd)} ({vm.Name})";
         }
         if (Vms.Count(v => v.DomainController) > 1) return T("LAB_ErrTwoDc");
         if (DomainController is { } dc)
@@ -129,6 +130,8 @@ public sealed class LabVm
     public string? User { get; set; }
     /// <summary>Free tags written into the VM notes (the VM list filters and searches them).</summary>
     public List<string>? Tags { get; set; }
+    /// <summary>Linux: shell commands run once as root at the end of the first boot (cloud-init runcmd).</summary>
+    public List<string>? Commands { get; set; }
 }
 
 /// <summary>One line of a deployment plan: what exists, what will be created, what cannot be.</summary>
@@ -229,6 +232,7 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
             {
                 HostName = InputValidator.ToComputerName(vm.Name).ToLowerInvariant(), UserName = user, Password = lab.Password,
                 TimeZone = lab.TimeZone, Language = lab.Language, StaticIp = ip,
+                RunCommands = vm.Commands ?? [],
             });
             await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
                 VmsFolder(), null, b.SecureBoot, false, VmNotes.Build(DateTime.Now, user, lab.Password, vm.Ip, tags: vm.Tags),

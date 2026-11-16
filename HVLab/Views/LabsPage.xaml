@@ -231,7 +231,7 @@
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <Grid.RowDefinitions>
-                                                    <RowDefinition/><RowDefinition/><RowDefinition/>
+                                                    <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
                                                 </Grid.RowDefinitions>
 
                                                 <!-- Line 1: OS, name, base image, order and removal -->
@@ -296,6 +296,15 @@
                                                 <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
                                                          Header="{Binding [LABS_ColTags], Source={StaticResource Loc}}"
                                                          Text="{x:Bind Tags, Mode=TwoWay}" PlaceholderText="web, prod"/>
+
+                                                <!-- Line 4 (Linux): first-boot commands, cloud-init runcmd -->
+                                                <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4"
+                                                         Header="{Binding [CVM_LinuxCommands], Source={StaticResource Loc}}"
+                                                         ToolTipService.ToolTip="{Binding [CVM_LinuxCommandsTip], Source={StaticResource Loc}}"
+                                                         Text="{x:Bind Commands, Mode=TwoWay}" Visibility="{x:Bind IsLinux, Mode=OneWay}"
+                                                         AcceptsReturn="True" TextWrapping="NoWrap" Height="96"
+                                                         FontFamily="Consolas" FontSize="12"
+                                                         PlaceholderText="dnf -y install nginx&#x0a;systemctl enable --now nginx"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

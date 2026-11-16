@@ -63,6 +63,8 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
 
     [ObservableProperty] private string linuxUser    = "labadmin";
     [ObservableProperty] private string sshPublicKey = "";
+    /// <summary>Linux: first-boot commands, one per line (cloud-init runcmd).</summary>
+    [ObservableProperty] private string linuxCommands = "";
     [ObservableProperty, NotifyPropertyChangedFor(nameof(ShowStaticIpFields))] private bool useStaticIp;
     [ObservableProperty] private string ipAddress    = "";
     [ObservableProperty] private int    prefixLength = 24;
@@ -151,7 +153,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         nameof(UseAnswerFile), nameof(VmName), nameof(ComputerName), nameof(AdminPassword),
         nameof(AutoLogon), nameof(ProductKey), nameof(UiLanguage), nameof(TimeZone),
         nameof(BuildCbsCache), nameof(DisableWindowsUpdate),
-        nameof(LinuxUser), nameof(SshPublicKey), nameof(UseStaticIp), nameof(IpAddress),
+        nameof(LinuxUser), nameof(SshPublicKey), nameof(LinuxCommands), nameof(UseStaticIp), nameof(IpAddress),
         nameof(PrefixLength), nameof(Gateway), nameof(DnsServers),
         nameof(JoinDomainEnabled), nameof(DomainName), nameof(DomainUser), nameof(DomainPassword), nameof(DomainOu),
     ];
@@ -211,6 +213,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         {
             if (InputValidator.CheckLinuxUser(LinuxUser) is { } u)       return T(u);
             if (InputValidator.CheckSshPublicKey(SshPublicKey) is { } k) return T(k);
+            if (InputValidator.CheckLinuxCommands(CloudInitGenerator.ParseCommands(LinuxCommands)) is { } r) return T(r);
             return null;
         }
         if (InputValidator.CheckProductKey(ProductKey) is { } p) return T(p);
@@ -231,6 +234,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         UserName     = LinuxUser,
         Password     = AdminPassword,
         SshPublicKey = SshPublicKey,
+        RunCommands  = CloudInitGenerator.ParseCommands(LinuxCommands),
         TimeZone     = TimeZone,
         Language     = UiLanguage,
         StaticIp     = ip is null ? null
