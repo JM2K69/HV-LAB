@@ -27,21 +27,34 @@ public static class FolderSecurity
     ];
 
     /// <summary>
-    /// True when <paramref name="path"/> may be hardened: an existing folder, not a drive root nor a system folder
-    /// (HV-LAB never changes the permissions of a folder it does not own).
+    /// True when <paramref name="path"/> may be hardened: a folder of base images (it holds BASE_*.vhdx files, or
+    /// nothing yet), never a drive root, a folder inside Windows or Program Files, nor a profile or one of its known
+    /// folders. HV-LAB never changes the permissions of a folder it does not own: the path comes from the settings,
+    /// and a wrong one (C:\Windows\System32, Documents, the folder above the VMs) must be left alone.
     /// </summary>
     public static bool CanHarden(string path)
     {
         if (string.IsNullOrWhiteSpace(path) || !Directory.Exists(path)) return false;
         var full = Path.GetFullPath(path).TrimEnd('\\');
         if (full.Length <= 3) return false;
-        string[] system = [Environment.GetFolderPath(Environment.SpecialFolder.Windows),
-                           Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
-                           Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                           Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                           Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData)];
-        return !system.Any(s => s.Length > 0 && string.Equals(full, s.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase));
+        static string Known(Environment.SpecialFolder f) => Environment.GetFolderPath(f).TrimEnd('\\');
+        string[] system = [Known(Environment.SpecialFolder.Windows), Known(Environment.SpecialFolder.ProgramFiles),
+                           Known(Environment.SpecialFolder.ProgramFilesX86)];
+        if (system.Any(s => s.Length > 0 && (Same(full, s) || full.StartsWith(s + '\\', StringComparison.OrdinalIgnoreCase))))
+            return false;
+        var profile = Known(Environment.SpecialFolder.UserProfile);
+        string[] personal = [profile, Path.GetDirectoryName(profile) ?? "", Path.Combine(profile, "Downloads"),
+                             Known(Environment.SpecialFolder.CommonApplicationData), Known(Environment.SpecialFolder.Desktop),
+                             Known(Environment.SpecialFolder.MyDocuments), Known(Environment.SpecialFolder.MyPictures),
+                             Known(Environment.SpecialFolder.MyVideos), Known(Environment.SpecialFolder.MyMusic)];
+        if (personal.Any(s => s.Length > 0 && Same(full, s))) return false;
+        var entries = Directory.EnumerateFileSystemEntries(full).Select(Path.GetFileName).ToList();
+        return entries.Count == 0
+            || entries.Any(n => n!.StartsWith("BASE_", StringComparison.OrdinalIgnoreCase)
+                             && n.EndsWith(".vhdx", StringComparison.OrdinalIgnoreCase));
     }
+
+    private static bool Same(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Already hardened: inheritance off, and nobody but the admin accounts may write.</summary>
     public static bool IsHardened(string path)

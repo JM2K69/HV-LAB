@@ -53,8 +53,29 @@ public class SecurityTests
         Assert.False(FolderSecurity.CanHarden(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles)));
         Assert.False(FolderSecurity.CanHarden(@"Z:\does\not\exist"));
         var dir = Directory.CreateTempSubdirectory("hvlab-acl-").FullName;
-        try { Assert.True(FolderSecurity.CanHarden(dir)); }
+        try { Assert.True(FolderSecurity.CanHarden(dir)); }   // a new, empty folder
         finally { Directory.Delete(dir); }
+    }
+
+    [Fact]
+    public void A_wrong_base_images_folder_is_never_hardened()
+    {
+        // Inside Windows or Program Files, or a profile folder: whatever the settings say
+        Assert.False(FolderSecurity.CanHarden(Environment.GetFolderPath(Environment.SpecialFolder.System)));
+        Assert.False(FolderSecurity.CanHarden(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Common Files")));
+        Assert.False(FolderSecurity.CanHarden(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
+        Assert.False(FolderSecurity.CanHarden(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments)));
+
+        // A folder of other things (the parent of the VMs, say) is left alone; one of base images is hardened
+        var dir = Directory.CreateTempSubdirectory("hvlab-acl-").FullName;
+        try
+        {
+            File.WriteAllBytes(Path.Combine(dir, "notes.txt"), [1]);
+            Assert.False(FolderSecurity.CanHarden(dir));
+            File.WriteAllBytes(Path.Combine(dir, "BASE_WindowsServer2025Standard_10.0.26100.1_50.vhdx"), [1]);
+            Assert.True(FolderSecurity.CanHarden(dir));
+        }
+        finally { Directory.Delete(dir, recursive: true); }
     }
 
     [Fact]

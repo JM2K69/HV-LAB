@@ -86,9 +86,10 @@ Le workflow **Release** se charge ensuite de :
 
 - lancer les tests ;
 - publier la version autonome ;
+- signer une attestation de provenance du zip (`actions/attest-build-provenance`) ;
 - créer la release GitHub avec `HV-LAB-X.Y.Z-win-x64.zip` et son SHA256.
 
-Il refuse un tag qui ne correspond pas à `VersionPrefix`. Le job de build est en lecture seule ; seul le job de release peut écrire dans le dépôt.
+Il refuse un tag qui ne correspond pas à `VersionPrefix`. Le job de build ne peut écrire que l'attestation ; seul le job de release peut écrire dans le dépôt.
 
 Le zip de la release n'est pas signé : sur une autre machine, l'invite UAC affiche *Éditeur inconnu*. Sur votre machine, `Install.ps1 -SelfSign` signe l'exe installé (voir [Installation](install.md)).
 

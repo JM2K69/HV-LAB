@@ -1,8 +1,9 @@
 # Builds, tests and publishes HV-LAB Manager.
 #  - Push a tag "vX.Y.Z" (or "vX.Y.Z-beta.1")  -> GitHub release with the zip + SHA256
 #  - Run manually (Actions > Release > Run workflow) -> zip as a build artifact only (no release)
-# Hardening: actions pinned by commit SHA (Dependabot keeps them current), the build job is read-only and only
-# the release job may write; the tag name reaches scripts through the environment, never inside the script text.
+# Hardening: actions pinned by commit SHA (Dependabot keeps them current), the build job may not write to the
+# repository (only the release job may); the tag name reaches scripts through the environment, never inside the
+# script text. A tagged zip gets a signed build provenance attestation: gh attestation verify <zip> --repo JM2K69/HV-LAB
 name: Release
 
 on:
@@ -20,6 +21,10 @@ concurrency:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write       # sign the provenance attestation (Sigstore, through the workflow's OIDC identity)
+      attestations: write   # store it with the repository; no write access to the code or the releases
     env:
       DOTNET_NOLOGO: true
       DOTNET_CLI_TELEMETRY_OPTOUT: true
@@ -96,6 +101,12 @@ jobs:
           "zip=$zip"   >> $env:GITHUB_OUTPUT
           "name=$name" >> $env:GITHUB_OUTPUT
 
+      - name: Build provenance attestation
+        if: github.ref_type == 'tag'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: ${{ steps.package.outputs.zip }}
+
       - name: Upload build artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -138,6 +149,8 @@ jobs:
                L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans le menu Démarrer
                et une entrée dans Paramètres > Applications.
             3. Désinstallation : Paramètres > Applications, ou `& "C:\Program Files\HV-LAB\Install.ps1" -Uninstall`
+
+            Vérifier que le zip vient bien de ce dépôt : `gh attestation verify ${{ needs.build.outputs.name }}.zip --repo JM2K69/HV-LAB`
 
             Version autonome : rien d'autre à installer (.NET 10 et Windows App SDK sont inclus).
             Prérequis : Windows 10/11 Pro, Enterprise ou Education (ou Windows Server) avec Hyper-V.

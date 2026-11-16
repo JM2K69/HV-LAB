@@ -27,6 +27,12 @@ The application is copied to `C:\Program Files\HV-LAB`, and a shortcut is added 
     (Get-FileHash .\HV-LAB-X.Y.Z-win-x64.zip -Algorithm SHA256).Hash
     ```
 
+    In the releases after 2.0.0, the zip also has a signed provenance attestation: it proves that the workflow of this repository built it from the version's tag. With the [GitHub CLI](https://cli.github.com/):
+
+    ```powershell
+    gh attestation verify .\HV-LAB-X.Y.Z-win-x64.zip --repo JM2K69/HV-LAB
+    ```
+
 ### Installer options
 
 | Option | Effect |

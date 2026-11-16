@@ -86,9 +86,10 @@ The **Release** workflow then:
 
 - runs the tests;
 - publishes the self-contained folder;
+- signs a provenance attestation of the zip (`actions/attest-build-provenance`);
 - creates the GitHub release with `HV-LAB-X.Y.Z-win-x64.zip` and its SHA256.
 
-It refuses a tag that does not match `VersionPrefix`. The build job is read-only; only the release job may write to the repository.
+It refuses a tag that does not match `VersionPrefix`. The build job may only write the attestation; only the release job may write to the repository.
 
 The release zip is not signed: on another machine the UAC prompt shows *Unknown publisher*. On your own machine, `Install.ps1 -SelfSign` signs the installed exe (see [Installation](install.md)).
 
