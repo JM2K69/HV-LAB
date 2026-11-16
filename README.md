@@ -111,10 +111,10 @@ The version has a single source: `VersionPrefix` in `Directory.Build.props`. The
 1. Update `VersionPrefix`, then commit and push.
 2. Push a matching tag:
    ```powershell
-   git tag -a v2.1.0 -m "HV-LAB Manager 2.1.0"
-   git push origin v2.1.0
+   git tag -a v2.1.1 -m "HV-LAB Manager 2.1.1"
+   git push origin v2.1.1
    ```
-   A tag like `v2.1.0-beta.1` publishes a pre-release.
+   A tag like `v2.1.1-beta.1` publishes a pre-release.
 
 The [Release workflow](.github/workflows/release.yml) then:
 - runs the tests;
