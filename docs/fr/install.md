@@ -27,7 +27,7 @@ L'application est copiée dans `C:\Program Files\HV-LAB`, avec un raccourci dans
     (Get-FileHash .\HV-LAB-X.Y.Z-win-x64.zip -Algorithm SHA256).Hash
     ```
 
-    Dans les releases postérieures à la 2.0.0, le zip a aussi une attestation de provenance signée : elle prouve qu'il a été construit par le workflow de ce dépôt, à partir du tag de la version. Avec le [CLI GitHub](https://cli.github.com/) :
+    Depuis la version 2.1.0, le zip a aussi une attestation de provenance signée : elle prouve qu'il a été construit par le workflow de ce dépôt, à partir du tag de la version. Avec le [CLI GitHub](https://cli.github.com/) :
 
     ```powershell
     gh attestation verify .\HV-LAB-X.Y.Z-win-x64.zip --repo JM2K69/HV-LAB
