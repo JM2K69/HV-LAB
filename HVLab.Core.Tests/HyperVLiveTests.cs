@@ -5,13 +5,16 @@ using HVLab.Services.Wmi;
 
 namespace HVLab.Core.Tests;
 
-/// <summary>Runs only on a Hyper-V host, elevated, with HVLAB_LIVE=1 (never in CI).</summary>
+/// <summary>
+/// Runs only on a Hyper-V host, elevated, with HVLAB_LIVE=1 or 2 (never in CI). Level 2 also runs the tests that
+/// change the host, so it includes these read-only ones.
+/// </summary>
 public sealed class LiveFactAttribute : FactAttribute
 {
     public LiveFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("HVLAB_LIVE") != "1")
-            Skip = "Hyper-V live test: set HVLAB_LIVE=1 and run elevated";
+        if (Environment.GetEnvironmentVariable("HVLAB_LIVE") is not ("1" or "2"))
+            Skip = "Hyper-V live test: set HVLAB_LIVE=1 (or 2) and run elevated";
         else if (!new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator))
             Skip = "Hyper-V live test: needs elevation";
     }

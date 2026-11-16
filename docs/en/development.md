@@ -23,7 +23,7 @@ dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release   # -> HVLab\p
 |---|---|---|
 | Unit | `dotnet test HVLab.Core.Tests` | View models, generators, validation, and every generated PowerShell script parsed by Windows PowerShell 5.1 with hostile values (quotes, `$()`, backticks). |
 | Live, read-only | `HVLAB_LIVE=1`, elevated | WMI results compared with the Hyper-V cmdlets on the host. Nothing is changed. |
-| Live, changes the host | `HVLAB_LIVE=2`, elevated | Round trips on real objects: power, settings, checkpoints and delete by GUID, a refused namesake, a NAT outside a /24, a switch type change. It creates and deletes only its own `HVLT-*` VMs, switches and NAT, even when a test fails. |
+| Live, changes the host | `HVLAB_LIVE=2`, elevated | The read-only tests, plus round trips on real objects: power, settings, checkpoints and delete by GUID, a refused namesake, a NAT outside a /24, a switch type change. It creates and deletes only its own `HVLT-*` VMs, switches and NAT, even when a test fails. |
 
 ```powershell
 # In an elevated PowerShell

@@ -23,7 +23,7 @@ dotnet publish HVLab\HVLab.csproj -p:PublishProfile=HVLab-Release   # -> HVLab\p
 |---|---|---|
 | Unitaires | `dotnet test HVLab.Core.Tests` | View models, générateurs, validation, et chaque script PowerShell généré, passé au parseur de Windows PowerShell 5.1 avec des valeurs hostiles (apostrophes, `$()`, accents graves). |
 | Live, lecture seule | `HVLAB_LIVE=1`, en admin | Résultats WMI comparés aux cmdlets Hyper-V sur l'hôte. Rien n'est modifié. |
-| Live, modifie l'hôte | `HVLAB_LIVE=2`, en admin | Allers-retours sur de vrais objets : alimentation, paramètres, points de contrôle et suppression par GUID, homonyme refusé, NAT hors /24, changement de type de commutateur. Il ne crée et ne supprime que ses propres VM, commutateurs et NAT `HVLT-*`, même si un test échoue. |
+| Live, modifie l'hôte | `HVLAB_LIVE=2`, en admin | Les tests en lecture seule, plus des allers-retours sur de vrais objets : alimentation, paramètres, points de contrôle et suppression par GUID, homonyme refusé, NAT hors /24, changement de type de commutateur. Il ne crée et ne supprime que ses propres VM, commutateurs et NAT `HVLT-*`, même si un test échoue. |
 
 ```powershell
 # Dans un PowerShell administrateur
