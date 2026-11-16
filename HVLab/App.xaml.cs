@@ -20,6 +20,8 @@ public partial class App : Application
 
     public App()
     {
+        // Settings and logs: admins-only folder, checked before anything is read or written there
+        AppData.Secure();
         CrashLogger.RegisterGlobalHandlers();
         UnhandledException += (_, e) =>
         {

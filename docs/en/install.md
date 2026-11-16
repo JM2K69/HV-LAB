@@ -69,7 +69,7 @@ Download the new release and run its `Install.ps1` in the same way:
 2. it asks the running application to close, and stops it if it is still open after 10 seconds;
 3. it swaps the two folders.
 
-If the copy fails, the installed version is left intact. Your settings are kept, because they live in `%LocalAppData%\HV-LAB`.
+If the copy fails, the installed version is left intact. Your settings are kept, because they live in `%ProgramData%\HV-LAB`.
 
 ## Uninstall
 
@@ -79,4 +79,4 @@ Uninstall HV-LAB from **Settings > Apps**, like any application, or run:
 & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
 ```
 
-The settings and logs in `%LocalAppData%\HV-LAB` are kept, and so are your VMs and images. Hyper-V objects and VHDX files are never deleted by the uninstaller.
+The settings and logs in `%ProgramData%\HV-LAB` are kept, and so are your VMs and images. Hyper-V objects and VHDX files are never deleted by the uninstaller.

@@ -132,6 +132,37 @@ public class HyperVLiveChangeTests
     }
 
     [LiveChangeFact]
+    public void A_data_folder_prepared_by_someone_else_is_hardened_and_cleaned()
+    {
+        var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Unique("HVLT-DATA"));
+        var target = Directory.CreateTempSubdirectory("hvlt-target-").FullName;
+        try
+        {
+            // As a standard user could leave it: ProgramData's inherited permissions, a settings file, logs as a link
+            Directory.CreateDirectory(Path.Combine(folder, "settings"));
+            File.WriteAllText(Path.Combine(folder, "settings", "planted.json"), "{}");
+            File.WriteAllText(Path.Combine(target, "keep.txt"), "x");
+            Directory.CreateSymbolicLink(Path.Combine(folder, "logs"), target);
+
+            AppData.Secure(folder);
+            Assert.True(FolderSecurity.IsHardened(folder));
+            Assert.False(Directory.Exists(Path.Combine(folder, "settings")));
+            Assert.False(Directory.Exists(Path.Combine(folder, "logs")));
+            Assert.True(File.Exists(Path.Combine(target, "keep.txt")));          // the link was removed, its target never entered
+
+            // Once hardened, it is trusted: what the app wrote stays
+            Directory.CreateDirectory(Path.Combine(folder, "logs"));
+            AppData.Secure(folder);
+            Assert.True(Directory.Exists(Path.Combine(folder, "logs")));
+        }
+        finally
+        {
+            if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true);
+            Directory.Delete(target, recursive: true);
+        }
+    }
+
+    [LiveChangeFact]
     public async Task A_switch_changes_type_and_back()
     {
         var sw = Unique("HVLT-TYPE");

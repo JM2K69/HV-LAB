@@ -69,7 +69,7 @@ Téléchargez la nouvelle release et lancez son `Install.ps1` de la même façon
 2. il demande à l'application ouverte de se fermer, et l'arrête si elle l'est encore au bout de 10 secondes ;
 3. il échange les deux dossiers.
 
-Si la copie échoue, la version installée reste intacte. Vos paramètres sont conservés, car ils sont dans `%LocalAppData%\HV-LAB`.
+Si la copie échoue, la version installée reste intacte. Vos paramètres sont conservés, car ils sont dans `%ProgramData%\HV-LAB`.
 
 ## Désinstaller
 
@@ -79,4 +79,4 @@ Désinstallez HV-LAB depuis **Paramètres > Applications**, comme toute applicat
 & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
 ```
 
-Les paramètres et journaux de `%LocalAppData%\HV-LAB` sont conservés, ainsi que vos VM et vos images. Le désinstalleur ne supprime jamais d'objet Hyper-V ni de fichier VHDX.
+Les paramètres et journaux de `%ProgramData%\HV-LAB` sont conservés, ainsi que vos VM et vos images. Le désinstalleur ne supprime jamais d'objet Hyper-V ni de fichier VHDX.

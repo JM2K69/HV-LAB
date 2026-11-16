@@ -55,13 +55,16 @@ public class HyperVLiveLabTests
         get
         {
             if (Environment.GetEnvironmentVariable("HVLAB_LIVE_BASES") is { Length: > 0 } folder) return folder;
-            var file = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HV-LAB", "settings.json");
-            try
+            foreach (var file in new[] { AppData.SettingsFile, AppData.LegacySettingsFile })
             {
-                using var json = JsonDocument.Parse(File.ReadAllText(file));
-                return json.RootElement.GetProperty("BaseImagesFolder").GetString() ?? "";
+                try
+                {
+                    using var json = JsonDocument.Parse(File.ReadAllText(file));
+                    return json.RootElement.GetProperty("BaseImagesFolder").GetString() ?? "";
+                }
+                catch (Exception) { /* next one */ }
             }
-            catch (Exception) { return ""; }
+            return "";
         }
     }
 

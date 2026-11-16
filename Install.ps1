@@ -215,7 +215,7 @@ if ($Uninstall) {
     Remove-SigningCertificate
     if (Test-Path $UninstallKey) { Remove-Item $UninstallKey -Recurse -Force; Write-OK 'Entrée « Applications installées » supprimée.' }
     Write-Host ''
-    Write-Host '  Les paramètres utilisateur (%LocalAppData%\HV-LAB) sont conservés.' -ForegroundColor Gray
+    Write-Host '  Les paramètres utilisateur (%ProgramData%\HV-LAB) sont conservés.' -ForegroundColor Gray
     exit 0
 }
 

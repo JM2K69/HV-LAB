@@ -58,6 +58,38 @@ public class SecurityTests
     }
 
     [Fact]
+    public void Settings_and_logs_live_in_the_admins_only_data_folder()
+    {
+        var data = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "HV-LAB");
+        Assert.Equal(Path.Combine(data, "logs"), CrashLogger.LogFolder);
+        Assert.Equal(Path.Combine(data, "settings"), Path.GetDirectoryName(AppData.SettingsFile));
+        Assert.Equal(System.Security.Principal.WindowsIdentity.GetCurrent().User!.Value + ".json", Path.GetFileName(AppData.SettingsFile));
+
+        // Users only read there, and the owner of a file cannot rewrite its permissions
+        var rules = FolderSecurity.DataRules;
+        Assert.All(rules.Where(r => r.Account.Value is "S-1-5-11" or "S-1-3-4"),
+                   r => Assert.Equal(System.Security.AccessControl.FileSystemRights.ReadAndExecute, r.Rights));
+        Assert.Contains(rules, r => r.Account.Value == "S-1-3-4");
+    }
+
+    [Fact]
+    public void The_former_settings_file_is_read_once_for_the_move()
+    {
+        var dir = Directory.CreateTempSubdirectory("hvlab-legacy-").FullName;
+        try
+        {
+            var file = Path.Combine(dir, "settings.json");
+            Assert.Null(AppSettings.ReadFile(file));                                  // missing
+            File.WriteAllText(file, """{ "BaseImagesFolder": "D:\\Bases", "Language": "en" }""");
+            var moved = AppSettings.ReadFile(file);
+            Assert.Equal((@"D:\Bases", "en"), (moved!.BaseImagesFolder, moved.Language));
+            File.WriteAllText(file, "{ not json");
+            Assert.Null(AppSettings.ReadFile(file));                                  // unreadable: defaults
+        }
+        finally { Directory.Delete(dir, recursive: true); }
+    }
+
+    [Fact]
     public void A_wrong_base_images_folder_is_never_hardened()
     {
         // Inside Windows or Program Files, or a profile folder: whatever the settings say

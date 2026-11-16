@@ -444,7 +444,7 @@ public partial class BaseVhdxViewModel : PageViewModelBase
             Status      = cancelled ? T("Op_Cancelled") : string.Empty;
             if (!cancelled)
             {
-                // Persistent red banner + full PowerShell output in %LocalAppData%\HV-LAB\logs for diagnosis
+                // Persistent red banner + full PowerShell output in %ProgramData%\HV-LAB\logs for diagnosis
                 CrashLogger.Log($"Base image build failed ({vhdxPath})",
                                 ex is PowerShellException pse ? new Exception($"{pse.Message}\n{pse.Details}", ex) : ex);
                 ErrorMessage = imageApplied

@@ -9,7 +9,9 @@
 | Mode session avancée (hôte Hyper-V) | Réglage de l'hôte | Autorise `vmconnect` en session avancée : presse-papiers, son, lecteurs, résolution libre. Lu à l'ouverture de la page, appliqué à l'hôte avec `Set-VMHost -EnableEnhancedSessionMode`. Il n'est pas enregistré dans `settings.json`. |
 | Protéger le mot de passe dans les notes (DPAPI) | Désactivé | Garde chiffré le mot de passe des nouvelles VM dans leurs notes. Voir [Sécurité](#securite). |
 
-Les paramètres sont enregistrés dans `%LocalAppData%\HV-LAB\settings.json`. Les journaux de l'application sont dans `%LocalAppData%\HV-LAB\logs`.
+Les paramètres sont enregistrés dans `%ProgramData%\HV-LAB\settings`, un fichier par compte Windows. Les journaux de l'application sont dans `%ProgramData%\HV-LAB\logs`. Seuls les administrateurs peuvent écrire dans ce dossier : un programme lancé sans élévation ne peut pas changer les dossiers où travaille HV-LAB, qui tourne en administrateur.
+
+Les versions 2.0 et antérieures les gardaient dans `%LocalAppData%\HV-LAB` : au premier démarrage, HV-LAB reprend ces paramètres.
 
 !!! tip "Stockage rapide"
     Placez les deux dossiers sur un SSD : l'image de base est lue par toutes les VM qui en dépendent.

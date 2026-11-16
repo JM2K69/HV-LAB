@@ -3,18 +3,15 @@ using System.Text.Json;
 namespace HVLab.Services;
 
 /// <summary>
-/// Persistent application settings stored at %LocalAppData%\HV-LAB\settings.json.
+/// Persistent application settings stored at %ProgramData%\HV-LAB\settings\&lt;account SID&gt;.json (<see cref="AppData"/>).
 /// Access via <see cref="Current"/>; call <see cref="SaveAsync"/> after any change.
 /// </summary>
 public sealed class AppSettings
 {
     // ─── File location ────────────────────────────────────────────────────────
 
-    private static readonly string SettingsDir =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HV-LAB");
-
-    private static readonly string SettingsFile =
-        Path.Combine(SettingsDir, "settings.json");
+    private static string SettingsFile => AppData.SettingsFile;
+    private static string SettingsDir  => Path.GetDirectoryName(SettingsFile)!;
 
     // ─── Singleton ────────────────────────────────────────────────────────────
 
@@ -61,41 +58,25 @@ public sealed class AppSettings
     /// </summary>
     public static void Load()
     {
-        if (!File.Exists(SettingsFile))
+        if (File.Exists(SettingsFile))
         {
-            _current = new AppSettings();
-            _current.Save();
+            _current = ReadFile(SettingsFile) ?? new AppSettings();
             return;
         }
-        try
-        {
-            var json = File.ReadAllText(SettingsFile);
-            _current = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
-        }
-        catch
-        {
-            _current = new AppSettings();
-        }
+        // First start of this version: the settings of the former, user-writable folder, moved once
+        _current = ReadFile(AppData.LegacySettingsFile) ?? new AppSettings();
+        try { _current.Save(); }
+        catch (Exception) { /* not elevated: kept in memory for this session */ }
     }
 
     /// <summary>Load settings from disk (async variant for non-UI contexts).</summary>
-    public static async Task LoadAsync()
+    public static Task LoadAsync() => Task.Run(Load);
+
+    /// <summary>The settings of <paramref name="path"/>, or null when the file is missing or unreadable.</summary>
+    internal static AppSettings? ReadFile(string path)
     {
-        if (!File.Exists(SettingsFile))
-        {
-            _current = new AppSettings();
-            await _current.SaveAsync().ConfigureAwait(false);
-            return;
-        }
-        try
-        {
-            var json = await File.ReadAllTextAsync(SettingsFile).ConfigureAwait(false);
-            _current = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
-        }
-        catch
-        {
-            _current = new AppSettings();
-        }
+        try { return File.Exists(path) ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path)) : null; }
+        catch (Exception) { return null; }
     }
 
     /// <summary>Persist current settings to disk (synchronous).</summary>

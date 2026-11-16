@@ -64,7 +64,8 @@ Security in a lab:
 - a copied password is kept out of the clipboard history and cleared after 30 s;
 - the cloud-init seed of a Linux clone holds a SHA-512 hash of the password, not the password;
 - SSH and Remote Desktop start as the signed-in user, not as administrator;
-- the base images folder is writable by administrators only.
+- the base images folder is writable by administrators only;
+- so are the settings and logs, in `%ProgramData%\HV-LAB`: a program started without elevation cannot change what the elevated app reads.
 
 ---
 
@@ -83,7 +84,7 @@ Security in a lab:
    ```powershell
    & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
    ```
-   Settings and logs in `%LocalAppData%\HV-LAB` are kept.
+   Settings and logs in `%ProgramData%\HV-LAB` are kept.
 
 ---
 
@@ -164,7 +165,7 @@ HV-LAB/
 |---|---|
 | Red banner "Hyper-V unavailable" | Enable Hyper-V (`Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All`, or `.\Install.ps1 -EnableHyperV`), then restart. If the `vmms` service is stopped, use the banner's **Start service** button. |
 | Error banner on a page | The message is the error returned by PowerShell or Hyper-V (e.g. switch name already used, file locked by a running VM). |
-| The app does not start | Look in `%LocalAppData%\HV-LAB\logs` and in the Windows *Application* event log. Reinstall with `Install.ps1`. |
+| The app does not start | Look in `%ProgramData%\HV-LAB\logs` and in the Windows *Application* event log. Reinstall with `Install.ps1`. |
 | "Access denied" | The app must run as administrator (it requests elevation at startup). |
 
 ---

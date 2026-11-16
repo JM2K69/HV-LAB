@@ -829,7 +829,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["Dash_Cpu"]         = "Processeurs : {0} vCPU démarrés pour {1} processeurs logiques",
         ["Dash_Drive"]       = "{0} {1} Go libres sur {2} Go",
         ["SET_Persistence"]  = "Persistance",
-        ["SET_PersistDesc"]  = "Paramètres sauvegardés dans %LocalAppData%\\HV-LAB\\settings.json",
+        ["SET_PersistDesc"]  = "Paramètres sauvegardés dans %ProgramData%\\HV-LAB\\settings (modifiables par les administrateurs seulement)",
         ["SET_SavedOk"]      = "✓ Paramètres enregistrés.",
         ["SET_SavedError"]   = "✗ Erreur",
     };
@@ -1596,7 +1596,7 @@ public sealed class LocalizationService : INotifyPropertyChanged
         ["Dash_Cpu"]         = "Processors: {0} running vCPUs for {1} logical processors",
         ["Dash_Drive"]       = "{0} {1} GB free of {2} GB",
         ["SET_Persistence"]  = "Persistence",
-        ["SET_PersistDesc"]  = "Settings saved in %LocalAppData%\\HV-LAB\\settings.json",
+        ["SET_PersistDesc"]  = "Settings saved in %ProgramData%\\HV-LAB\\settings (administrators only may change them)",
         ["SET_SavedOk"]      = "✓ Settings saved.",
         ["SET_SavedError"]   = "✗ Error",
     };

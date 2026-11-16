@@ -1,12 +1,11 @@
 namespace HVLab.Services;
 
 /// <summary>
-/// Minimal file logger for unhandled exceptions: %LocalAppData%\HV-LAB\logs\hvlab-yyyyMMdd.log.
+/// Minimal file logger for unhandled exceptions: %ProgramData%\HV-LAB\logs\hvlab-yyyyMMdd.log (<see cref="AppData"/>).
 /// </summary>
 public static class CrashLogger
 {
-    public static string LogFolder { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "HV-LAB", "logs");
+    public static string LogFolder => AppData.LogFolder;
 
     private static readonly object Gate = new();
 

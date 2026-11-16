@@ -64,7 +64,8 @@ Sécurité dans un labo :
 - un mot de passe copié est exclu de l'historique du presse-papiers et effacé au bout de 30 s ;
 - le disque cloud-init d'un clone Linux contient une empreinte SHA-512 du mot de passe, pas le mot de passe ;
 - SSH et Bureau à distance démarrent avec l'utilisateur connecté, pas en administrateur ;
-- seuls les administrateurs peuvent écrire dans le dossier des images de base.
+- seuls les administrateurs peuvent écrire dans le dossier des images de base ;
+- de même pour les paramètres et journaux, dans `%ProgramData%\HV-LAB` : un programme lancé sans élévation ne peut pas changer ce que lit l'application élevée.
 
 ---
 
@@ -83,7 +84,7 @@ Sécurité dans un labo :
    ```powershell
    & "C:\Program Files\HV-LAB\Install.ps1" -Uninstall
    ```
-   Les paramètres et journaux de `%LocalAppData%\HV-LAB` sont conservés.
+   Les paramètres et journaux de `%ProgramData%\HV-LAB` sont conservés.
 
 ---
 
@@ -164,7 +165,7 @@ HV-LAB/
 |---|---|
 | Bandeau rouge « Hyper-V indisponible » | Activez Hyper-V (`Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All`, ou `.\Install.ps1 -EnableHyperV`), puis redémarrez. Si le service `vmms` est arrêté, utilisez le bouton **Démarrer le service** du bandeau. |
 | Bandeau d'erreur sur une page | Le message est l'erreur renvoyée par PowerShell ou Hyper-V (ex. : nom de commutateur déjà utilisé, fichier verrouillé par une VM démarrée). |
-| L'application ne démarre pas | Consultez `%LocalAppData%\HV-LAB\logs` et le journal Windows *Application*. Réinstallez avec `Install.ps1`. |
+| L'application ne démarre pas | Consultez `%ProgramData%\HV-LAB\logs` et le journal Windows *Application*. Réinstallez avec `Install.ps1`. |
 | « Accès refusé » | L'application doit tourner en administrateur (elle demande l'élévation au démarrage). |
 
 ---
