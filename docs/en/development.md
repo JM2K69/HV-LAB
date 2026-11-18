@@ -76,11 +76,11 @@ The version has a single source: `VersionPrefix` in `Directory.Build.props`.
 2. Push a matching tag:
 
     ```powershell
-    git tag -a v2.1.1 -m "HV-LAB Manager 2.1.1"
-    git push origin v2.1.1
+    git tag -a v2.2.0 -m "HV-LAB Manager 2.2.0"
+    git push origin v2.2.0
     ```
 
-    A tag like `v2.1.1-beta.1` publishes a pre-release.
+    A tag like `v2.2.0-beta.1` publishes a pre-release.
 
 The **Release** workflow then:
 
