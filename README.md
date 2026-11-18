@@ -49,7 +49,8 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - a **topology** view: each switch with its uplink (adapter, NAT, connection sharing, host, isolated) and its VMs with state, IP and VLAN;
   - External, Internal and Private switches with VLAN, and a type change in place with rollback;
   - NAT networks with an IPv4 gateway, and NAT with DHCP through Windows connection sharing;
-  - per-VM VLAN access or trunk, DHCP guard, router guard and MAC spoofing.
+  - per-VM VLAN access or trunk, DHCP guard, router guard and MAC spoofing;
+  - host network cards on a switch, one per VLAN (`Add-VMNetworkAdapter -ManagementOS`), with their VLAN, IPv4 and DHCP; the switch list shows every host VLAN.
 - **Fluent UI**:
   - Mica backdrop, light/dark theme and an adaptive navigation pane;
   - the window position and size are remembered;

@@ -61,6 +61,23 @@ The ✎ button of a switch changes its type in place, without deleting it: the V
 
 If Hyper-V refuses the change, HV-LAB puts the previous type back, and the static IPv4 addresses of the host adapter (where a NAT gateway lives) are restored.
 
+## Host network cards (VLAN)
+
+An External or Internal switch gives the host a network card, `vEthernet (switch name)`. The host can have several on the same switch, one per VLAN: it then gets one Windows interface per VLAN, without a VLAN driver for the physical card. The **Host network cards (VLAN)** section, under the switch list, manages them:
+
+- the list shows each card, its switch, its VLAN (or *untagged*), its IPv4 address and its addressing (DHCP or off);
+- **Add the card** creates one on the chosen switch, with a name (`LAN-VLAN100`), a VLAN (0: untagged) and, optionally, DHCP turned off;
+- on each row, ✎ changes the VLAN, the second button turns DHCP on or off, the bin deletes the card.
+
+The **VLAN** column of the switch list shows the VLANs of all their host cards, for example `—, 100, 200`, and the Topology view shows them too.
+
+To build a host with "one interface per VLAN" on an External switch:
+
+1. create the External switch on the wired card; its host card `vEthernet (name)` stays the untagged network;
+2. add one card per VLAN: `LAN-VLAN100` on VLAN 100, `LAN-VLAN200` on VLAN 200…
+
+This is the same as `Add-VMNetworkAdapter -ManagementOS … | Set-VMNetworkAdapterVlan -Access -VlanId …`. The port of the physical switch must be a trunk; a Wi-Fi card strips VLAN tags.
+
 ## NAT networks
 
 A NAT network gives the VMs of an **internal** switch access to the Internet through the host. Create the internal switch first.

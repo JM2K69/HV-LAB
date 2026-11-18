@@ -61,6 +61,23 @@ Le bouton ✎ d'un commutateur change son type sur place, sans le supprimer : le
 
 Si Hyper-V refuse le changement, HV-LAB remet le type précédent et restaure les adresses IPv4 fixes de la carte de l'hôte, celle qui porte la passerelle NAT.
 
+## Cartes réseau de l'hôte (VLAN)
+
+Un commutateur externe ou interne donne à l'hôte une carte réseau, `vEthernet (nom du commutateur)`. L'hôte peut en avoir plusieurs sur le même commutateur, une par VLAN : il obtient ainsi une interface Windows par VLAN, sans pilote VLAN de la carte physique. La section **Cartes réseau de l'hôte (VLAN)**, sous la liste des commutateurs, les gère :
+
+- la liste montre chaque carte, son commutateur, son VLAN (ou *sans étiquette*), son adresse IPv4 et son adressage (DHCP ou désactivé) ;
+- **Ajouter la carte** en crée une sur le commutateur choisi, avec un nom (`LAN-VLAN100`), un VLAN (0 : sans étiquette) et, en option, le DHCP désactivé ;
+- sur chaque ligne, ✎ change le VLAN, le deuxième bouton active ou désactive le DHCP, la corbeille supprime la carte.
+
+La colonne **VLAN** de la liste des commutateurs affiche les VLAN de toutes leurs cartes hôte, par exemple `—, 100, 200`, et la vue Topologie les reprend.
+
+Pour reproduire un hôte « une interface par VLAN » sur un commutateur externe :
+
+1. créez le commutateur externe sur la carte filaire ; sa carte hôte `vEthernet (nom)` reste le réseau sans étiquette ;
+2. ajoutez une carte par VLAN : `LAN-VLAN100` sur le VLAN 100, `LAN-VLAN200` sur le VLAN 200…
+
+C'est l'équivalent de `Add-VMNetworkAdapter -ManagementOS … | Set-VMNetworkAdapterVlan -Access -VlanId …`. Le port du switch physique doit être en trunk ; une carte Wi-Fi retire les étiquettes VLAN.
+
 ## Réseaux NAT
 
 Un réseau NAT donne accès à Internet, à travers l'hôte, aux VM d'un commutateur **interne**. Créez d'abord le commutateur interne.

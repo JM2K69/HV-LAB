@@ -12,6 +12,11 @@ public class VirtualSwitch
     public string NetAdapterName    { get; set; } = string.Empty;
     public bool   AllowManagementOS { get; set; }
     public int    VlanId            { get; set; }   // 0 = aucun VLAN
+    /// <summary>Access VLAN of each host card plugged into the switch (0 = untagged), lowest first.</summary>
+    public IReadOnlyList<int> HostVlans { get; set; } = [];
 
-    public string VlanDisplay => VlanId > 0 ? VlanId.ToString() : "—";
+    /// <summary>"100", or "—, 100, 200" when the host has several cards on the switch (one per VLAN).</summary>
+    public string VlanDisplay => HostVlans.Count > 1
+        ? string.Join(", ", HostVlans.Select(v => v > 0 ? v.ToString() : "—"))
+        : VlanId > 0 ? VlanId.ToString() : "—";
 }

@@ -480,10 +480,13 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
             var own  = ports.Where(p => WmiMap.OwnerId(S(p, "InstanceID")) == guid).ToList();
             var external = own.Select(p => Strings(p, "HostResource").FirstOrDefault() ?? "")
                               .FirstOrDefault(h => h.Contains("Msvm_ExternalEthernetPort") || h.Contains("Msvm_WiFiPort"));
-            var hostPort = own.FirstOrDefault(p => Strings(p, "HostResource").Any(h => h.Contains("Msvm_ComputerSystem")));
+            // Host cards (vEthernet): one by default, several when the host has one per VLAN
+            var hostPorts = own.Where(p => Strings(p, "HostResource").Any(h => h.Contains("Msvm_ComputerSystem"))).ToList();
+            var hostPort = hostPorts.FirstOrDefault();
             var description = WmiMap.PathKey(external, "DeviceID") is { } dev ? externalNames.GetValueOrDefault(dev, "") : "";
-            var hostVlan = hostPort is null ? null
-                : vlans.FirstOrDefault(v => S(v, "InstanceID").StartsWith(S(hostPort, "InstanceID"), StringComparison.OrdinalIgnoreCase));
+            int AccessVlan(Dictionary<string, object?> port)
+                => vlans.FirstOrDefault(v => S(v, "InstanceID").StartsWith(S(port, "InstanceID"), StringComparison.OrdinalIgnoreCase))
+                   is { } vlan && L(vlan, "OperationMode") == 1 ? (int)L(vlan, "AccessVlanId") : 0;
             result.Add(new VirtualSwitch
             {
                 Id                = guid,
@@ -492,7 +495,8 @@ public sealed class HyperVWmi : IHyperVWmi, IDisposable
                 Notes             = notes.GetValueOrDefault(guid, ""),
                 NetAdapterName    = adapterNames.GetValueOrDefault(description, description),
                 AllowManagementOS = hostPort is not null,
-                VlanId            = hostVlan is not null && L(hostVlan, "OperationMode") == 1 ? (int)L(hostVlan, "AccessVlanId") : 0,
+                VlanId            = hostPort is null ? 0 : AccessVlan(hostPort),
+                HostVlans         = hostPorts.Select(AccessVlan).Order().ToList(),
             });
         }
         return result.OrderBy(s => s.Name, StringComparer.CurrentCultureIgnoreCase).ToList();

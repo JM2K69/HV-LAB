@@ -196,6 +196,7 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Column headers -->
@@ -206,7 +207,7 @@
                             <ColumnDefinition Width="200"/>
                             <ColumnDefinition Width="100"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="70"/>
+                            <ColumnDefinition Width="110"/>
                             <ColumnDefinition Width="90"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="{Binding [SW_ColName], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
@@ -236,7 +237,7 @@
                                         <ColumnDefinition Width="200"/>
                                         <ColumnDefinition Width="100"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="70"/>
+                                        <ColumnDefinition Width="110"/>
                                         <ColumnDefinition Width="90"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{x:Bind Name}"
@@ -248,6 +249,7 @@
                                                VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Grid.Column="3" Text="{x:Bind VlanDisplay}"
                                                VerticalAlignment="Center" FontFamily="Consolas" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" ToolTipService.ToolTip="{x:Bind VlanDisplay}"
                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
                                     <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="4">
                                         <Button Click="ChangeType_Click" Tag="{x:Bind}"
@@ -362,6 +364,114 @@
                             <Button Content="{Binding [SW_BtnCreate], Source={StaticResource Loc}}"
                                     Command="{x:Bind ViewModel.CreateSwitchCommand}"
                                     Style="{StaticResource AccentButtonStyle}"/>
+                        </StackPanel>
+                    </Expander>
+
+                    <!-- Host network cards: one per VLAN on a switch (read through PowerShell when opened) -->
+                    <Expander Grid.Row="3" Header="{Binding [HOSTNIC_Title], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch" Expanding="HostCards_Expanding">
+                        <StackPanel Spacing="10" Padding="0,8,0,4">
+                            <TextBlock Text="{Binding [HOSTNIC_Info], Source={StaticResource Loc}}" TextWrapping="Wrap"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+
+                            <Grid Background="{ThemeResource SubtleFillColorSecondaryBrush}" Padding="12,6" CornerRadius="6" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="110"/>
+                                    <ColumnDefinition Width="112"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding [HOSTNIC_ColName], Source={StaticResource Loc}}"   FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="1" Text="{Binding [HOSTNIC_ColSwitch], Source={StaticResource Loc}}" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="2" Text="{Binding [HOSTNIC_ColVlan], Source={StaticResource Loc}}"   FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="3" Text="{Binding [HOSTNIC_ColIp], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="4" Text="{Binding [HOSTNIC_ColDhcp], Source={StaticResource Loc}}"   FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="5" Text="{Binding [VM_ColActions], Source={StaticResource Loc}}"     FontWeight="SemiBold"/>
+                            </Grid>
+
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.HostAdapters}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:HostAdapter">
+                                        <Grid Padding="12,4" ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180"/>
+                                                <ColumnDefinition Width="150"/>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="112"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                           ToolTipService.ToolTip="{x:Bind Name}"/>
+                                                <TextBlock Text="{x:Bind Alias}" Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind SwitchName}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind VlanDisplay}" VerticalAlignment="Center"
+                                                       FontFamily="Consolas" FontSize="12" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind IpDisplay}" VerticalAlignment="Center"
+                                                       FontFamily="Consolas" FontSize="12" IsTextSelectionEnabled="True"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind DhcpDisplay}" VerticalAlignment="Center"/>
+                                            <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                                <Button Command="{Binding ViewModel.ChangeHostAdapterVlanCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                                        Width="32" Height="32" Padding="0"
+                                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('HOSTNIC_TipVlan', Name)}"
+                                                        ToolTipService.ToolTip="{Binding [HOSTNIC_TipVlan], Source={StaticResource Loc}}">
+                                                    <FontIcon Glyph="&#xE70F;" FontSize="12"/>
+                                                </Button>
+                                                <Button Command="{Binding ViewModel.ToggleHostAdapterDhcpCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                                        Width="32" Height="32" Padding="0"
+                                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('HOSTNIC_TipDhcp', Name)}"
+                                                        ToolTipService.ToolTip="{Binding [HOSTNIC_TipDhcp], Source={StaticResource Loc}}">
+                                                    <FontIcon Glyph="&#xE8AB;" FontSize="12"/>
+                                                </Button>
+                                                <Button Command="{Binding ViewModel.RemoveHostAdapterCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                                        Width="32" Height="32" Padding="0"
+                                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', Name)}"
+                                                        ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                                                </Button>
+                                            </StackPanel>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <TextBlock Text="{Binding [HOSTNIC_Empty], Source={StaticResource Loc}}" Margin="12,0"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Visibility="{x:Bind ViewModel.HasNoHostAdapters, Mode=OneWay,
+                                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                            <!-- Add a card: the gist "Add-VMNetworkAdapter -ManagementOS … | Set-VMNetworkAdapterVlan -Access" -->
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="200"/>
+                                    <ColumnDefinition Width="170"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Header="{Binding [HOSTNIC_Name], Source={StaticResource Loc}}"
+                                         AutomationProperties.Name="{Binding [HOSTNIC_Name], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.NewHostAdapterName, Mode=TwoWay}" PlaceholderText="LAN-VLAN100"/>
+                                <ComboBox Grid.Column="1" Header="{Binding [HOSTNIC_Switch], Source={StaticResource Loc}}" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="{Binding [HOSTNIC_Switch], Source={StaticResource Loc}}"
+                                          ItemsSource="{x:Bind ViewModel.HostSwitchNames}"
+                                          SelectedItem="{x:Bind ViewModel.NewHostAdapterSwitch, Mode=TwoWay}"/>
+                                <NumberBox Grid.Column="2" Header="{Binding [HOSTNIC_Vlan], Source={StaticResource Loc}}"
+                                           AutomationProperties.Name="{Binding [HOSTNIC_Vlan], Source={StaticResource Loc}}"
+                                           Value="{x:Bind ViewModel.NewHostAdapterVlan, Mode=TwoWay}" Minimum="0" Maximum="4094"
+                                           SpinButtonPlacementMode="Compact"/>
+                                <CheckBox Grid.Column="3" VerticalAlignment="Bottom"
+                                          Content="{Binding [HOSTNIC_NoDhcpOption], Source={StaticResource Loc}}"
+                                          IsChecked="{x:Bind ViewModel.NewHostAdapterNoDhcp, Mode=TwoWay}"/>
+                                <Button Grid.Column="4" VerticalAlignment="Bottom" Style="{StaticResource AccentButtonStyle}"
+                                        Content="{Binding [HOSTNIC_Add], Source={StaticResource Loc}}"
+                                        Command="{x:Bind ViewModel.AddHostAdapterCommand}"/>
+                            </Grid>
                         </StackPanel>
                     </Expander>
                 </Grid>

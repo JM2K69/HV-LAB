@@ -647,6 +647,128 @@ public partial class HyperVService(IPowerShellRunner ps, IHyperVWmi? wmi = null)
         => await RunScriptAsync(
             $"Remove-VMSwitch -VMSwitch {SwitchExpr(switchIdOrName)} -Force -ErrorAction Stop");
 
+    // ─── Host network cards (vEthernet), one per VLAN ───────────────────────
+
+    /// <summary>
+    /// The Windows interface of the host card in $nic, found by device id (or its default alias), waited for a few
+    /// seconds after the card is added.
+    /// </summary>
+    private const string HostNicInterface = """
+        function Get-HvlNicInterface($card) {
+            $deadline = (Get-Date).AddSeconds(15)
+            do {
+                $net = Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue |
+                       Where-Object { $_.DeviceID -eq $card.DeviceId -or $_.Name -eq "vEthernet ($($card.Name))" } |
+                       Select-Object -First 1
+                if ($net) { return $net }
+                Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $deadline)
+            throw '##Err_HostAdapterNoInterface'
+        }
+        """;
+
+    /// <summary>PowerShell expression of the host card with this Hyper-V id.</summary>
+    private static string HostAdapterExpr(string adapterId)
+        => "$($hvlNic = @(Get-VMNetworkAdapter -ManagementOS | Where-Object Id -eq '" + Esc(adapterId) + "'); " +
+           "if ($hvlNic.Count -ne 1) { throw '##Err_HostAdapterGone' }; $hvlNic[0])";
+
+    private static void EnsureVlan(int vlanId)
+    {
+        if (vlanId is < 0 or > 4094) throw new ArgumentOutOfRangeException(nameof(vlanId), LocalizationService.T("HOSTNIC_ErrVlan"));
+    }
+
+    public async Task<List<HostAdapter>> GetHostAdaptersAsync()
+    {
+        var json = ExtractJson(await RunScriptAsync("""
+            Import-Module Hyper-V -ErrorAction Stop
+            $nets = @(Get-NetAdapter -IncludeHidden -ErrorAction SilentlyContinue)
+            $list = @(foreach ($nic in @(Get-VMNetworkAdapter -ManagementOS)) {
+                $vlan = Get-VMNetworkAdapterVlan -VMNetworkAdapter $nic
+                $net  = $nets | Where-Object { $_.DeviceID -eq $nic.DeviceId -or $_.Name -eq "vEthernet ($($nic.Name))" } | Select-Object -First 1
+                $ip   = $null
+                $dhcp = $true
+                if ($net) {
+                    $ip   = Get-NetIPAddress -InterfaceIndex $net.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | Select-Object -First 1
+                    $dhcp = "$((Get-NetIPInterface -InterfaceIndex $net.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).Dhcp)" -eq 'Enabled'
+                }
+                [PSCustomObject]@{
+                    Id = "$($nic.Id)"; Name = "$($nic.Name)"; SwitchName = "$($nic.SwitchName)"; SwitchId = "$($nic.SwitchId)".ToUpper()
+                    VlanMode = "$($vlan.OperationMode)"; VlanId = [int]$vlan.AccessVlanId
+                    Alias = if ($net) { "$($net.Name)" } else { '' }; Status = if ($net) { "$($net.Status)" } else { '' }
+                    IPv4 = if ($ip) { "$($ip.IPAddress)" } else { '' }; PrefixLength = if ($ip) { [int]$ip.PrefixLength } else { 0 }
+                    Dhcp = $dhcp
+                }
+            })
+            ConvertTo-Json -InputObject $list -Depth 3 -Compress
+            """));
+        return ParseHostAdapters(json);
+    }
+
+    internal static List<HostAdapter> ParseHostAdapters(string json)
+    {
+        using var doc = JsonDocument.Parse(json.Length > 0 ? json : "[]");
+        var rows = doc.RootElement.ValueKind == JsonValueKind.Array ? doc.RootElement.EnumerateArray().ToList() : [doc.RootElement];
+        static int I(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.TryGetInt32(out var i) ? i : 0;
+        return rows.Select(r => new HostAdapter(
+                       GetStr(r, "Id"), GetStr(r, "Name"), GetStr(r, "SwitchName"), GetStr(r, "SwitchId"), GetStr(r, "VlanMode"),
+                       I(r, "VlanId"), GetStr(r, "Alias"), GetStr(r, "Status"), GetStr(r, "IPv4"), I(r, "PrefixLength"),
+                       r.TryGetProperty("Dhcp", out var d) && d.ValueKind == JsonValueKind.True))
+                   .OrderBy(a => a.SwitchName, StringComparer.CurrentCultureIgnoreCase).ThenBy(a => a.VlanId).ThenBy(a => a.Name)
+                   .ToList();
+    }
+
+    public Task AddHostAdapterAsync(string switchIdOrName, string name, int vlanId, bool dhcp)
+    {
+        if (InputValidator.CheckHostAdapterName(name) is { } key) throw new ArgumentException(LocalizationService.T(key), nameof(name));
+        EnsureVlan(vlanId);
+        return RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            {{HostNicInterface}}
+            $sw   = {{SwitchExpr(switchIdOrName)}}
+            $name = '{{Esc(name)}}'
+            if ("$($sw.SwitchType)" -eq 'Private') { throw '##Err_HostAdapterPrivate' }
+            if (@(Get-VMNetworkAdapter -ManagementOS | Where-Object Name -eq $name).Count -gt 0) { throw "##Err_HostAdapterExists|$name" }
+            $nic = Add-VMNetworkAdapter -ManagementOS -Name $name -SwitchName $sw.Name -Passthru -ErrorAction Stop
+            try {
+                if ({{vlanId}} -gt 0) { Set-VMNetworkAdapterVlan -VMNetworkAdapter $nic -Access -VlanId {{vlanId}} -ErrorAction Stop }
+                if (-not ${{(dhcp ? "true" : "false")}}) {
+                    $net = Get-HvlNicInterface $nic
+                    Set-NetIPInterface -InterfaceIndex $net.ifIndex -AddressFamily IPv4 -Dhcp Disabled -ErrorAction Stop
+                }
+            } catch {
+                # A card half set up is removed: the host never keeps one on the wrong VLAN
+                Remove-VMNetworkAdapter -VMNetworkAdapter $nic -Confirm:$false -ErrorAction SilentlyContinue
+                throw
+            }
+            """);
+    }
+
+    public Task SetHostAdapterVlanAsync(string adapterId, int vlanId)
+    {
+        EnsureVlan(vlanId);
+        return RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $nic = {{HostAdapterExpr(adapterId)}}
+            if ({{vlanId}} -gt 0) { Set-VMNetworkAdapterVlan -VMNetworkAdapter $nic -Access -VlanId {{vlanId}} -ErrorAction Stop }
+            else                  { Set-VMNetworkAdapterVlan -VMNetworkAdapter $nic -Untagged -ErrorAction Stop }
+            """);
+    }
+
+    public Task SetHostAdapterDhcpAsync(string adapterId, bool enabled)
+        => RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            {{HostNicInterface}}
+            $nic = {{HostAdapterExpr(adapterId)}}
+            $net = Get-HvlNicInterface $nic
+            Set-NetIPInterface -InterfaceIndex $net.ifIndex -AddressFamily IPv4 -Dhcp {{(enabled ? "Enabled" : "Disabled")}} -ErrorAction Stop
+            """);
+
+    public Task RemoveHostAdapterAsync(string adapterId)
+        => RunScriptAsync($$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            Remove-VMNetworkAdapter -VMNetworkAdapter {{HostAdapterExpr(adapterId)}} -Confirm:$false -ErrorAction Stop
+            """);
+
     // ─── Network Adapters and topology ──────────────────────────────────────
 
     /// <summary>Physical adapters that are up (WMI), for External switches and connection sharing.</summary>

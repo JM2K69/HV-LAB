@@ -36,7 +36,7 @@ public static class TopologyBuilder
             result.Add(new TopologySwitch
             {
                 Name = sw.Name, SwitchType = sw.SwitchType, Uplink = kind, UplinkTitle = title, UplinkDetail = detail,
-                HostAddress = host, VlanText = sw.VlanId > 0 ? $"VLAN {sw.VlanId}" : "",
+                HostAddress = host, VlanText = VlanText(sw),
                 Vms = adapters.Where(a => a.SwitchName == sw.Name).Select(Node).ToList(),
             });
         }
@@ -50,5 +50,13 @@ public static class TopologyBuilder
                 UplinkTitle = T("TOPO_Isolated"), UplinkDetail = "", Vms = loose,
             });
         return result;
+    }
+
+    /// <summary>VLANs of the host on the switch: "VLAN 100", or "VLAN 100, 200" with one host card per VLAN.</summary>
+    private static string VlanText(VirtualSwitch sw)
+    {
+        var tagged = sw.HostVlans.Where(v => v > 0).Distinct().ToList();
+        if (tagged.Count == 0 && sw.VlanId > 0) tagged.Add(sw.VlanId);
+        return tagged.Count > 0 ? "VLAN " + string.Join(", ", tagged) : "";
     }
 }

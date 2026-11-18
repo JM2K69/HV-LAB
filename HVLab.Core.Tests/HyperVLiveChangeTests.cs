@@ -162,6 +162,38 @@ public class HyperVLiveChangeTests
     }
 
     [LiveChangeFact]
+    public async Task Host_cards_go_on_vlans_and_show_on_their_switch()
+    {
+        var sw = Unique("HVLT-HOST"); var card = Unique("HVLT-NIC");
+        try
+        {
+            await Hv.CreateInternalSwitchAsync(sw);                  // with its own host card, untagged
+            var swId = Assert.Single(await Hv.GetVirtualSwitchesAsync(), s => s.Name == sw).Id;
+            await Hv.AddHostAdapterAsync(swId, card, 42, dhcp: false);
+            var added = Assert.Single(await Hv.GetHostAdaptersAsync(), c => c.Name == card);
+            Assert.Equal((sw, 42, "Access", false), (added.SwitchName, added.VlanId, added.VlanMode, added.Dhcp));
+            Assert.Equal($"vEthernet ({card})", added.Alias);
+            Assert.Equal([0, 42], Assert.Single(await Hv.GetVirtualSwitchesAsync(), s => s.Name == sw).HostVlans);   // WMI
+            var refused = await Assert.ThrowsAsync<PowerShellException>(() => Hv.AddHostAdapterAsync(swId, card, 43, dhcp: true));
+            Assert.Contains(card, refused.Message);
+
+            await Hv.SetHostAdapterVlanAsync(added.Id, 0);
+            await Hv.SetHostAdapterDhcpAsync(added.Id, true);
+            var changed = Assert.Single(await Hv.GetHostAdaptersAsync(), c => c.Name == card);
+            Assert.Equal((0, "Untagged", true), (changed.VlanId, changed.VlanMode, changed.Dhcp));
+
+            await Hv.RemoveHostAdapterAsync(added.Id);
+            Assert.DoesNotContain(await Hv.GetHostAdaptersAsync(), c => c.Name == card);
+        }
+        finally
+        {
+            await Ps.RunAsync($"Get-VMNetworkAdapter -ManagementOS | Where-Object Name -eq '{card}' | " +
+                              "Remove-VMNetworkAdapter -Confirm:$false -ErrorAction SilentlyContinue");
+            await CleanupAsync(sw: sw);
+        }
+    }
+
+    [LiveChangeFact]
     public void A_data_folder_prepared_by_someone_else_is_hardened_and_cleaned()
     {
         var folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), Unique("HVLT-DATA"));

@@ -75,11 +75,15 @@ public partial class VirtualSwitchesViewModel(INetworkService hvService, INatSer
             var switches = swTask.Result;
             VirtualSwitches.Clear();
             InternalSwitchNames.Clear();
+            var hostSwitch = NewHostAdapterSwitch;
+            HostSwitchNames.Clear();
             foreach (var sw in switches)
             {
                 VirtualSwitches.Add(sw);
                 if (sw.SwitchType == "Internal") InternalSwitchNames.Add(sw.Name);
+                if (sw.SwitchType != "Private") HostSwitchNames.Add(sw.Name);
             }
+            NewHostAdapterSwitch = hostSwitch is not null && HostSwitchNames.Contains(hostSwitch) ? hostSwitch : null;
 
             var nats = natTask.Result;
             NatNetworks.Clear();
@@ -97,6 +101,89 @@ public partial class VirtualSwitchesViewModel(INetworkService hvService, INatSer
         }
         catch (Exception ex) { Status = string.Empty; ShowError(ex); }
         finally { IsLoading = false; }
+        if (HostAdaptersLoaded) await LoadHostAdaptersAsync();   // the host cards section is open: kept current
+    }
+
+    // ─── Host network cards (vEthernet): one per VLAN, as Add-VMNetworkAdapter -ManagementOS ──
+
+    /// <summary>Read through PowerShell when their section opens, then with each refresh.</summary>
+    public ObservableCollection<HostAdapter> HostAdapters { get; } = [];
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasNoHostAdapters))] private bool hostAdaptersLoaded;
+    public bool HasNoHostAdapters => HostAdaptersLoaded && HostAdapters.Count == 0;
+
+    /// <summary>Switches a host card can be plugged into: External and Internal (a Private switch has none).</summary>
+    public ObservableCollection<string> HostSwitchNames { get; } = [];
+    [ObservableProperty] private string? newHostAdapterSwitch;
+    [ObservableProperty] private string  newHostAdapterName = "";
+    /// <summary>0 = untagged.</summary>
+    [ObservableProperty] private double  newHostAdapterVlan;
+    [ObservableProperty] private bool    newHostAdapterNoDhcp;
+
+    public async Task LoadHostAdaptersAsync()
+    {
+        try
+        {
+            var cards = await _hvService.GetHostAdaptersAsync();
+            HostAdapters.Clear();
+            foreach (var c in cards) HostAdapters.Add(c);
+            HostAdaptersLoaded = true;
+            OnPropertyChanged(nameof(HasNoHostAdapters));
+        }
+        catch (Exception ex) { ShowActionError(ex); }
+    }
+
+    [RelayCommand]
+    private async Task AddHostAdapterAsync()
+    {
+        var name = NewHostAdapterName.Trim();
+        if (InputValidator.CheckHostAdapterName(name) is { } key) { ShowActionError(T(key)); return; }
+        if (VirtualSwitches.FirstOrDefault(s => s.Name == NewHostAdapterSwitch && s.SwitchType != "Private") is not { } sw)
+        { ShowActionError(T("HOSTNIC_ErrNoSwitch")); return; }
+        var vlan = double.IsNaN(NewHostAdapterVlan) ? 0 : (int)NewHostAdapterVlan;
+        if (vlan is < 0 or > 4094) { ShowActionError(T("HOSTNIC_ErrVlan")); return; }
+        if (await RunHostCardAsync(T("HOSTNIC_Adding", name),
+                () => _hvService.AddHostAdapterAsync(sw.Target, name, vlan, !NewHostAdapterNoDhcp)))
+            NewHostAdapterName = "";
+    }
+
+    [RelayCommand]
+    private async Task ChangeHostAdapterVlanAsync(HostAdapter card)
+    {
+        var answer = await _dialogs.PromptAsync(T("HOSTNIC_VlanTitle", card.Name), T("HOSTNIC_VlanLabel"),
+                                                card.VlanId > 0 ? card.VlanId.ToString() : "", allowEmpty: true);
+        if (answer is null) return;
+        var text = answer.Trim();
+        if (!int.TryParse(text.Length == 0 ? "0" : text, out var vlan) || vlan is < 0 or > 4094)
+        { ShowActionError(T("HOSTNIC_ErrVlan")); return; }
+        if (vlan == card.VlanId && !card.VlanMode.Equals("Trunk", StringComparison.OrdinalIgnoreCase)) return;
+        await RunHostCardAsync(T("HOSTNIC_ChangingVlan", card.Name), () => _hvService.SetHostAdapterVlanAsync(card.Id, vlan));
+    }
+
+    [RelayCommand]
+    private Task ToggleHostAdapterDhcpAsync(HostAdapter card)
+        => RunHostCardAsync(T("HOSTNIC_ChangingDhcp", card.Name), () => _hvService.SetHostAdapterDhcpAsync(card.Id, !card.Dhcp));
+
+    [RelayCommand]
+    private async Task RemoveHostAdapterAsync(HostAdapter card)
+    {
+        if (!await _dialogs.ConfirmAsync(T("HOSTNIC_DeleteTitle"), T("HOSTNIC_DeleteText", card.Name, card.SwitchName), T("Btn_Delete")))
+            return;
+        await RunHostCardAsync(T("HOSTNIC_Removing", card.Name), () => _hvService.RemoveHostAdapterAsync(card.Id));
+    }
+
+    /// <summary>A host card change, then the switches (their VLAN column) and the cards read again; true when it worked.</summary>
+    private async Task<bool> RunHostCardAsync(string status, Func<Task> change)
+    {
+        ClearActionError();
+        IsLoading = true;
+        Status = status;
+        var ok = false;
+        try { await change(); ok = true; }
+        catch (Exception ex) { Status = string.Empty; ShowActionError(ex); }
+        finally { IsLoading = false; }
+        HostAdaptersLoaded = true;
+        await RefreshAsync();
+        return ok;
     }
 
     [RelayCommand]

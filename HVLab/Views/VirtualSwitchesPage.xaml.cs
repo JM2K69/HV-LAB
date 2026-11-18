@@ -46,4 +46,10 @@ public sealed partial class VirtualSwitchesPage : Page
     {
         if (!ViewModel.IcsLoaded) ViewModel.LoadIcsCommand.Execute(null);
     }
+
+    /// <summary>Host cards: read through PowerShell (Get-VMNetworkAdapter -ManagementOS) the first time the section opens.</summary>
+    private async void HostCards_Expanding(Expander sender, ExpanderExpandingEventArgs args)
+    {
+        if (!ViewModel.HostAdaptersLoaded) await ViewModel.LoadHostAdaptersAsync();
+    }
 }

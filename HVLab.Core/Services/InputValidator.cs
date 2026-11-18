@@ -41,6 +41,13 @@ public static partial class InputValidator
     [GeneratedRegex("^[a-z_][a-z0-9_-]{0,31}$")]
     private static partial Regex LinuxUserRegex();
 
+    [GeneratedRegex(@"^[\p{L}\p{N}][\p{L}\p{N} ._-]{0,62}$")]
+    private static partial Regex HostAdapterNameRegex();
+
+    /// <summary>Name of a host network card ("LAN-VLAN100"): letters, digits, spaces, dots, dashes; 63 characters at most.</summary>
+    public static string? CheckHostAdapterName(string? name)
+        => name is not null && HostAdapterNameRegex().IsMatch(name) && !name.EndsWith(' ') ? null : "Val_HostAdapterName";
+
     /// <summary>Linux account created by cloud-init: lowercase POSIX name, not root.</summary>
     public static string? CheckLinuxUser(string? name)
         => name is null || !LinuxUserRegex().IsMatch(name) || name == "root" ? "Val_LinuxUser" : null;

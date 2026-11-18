@@ -64,6 +64,12 @@ public class GeneratedScriptTests
         await Run("private switch",    () => hv.CreatePrivateSwitchAsync(Switch));
         await Run("remove switch",     () => hv.RemoveVSwitchAsync(Switch));
         await Run("remove switch (id)",() => hv.RemoveVSwitchAsync(id));
+        await Run("host cards",        hv.GetHostAdaptersAsync);
+        await Run("add host card",     () => hv.AddHostAdapterAsync(id, "LAN VLAN.100", 100, dhcp: false));
+        await Run("add host card",     () => hv.AddHostAdapterAsync(Switch, "LAN", 0, dhcp: true));
+        await Run("host card vlan",    () => hv.SetHostAdapterVlanAsync("Microsoft:x'y\\z", 0));
+        await Run("host card dhcp",    () => hv.SetHostAdapterDhcpAsync("Microsoft:x'y\\z", false));
+        await Run("remove host card",  () => hv.RemoveHostAdapterAsync("Microsoft:x'y\\z"));
         await Run("switch type (id)",  () => hv.ChangeSwitchTypeAsync(id, "Private", null));
         await Run("switch type",       () => hv.ChangeSwitchTypeAsync(Switch, "External", "Ethernet 'x'"));
         await Run("switch type",       () => hv.ChangeSwitchTypeAsync(Switch, "Internal", null));

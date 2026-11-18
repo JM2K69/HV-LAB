@@ -49,7 +49,8 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - une vue **topologie** : chaque commutateur avec sa sortie (carte, NAT, partage de connexion, hôte, isolé) et ses VM avec état, IP et VLAN ;
   - commutateurs externes, internes et privés avec VLAN, et changement de type sur place avec retour arrière ;
   - réseaux NAT avec passerelle IPv4, et NAT avec DHCP via le partage de connexion Windows ;
-  - VLAN access ou trunk par VM, protection DHCP, protection routeur et usurpation d'adresse MAC.
+  - VLAN access ou trunk par VM, protection DHCP, protection routeur et usurpation d'adresse MAC ;
+  - cartes réseau de l'hôte sur un commutateur, une par VLAN (`Add-VMNetworkAdapter -ManagementOS`), avec leur VLAN, leur IPv4 et leur DHCP ; la liste des commutateurs affiche tous les VLAN de l'hôte.
 - **Interface Fluent** :
   - fond Mica, thème clair/sombre et volet de navigation adaptatif ;
   - la taille et la position de la fenêtre sont mémorisées ;

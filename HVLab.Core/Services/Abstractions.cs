@@ -125,6 +125,19 @@ public interface INetworkService
     /// <param name="switchIdOrName">The switch GUID (<see cref="Models.VirtualSwitch.Target"/>), else a name that must be unique.</param>
     Task ChangeSwitchTypeAsync(string switchIdOrName, string newType, string? netAdapter);
 
+    // Host network cards (vEthernet), as Add-VMNetworkAdapter -ManagementOS: one per VLAN on a switch
+    /// <summary>Every card of the host plugged into a switch, with its VLAN, IPv4 address and DHCP state.</summary>
+    Task<List<HostAdapter>> GetHostAdaptersAsync();
+    /// <summary>
+    /// Plugs a new host card into the switch (External or Internal), on <paramref name="vlanId"/> (0: untagged), with
+    /// DHCP turned off when <paramref name="dhcp"/> is false. A card name already used is refused.
+    /// </summary>
+    Task AddHostAdapterAsync(string switchIdOrName, string name, int vlanId, bool dhcp);
+    /// <param name="adapterId"><see cref="HostAdapter.Id"/>.</param>
+    Task SetHostAdapterVlanAsync(string adapterId, int vlanId);
+    Task SetHostAdapterDhcpAsync(string adapterId, bool enabled);
+    Task RemoveHostAdapterAsync(string adapterId);
+
     // Topology data (WMI)
     Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync();
     Task<List<VmNetworkAdapter>> GetVmNetworkAdaptersAsync();

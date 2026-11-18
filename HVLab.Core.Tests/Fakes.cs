@@ -159,6 +159,13 @@ internal sealed class FakeHyperVService : IHyperVService
     public Task CreateInternalSwitchAsync(string name, int vlanId = 0) { Calls.Add($"internal-switch {name}"); return Task.CompletedTask; }
     public Task CreatePrivateSwitchAsync(string name) => Task.CompletedTask;
     public Task RemoveVSwitchAsync(string name) { Calls.Add($"remove-switch {name}"); return Task.CompletedTask; }
+    public List<HostAdapter> HostCards { get; set; } = [];
+    public Task<List<HostAdapter>> GetHostAdaptersAsync() => Task.FromResult(HostCards.ToList());
+    public Task AddHostAdapterAsync(string switchIdOrName, string name, int vlanId, bool dhcp)
+    { Calls.Add($"host-card-add {switchIdOrName} {name} {vlanId} {dhcp}"); return Task.CompletedTask; }
+    public Task SetHostAdapterVlanAsync(string adapterId, int vlanId) { Calls.Add($"host-card-vlan {adapterId} {vlanId}"); return Task.CompletedTask; }
+    public Task SetHostAdapterDhcpAsync(string adapterId, bool enabled) { Calls.Add($"host-card-dhcp {adapterId} {enabled}"); return Task.CompletedTask; }
+    public Task RemoveHostAdapterAsync(string adapterId) { Calls.Add($"host-card-remove {adapterId}"); return Task.CompletedTask; }
     public Task<List<NetworkAdapterInfo>> GetNetworkAdaptersAsync() => Task.FromResult(PhysicalAdapters.ToList());
     /// <summary>Notes passed to each created VM, by VM name.</summary>
     public Dictionary<string, string?> CreatedNotes { get; } = [];
