@@ -19,6 +19,33 @@ public class WindowsNetworkTests
         => doc.Descendants(U + "component").Single(c => (string?)c.Attribute("name") == name);
 
     [Fact]
+    public void Windows_11_gets_its_language_and_keyboard_in_oobe_too()
+    {
+        var config = Config();
+        config.OsFamily = OsFamily.Client;
+        config.UILanguage = config.SystemLocale = config.UserLocale = "fr-FR";
+        config.InputLocale = AnswerFileGenerator.GetInputLocale("fr-FR");
+        var doc = XDocument.Parse(AnswerFileGenerator.Generate(config));
+
+        // Without International-Core in oobeSystem, Windows 11 stops on its region and keyboard pages
+        foreach (var pass in new[] { "specialize", "oobeSystem" })
+        {
+            var settings = doc.Descendants(U + "settings").Single(s => (string?)s.Attribute("pass") == pass);
+            var international = settings.Elements(U + "component")
+                                        .Single(c => (string?)c.Attribute("name") == "Microsoft-Windows-International-Core");
+            Assert.Equal("040c:0000040c", international.Element(U + "InputLocale")!.Value);
+            Assert.Equal("fr-FR", international.Element(U + "UILanguage")!.Value);
+        }
+
+        // No account, network or device name page either: the computer name comes from specialize
+        var oobe = doc.Descendants(U + "OOBE").Single();
+        Assert.Equal("true", oobe.Element(U + "HideLocalAccountScreen")!.Value);
+        Assert.Equal("true", oobe.Element(U + "HideOnlineAccountScreens")!.Value);
+        Assert.Equal("true", oobe.Element(U + "HideWirelessSetupInOOBE")!.Value);
+        Assert.Equal("SRV-01", doc.Descendants(U + "ComputerName").Single().Value);
+    }
+
+    [Fact]
     public void A_static_ip_goes_to_the_adapter_with_the_static_mac()
     {
         var doc = XDocument.Parse(AnswerFileGenerator.Generate(Config()));   // well-formed XML

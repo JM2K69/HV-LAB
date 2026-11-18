@@ -82,13 +82,28 @@ public static class AnswerFileGenerator
         // OOBE block: keep only cross-version safe nodes to reduce client/server OOBE parsing issues.
         // Windows 10/11 (client only): no account-creation screens, since no extra account is created; with
         // HideLocalAccountScreen and an AdministratorPassword, Setup enables the built-in Administrator.
+        // Windows 11 also asks for a network (no DHCP on a lab NAT) unless its wireless page is hidden.
         var clientOobe = c.OsFamily == OsFamily.Client
             ? """
 
                             <HideLocalAccountScreen>true</HideLocalAccountScreen>
                             <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                            <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
               """
             : string.Empty;
+
+        // Language and keyboard: in specialize for the system, and again in oobeSystem, without which Windows 11
+        // shows its region and keyboard pages (Windows Server does not)
+        var international = $"""
+                    <component name="Microsoft-Windows-International-Core"
+                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
+                               language="neutral" versionScope="nonSxS">
+                        <InputLocale>{c.InputLocale}</InputLocale>
+                        <SystemLocale>{c.SystemLocale}</SystemLocale>
+                        <UILanguage>{c.UILanguage}</UILanguage>
+                        <UserLocale>{c.UserLocale}</UserLocale>
+                    </component>
+              """;
         var oobeBlock = $"""
                         <OOBE>
                             <HideEULAPage>true</HideEULAPage>{clientOobe}
@@ -119,18 +134,12 @@ public static class AnswerFileGenerator
                         <RegisteredOrganization>{X(c.RegisteredOrganization)}</RegisteredOrganization>
                         {productKeySpecialize}
                     </component>
-                    <component name="Microsoft-Windows-International-Core"
-                               processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
-                               language="neutral" versionScope="nonSxS">
-                        <InputLocale>{c.InputLocale}</InputLocale>
-                        <SystemLocale>{c.SystemLocale}</SystemLocale>
-                        <UILanguage>{c.UILanguage}</UILanguage>
-                        <UserLocale>{c.UserLocale}</UserLocale>
-                    </component>
+                    {international}
                     {windowsUpdateBlock}{networkBlock}{joinBlock}
                 </settings>
 
                 <settings pass="oobeSystem">
+                    {international}
                     <component name="Microsoft-Windows-Shell-Setup"
                                processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35"
                                language="neutral" versionScope="nonSxS">
