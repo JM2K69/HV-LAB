@@ -395,12 +395,16 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
         return path;
     }
 
+    /// <summary>Templates offered by "New lab": the AD lab with a Linux web server (the default), and AD with a member server.</summary>
+    public const string TemplateAdWeb = "ad-web", TemplateAdMember = "ad-member";
+
     /// <summary>
-    /// A commented starting point (DC, member server, Linux web server on a NAT) in the UI language, with the
-    /// newest Windows Server and Linux bases of the folder as patterns. Its password is empty: deployment refuses it
+    /// A commented starting point in the UI language, with the newest Windows Server and Linux bases of the folder as
+    /// patterns: <see cref="TemplateAdWeb"/> (DC, member server, Linux web server on a NAT) or
+    /// <see cref="TemplateAdMember"/> (the DC and its member server). Its password is empty: deployment refuses it
     /// until it is filled in.
     /// </summary>
-    public async Task<string> NewTemplateAsync()
+    public async Task<string> NewTemplateAsync(string? template = null)
     {
         var bases = await vhdx.GetBaseVhdxListAsync(BaseFolder());
         var server = bases.Where(b => !b.IsLinux && b.OsIdentifier.Contains("Server", StringComparison.OrdinalIgnoreCase))
@@ -408,7 +412,8 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
         var linux  = bases.FirstOrDefault(b => b.IsLinux);
         var serverPattern = server is null ? "WindowsServer2025*" : server.OsIdentifier + "*";
         var linuxPattern  = linux  is null ? "LinuxAlma*"         : linux.OsIdentifier + "*";
-        return T("LAB_Template", serverPattern, linuxPattern).Replace("[[", "{").Replace("]]", "}");
+        var key = template == TemplateAdMember ? "LAB_TemplateAdMember" : "LAB_Template";
+        return T(key, serverPattern, linuxPattern).Replace("[[", "{").Replace("]]", "}");
     }
 
     /// <summary>192.168.100.0/24 → 192.168.100.1, the address HV-LAB gives the host on its NAT switches.</summary>

@@ -282,14 +282,17 @@ public partial class LabsViewModel(LabBlueprintService labs, IHyperVService hv, 
 
     // ─── Commands ───────────────────────────────────────────────────────────
 
-    /// <summary>A new lab from the commented template (the host's newest bases), not saved yet.</summary>
+    /// <summary>
+    /// A new lab from a commented template (the host's newest bases), not saved yet: <paramref name="template"/> is
+    /// <see cref="LabBlueprintService.TemplateAdMember"/>, else the AD lab with a Linux web server.
+    /// </summary>
     [RelayCommand]
-    private async Task NewLabAsync()
+    private async Task NewLabAsync(string? template)
     {
         if (!await CanLeaveEditorAsync()) return;
         ClearActionError();
         SuccessMessage = "";
-        try { Edit(LabBlueprint.Parse(await labs.NewTemplateAsync()), null); }
+        try { Edit(LabBlueprint.Parse(await labs.NewTemplateAsync(template)), null); }
         catch (Exception ex) { ShowActionError(ex); }
     }
 

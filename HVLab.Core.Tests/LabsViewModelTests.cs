@@ -69,6 +69,19 @@ public class LabsViewModelTests
     }
 
     [Fact]
+    public async Task New_lab_offers_the_ad_member_template()
+    {
+        var (vm, _, _, _) = Editor();
+        await vm.LoadAsync();
+        await vm.NewLabCommand.ExecuteAsync(LabBlueprintService.TemplateAdMember);
+        Assert.Equal(["DC01", "SRV01"], vm.Vms.Select(r => r.Name));
+        Assert.True(vm.Vms[0].DomainController);
+        Assert.True(vm.Vms[1].Join);
+        Assert.Equal("ad, dc", vm.Vms[0].Tags);
+        Assert.True(vm.UseDomain);
+    }
+
+    [Fact]
     public async Task Rows_keep_the_creation_order_and_drop_what_does_not_apply()
     {
         var (vm, _, _, _) = Editor();

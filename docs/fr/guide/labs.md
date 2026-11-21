@@ -6,7 +6,9 @@ Ouvrez la page **Labs** dans le menu de gauche, ou avec le bouton **Labs** de la
 
 ## Composer un lab
 
-1. Cliquez sur **Nouveau lab**. Le formulaire part d'un exemple : un contrôleur de domaine, un serveur membre et un serveur Linux, sur les images de base les plus récentes de l'hôte.
+1. Cliquez sur **Nouveau lab** et choisissez un modèle, rempli avec les images de base les plus récentes de l'hôte :
+    - **AD : contrôleur et serveur membre** : `DC01`, promu contrôleur du domaine `lab.local`, et `SRV01`, qui le rejoint ;
+    - **AD, serveur membre et serveur web Linux** : les mêmes, plus `WEB01` sur une base Linux.
 2. Carte **Lab** : nom du lab (il devient le nom du groupe Hyper-V), mot de passe, langue et fuseau horaire.
 3. Carte **Réseau** : le commutateur, à choisir dans la liste ou à saisir (un nom inconnu est créé en commutateur interne), et le NAT créé avec lui, avec sa passerelle et son préfixe.
 4. Carte **Domaine Active Directory** : le domaine, le compte autorisé à joindre et l'unité d'organisation. La VM cochée **Contrôleur** crée le domaine ; seules les VM cochées **Domaine** le rejoignent.

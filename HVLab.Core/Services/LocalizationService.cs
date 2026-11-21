@@ -389,6 +389,28 @@ public sealed class LocalizationService : INotifyPropertyChanged
               ]
             ]]
             """,
+        ["LAB_TemplateAdMember"] = """
+            // Blueprint de lab HV-LAB : un domaine Active Directory, son contrôleur et un serveur membre.
+            // « Déployer » crée le commutateur, le NAT et DC01, le démarre et le promeut (AD DS et DNS),
+            // puis crée SRV01, qui rejoint le domaine à son premier démarrage. Les commentaires // sont autorisés.
+            [[
+              "name": "LAB-AD-SRV",                      // nom du lab, et du groupe Hyper-V
+              "switch": "LAB-NAT",                       // utilisé s'il existe, sinon créé (commutateur interne)
+              "nat": [[ "gateway": "192.168.100.1", "prefixLength": 24 ]],   // créé avec le commutateur ; passerelle des IP fixes
+              "password": "",                            // À RENSEIGNER : 8 caractères ou plus, 3 types parmi majuscules, minuscules, chiffres, symboles
+              "language": "fr-FR",
+              "timeZone": "Romance Standard Time",
+              "domain": [[ "name": "lab.local", "user": "Administrator" ]],  // créé par DC01, rejoint par SRV01
+              "vms": [
+                // "base" : identifiant d'OS de l'image de base, * = n'importe quoi ; la version la plus récente est prise
+                [[ "name": "DC01",  "base": "{0}", "memoryMB": 4096, "cpu": 2, "ip": "192.168.100.10", "domainController": true, "tags": ["ad", "dc"] ]],
+                [[ "name": "SRV01", "base": "{0}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.11", "join": true, "tags": ["ad", "membre"] ]]
+              ]
+            ]]
+            """,
+        ["LABS_TemplateAdMember"] = "AD : contrôleur et serveur membre",
+        ["LABS_TemplateAdWeb"] = "AD, serveur membre et serveur web Linux",
+        ["LABS_NewTip"]      = "Part d'un modèle, sur les images de base les plus récentes de l'hôte",
         ["LAB_DeployTip"]    = "Ouvre l'éditeur de labs : décrivez un lab (VM, images de base, réseau), puis déployez-le",
         ["LAB_Export"]       = "Exporter en blueprint",
         ["LAB_ExportTip"]    = "Écrit les VM sélectionnées dans un fichier JSON réutilisable (dossier des VM\\Blueprints)",
@@ -1190,6 +1212,28 @@ public sealed class LocalizationService : INotifyPropertyChanged
               ]
             ]]
             """,
+        ["LAB_TemplateAdMember"] = """
+            // HV-LAB lab blueprint: an Active Directory domain, its controller and a member server.
+            // "Deploy" creates the switch, the NAT and DC01, starts it and promotes it (AD DS and DNS),
+            // then creates SRV01, which joins the domain on its first boot. // comments are allowed.
+            [[
+              "name": "LAB-AD-SRV",                      // lab name, and Hyper-V group name
+              "switch": "LAB-NAT",                       // used if it exists, else created (internal switch)
+              "nat": [[ "gateway": "192.168.100.1", "prefixLength": 24 ]],   // created with the switch; gateway of the static IPs
+              "password": "",                            // TO FILL IN: 8 characters or more, 3 kinds of uppercase, lowercase, digits, symbols
+              "language": "en-US",
+              "timeZone": "GMT Standard Time",
+              "domain": [[ "name": "lab.local", "user": "Administrator" ]],  // created by DC01, joined by SRV01
+              "vms": [
+                // "base": OS identifier of the base image, * = anything; the newest version is used
+                [[ "name": "DC01",  "base": "{0}", "memoryMB": 4096, "cpu": 2, "ip": "192.168.100.10", "domainController": true, "tags": ["ad", "dc"] ]],
+                [[ "name": "SRV01", "base": "{0}", "memoryMB": 2048, "cpu": 2, "ip": "192.168.100.11", "join": true, "tags": ["ad", "member"] ]]
+              ]
+            ]]
+            """,
+        ["LABS_TemplateAdMember"] = "AD: controller and member server",
+        ["LABS_TemplateAdWeb"] = "AD, member server and Linux web server",
+        ["LABS_NewTip"]      = "Starts from a template, on the newest base images of the host",
         ["LAB_DeployTip"]    = "Opens the lab editor: describe a lab (VMs, base images, network), then deploy it",
         ["LAB_Export"]       = "Export as blueprint",
         ["LAB_ExportTip"]    = "Writes the selected VMs to a reusable JSON file (VMs folder\\Blueprints)",

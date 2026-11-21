@@ -125,6 +125,25 @@ public class LabBlueprintTests
     }
 
     [Fact]
+    public async Task The_ad_member_template_is_a_dc_and_its_member_on_the_newest_server_base()
+    {
+        var (labs, _, _) = Service(BaseFolder());
+        var lab = LabBlueprint.Parse(await labs.NewTemplateAsync(LabBlueprintService.TemplateAdMember));
+        Assert.Equal(["DC01", "SRV01"], lab.Vms.Select(v => v.Name));
+        Assert.True(lab.Vms[0].DomainController);
+        Assert.True(lab.Vms[1].Join);
+        Assert.All(lab.Vms, v => Assert.Equal("WindowsServer2025Standard*", v.Base));
+        Assert.Equal("lab.local", lab.Domain!.Name);
+
+        Assert.Equal(LocalizationService.T("Val_PasswordEmpty"), lab.Validate());   // not deployable as is
+        lab.Password = "Lab#2026";
+        Assert.Null(lab.Validate());
+        var plan = await labs.PlanAsync(lab);
+        Assert.Equal(2, plan.Count(s => s.Action == LabBlueprintService.Create && s.Kind == "vm"));
+        Assert.Contains(plan, s => s.Kind == "domain" && s.Action == LabBlueprintService.Create);
+    }
+
+    [Fact]
     public void Blueprint_files_never_overwrite_one_another()
     {
         var vms = Directory.CreateTempSubdirectory("hvlab-bp-").FullName;

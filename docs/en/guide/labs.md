@@ -6,7 +6,9 @@ Open the **Labs** page from the left menu, or with the **Labs** button of the **
 
 ## Compose a lab
 
-1. Click **New lab**. The form starts from an example: a domain controller, a member server and a Linux server, on the newest base images of the host.
+1. Click **New lab** and pick a template, filled with the newest base images of the host:
+    - **AD: controller and member server**: `DC01`, promoted to controller of the `lab.local` domain, and `SRV01`, which joins it;
+    - **AD, member server and Linux web server**: the same, plus `WEB01` on a Linux base.
 2. **Lab** card: lab name (it becomes the Hyper-V group name), password, language and time zone.
 3. **Network** card: the switch, picked from the list or typed (an unknown name is created as an internal switch), and the NAT created with it, with its gateway and prefix.
 4. **Active Directory domain** card: the domain, the account allowed to join and the organizational unit. The VM ticked **Controller** creates the domain; only the VMs ticked **Domain** join it.
