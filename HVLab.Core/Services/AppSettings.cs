@@ -51,6 +51,12 @@ public sealed class AppSettings
     /// </summary>
     public bool ProtectNotesPassword { get; set; }
 
+    /// <summary>
+    /// Product keys added by the user (Windows Insider builds…), tried before the GVLK catalog
+    /// (<see cref="KmsKeyCatalog.SuggestForOs(string?)"/>).
+    /// </summary>
+    public List<HVLab.Models.CustomProductKey> ProductKeys { get; set; } = [];
+
     // ─── Load / Save ──────────────────────────────────────────────────────────
 
     /// <summary>

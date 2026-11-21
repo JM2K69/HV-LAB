@@ -3,11 +3,12 @@ namespace HVLab.Models;
 /// <summary>
 /// KMS client setup key (GVLK) from Microsoft Learn. Home editions have no GVLK:
 /// their entries are generic install keys (no activation) and are flagged as such.
+/// <paramref name="IsCustom"/>: a key the user added in the settings (<see cref="CustomProductKey"/>).
 /// </summary>
-public record KmsKeyEntry(string Group, string OsName, string Key)
+public record KmsKeyEntry(string Group, string OsName, string Key, bool IsCustom = false)
 {
     /// <summary>True for generic (non-KMS) install keys, i.e. Home editions.</summary>
-    public bool IsGeneric => OsName.StartsWith("Home", StringComparison.OrdinalIgnoreCase);
+    public bool IsGeneric => !IsCustom && OsName.StartsWith("Home", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Label shown in ComboBox: OS name only (group is shown as header).</summary>
     public string DisplayLabel => IsGeneric ? $"{OsName} ({HVLab.Services.LocalizationService.Instance["KMS_GenericKey"]})" : OsName;

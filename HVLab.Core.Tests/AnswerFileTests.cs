@@ -114,6 +114,53 @@ public class CatalogTests
     public void Home_editions_are_flagged_as_generic_keys()
         => Assert.All(KmsKeyCatalog.All.Where(k => k.OsName.StartsWith("Home")), k => Assert.True(k.IsGeneric));
 
+    private static readonly List<CustomProductKey> InsiderKeys =
+    [
+        new() { Name = "Server Insider", Pattern = "Insider",         Key = "AAAAA-BBBBB-CCCCC-DDDDD-EEEEE" },
+        new() { Name = "Insider Azure",  Pattern = "*Insider*Azure*", Key = "fffff-ggggg-hhhhh-jjjjj-kkkkk" },
+        new() { Name = "Empty",          Pattern = "Datacenter",      Key = "" },
+    ];
+
+    [Fact]
+    public void A_key_of_the_settings_is_suggested_for_an_insider_base_the_catalog_does_not_know()
+    {
+        Assert.Null(KmsKeyCatalog.SuggestForOs("WindowsServerInsiderDatacenter", []));
+
+        var key = KmsKeyCatalog.SuggestForOs("WindowsServerInsiderDatacenter", InsiderKeys)!;
+        Assert.Equal("AAAAA-BBBBB-CCCCC-DDDDD-EEEEE", key.Key);
+        Assert.True(key.IsCustom);
+        Assert.Equal("Server Insider", key.OsName);
+    }
+
+    [Fact]
+    public void The_most_specific_pattern_wins_and_a_key_is_stored_in_capitals()
+        => Assert.Equal("FFFFF-GGGGG-HHHHH-JJJJJ-KKKKK",
+                        KmsKeyCatalog.SuggestForOs("WindowsServerInsiderDatacenterAzureEdition", InsiderKeys)!.Key);
+
+    [Fact]
+    public void A_pattern_with_a_star_covers_the_whole_identifier_and_a_word_matches_anywhere()
+    {
+        Assert.True(new CustomProductKey { Pattern = "WindowsServerInsider*", Key = "x" }.Matches("WindowsServerInsiderDatacenter"));
+        Assert.False(new CustomProductKey { Pattern = "Insider*", Key = "x" }.Matches("WindowsServerInsiderDatacenter"));
+        Assert.True(new CustomProductKey { Pattern = "insider", Key = "x" }.Matches("WindowsServerInsiderDatacenter"));
+    }
+
+    [Fact]
+    public void Without_a_matching_key_of_the_settings_the_catalog_still_answers()
+    {
+        var key = KmsKeyCatalog.SuggestForOs("WindowsServer2025Datacenter", InsiderKeys)!;
+        Assert.False(key.IsCustom);
+        Assert.Equal("D764K-2NDRG-47T6Q-P8T8W-YP6DF", key.Key);   // "Datacenter" has no key: ignored
+    }
+
+    [Fact]
+    public void The_list_of_the_vm_form_starts_with_the_keys_of_the_settings()
+    {
+        var list = KmsKeyCatalog.WithCustom(InsiderKeys);
+        Assert.Equal(KmsKeyCatalog.All.Count + 2, list.Count);
+        Assert.Equal(["Server Insider", "Insider Azure"], list.Take(2).Select(k => k.OsName));
+    }
+
     [Fact]
     public void Base_image_file_name_round_trips()
     {

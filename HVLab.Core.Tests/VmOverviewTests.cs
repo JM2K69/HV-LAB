@@ -55,4 +55,16 @@ public class VmOverviewTests
         Assert.Equal(["enhanced True"], hv.Calls);
         Assert.True(hv.EnhancedSessionHost);
     }
+
+    [Theory]
+    [InlineData("*", "W269N-WFGWX-YVC9B-4J6C9-T83GX", "Val_KeyPattern")]
+    [InlineData("Insider", "", "Val_ProductKey")]
+    [InlineData("Insider", "W269N-WFGWX", "Val_ProductKey")]
+    public async Task A_product_key_of_the_settings_is_only_added_when_valid(string pattern, string key, string error)
+    {
+        var s = new SettingsViewModel(new NoTheme()) { NewKeyPattern = pattern, NewKeyValue = key };
+        await s.AddProductKeyCommand.ExecuteAsync(null);
+        Assert.Empty(s.ProductKeys);
+        Assert.Equal(LocalizationService.T(error), s.ProductKeyStatus);
+    }
 }

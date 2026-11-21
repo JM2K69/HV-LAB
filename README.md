@@ -32,7 +32,7 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
 - **Quick VM**: size presets, blank disk or differencing disk, Gen 1/2, Secure Boot, PXE, bulk creation (`PREFIX-01…nn`).
 - **Create VM**: differencing disk from a base image with an injected `unattend.xml`:
   - computer name, administrator password (required) and optional auto-logon;
-  - language, time zone and a KMS key suggested for the OS;
+  - language, time zone and a KMS key suggested for the OS, or your own key (Insider builds) added in the settings;
   - static IP (on a static MAC) and Active Directory domain join during setup;
   - optional CBS cache warm-up and Windows Update disabling;
   - live preview of the answer file, with the password masked;
@@ -44,6 +44,7 @@ A **WinUI 3 / .NET 10** desktop application to build and run Microsoft Hyper-V l
   - overwriting an existing image asks for confirmation;
   - progress is shown live and the build can be cancelled;
   - each base shows the VMs built on it, and a base still in use cannot be deleted.
+- **Import a VHDX file** as a base: a sysprepped Windows or a Linux disk, read first (generation, Windows version, sysprep state), then copied; the original is never changed.
 - **Linux bases**: a prepared Linux VM (cloud-init) becomes a base, and each clone gets its own host name, user, password and static IP on first boot, then runs the commands you give it (`runcmd`).
 - **Switches & NAT**:
   - a **topology** view: each switch with its uplink (adapter, NAT, connection sharing, host, isolated) and its VMs with state, IP and VLAN;

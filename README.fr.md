@@ -32,7 +32,7 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
 - **Quick VM** : tailles prédéfinies, disque vierge ou différentiel, Gen 1/2, Secure Boot, PXE, création en série (`PREFIXE-01…nn`).
 - **Créer une VM** : disque différentiel issu d'une image de base, avec `unattend.xml` injecté :
   - nom d'ordinateur, mot de passe administrateur (obligatoire) et ouverture de session automatique optionnelle ;
-  - langue, fuseau horaire et clé KMS suggérée selon l'OS ;
+  - langue, fuseau horaire et clé KMS suggérée selon l'OS, ou votre propre clé (builds Insider) ajoutée dans les paramètres ;
   - IP fixe (sur une adresse MAC fixe) et jonction à un domaine Active Directory pendant l'installation ;
   - préchargement du cache CBS et désactivation de Windows Update en option ;
   - aperçu en direct du fichier de réponse, avec le mot de passe masqué ;
@@ -44,6 +44,7 @@ Application de bureau **WinUI 3 / .NET 10** pour monter et faire tourner des lab
   - remplacer une image existante demande une confirmation ;
   - la progression s'affiche en direct et la construction peut être annulée ;
   - chaque base affiche les VM construites dessus, et une base encore utilisée ne peut pas être supprimée.
+- **Importer un fichier VHDX** comme base : un Windows généralisé ou un disque Linux, lu d'abord (génération, version de Windows, état sysprep), puis copié ; l'original n'est jamais modifié.
 - **Bases Linux** : une VM Linux préparée (cloud-init) devient une base, et chaque clone reçoit au premier démarrage son nom d'hôte, son utilisateur, son mot de passe et son IP fixe, puis exécute les commandes que vous lui donnez (`runcmd`).
 - **Commutateurs & NAT** :
   - une vue **topologie** : chaque commutateur avec sa sortie (carte, NAT, partage de connexion, hôte, isolé) et ses VM avec état, IP et VLAN ;

@@ -96,6 +96,8 @@ public class GeneratedScriptTests
         await Run("run in guest",      () => hv.InvokeInGuestAsync(id, "Administrator", "P@ss'\"$(x)", "Get-Date; 'a''b' | Out-Host\n$x = \"$(1+1)\""));
         await Run("copy to guest",     () => hv.CopyToGuestAsync(id, @"D:\Tools\it's $(x).ps1", @"C:\HV-LAB"));
         await Run("copy vm disk",      () => vhdx.CopyVmDiskAsync(Name, @"D:\Bases\it's.vhdx"));
+        await Run("analyze vhdx",      () => vhdx.AnalyzeVhdxAsync(@"E:\Images\it's $(x).vhdx"));
+        await Run("copy vhdx file",    () => vhdx.CopyVhdxFileAsync(@"E:\Images\it's $(x).vhd", @"D:\Bases\~building_x.vhdx"));
 
         // Scripts run inside a guest (PowerShell Direct carries them as base64): parsed as they are
         return labels.Zip(runner.Scripts)

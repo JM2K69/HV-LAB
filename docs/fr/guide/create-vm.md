@@ -36,7 +36,7 @@ Laissez **Utiliser un fichier de réponse** coché pour une installation automat
 | Mot de passe Administrateur | **Obligatoire**. Le bouton en forme d'œil l'affiche ou le masque. |
 | Langue / Locale | `fr-FR`, `en-US`, `en-GB`, `de-DE`, `es-ES` ou `it-IT`. Définit la langue de l'interface, les paramètres régionaux système et utilisateur, et le clavier. |
 | Fuseau horaire | Par exemple `Romance Standard Time` (Paris) ou `Pacific Standard Time`. |
-| Clé KMS (GVLK) | Les clés client KMS publiques de Microsoft. La clé qui correspond à l'image de base est proposée et recopiée dans **Clé produit**. |
+| Clé KMS (GVLK) | Les clés client KMS publiques de Microsoft, précédées de vos [clés personnalisées](settings.md#cles-produit-personnalisees). La clé qui correspond à l'image de base est proposée et recopiée dans **Clé produit**. |
 | Clé produit (optionnel) | N'importe quelle clé, appliquée pendant la passe *specialize*. Laissez vide pour ne pas en mettre. |
 
 ### Adresse IP fixe

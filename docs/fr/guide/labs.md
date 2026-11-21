@@ -11,11 +11,15 @@ Ouvrez la page **Labs** dans le menu de gauche, ou avec le bouton **Labs** de la
     - **AD, serveur membre et serveur web Linux** : les mêmes, plus `WEB01` sur une base Linux.
 2. Carte **Lab** : nom du lab (il devient le nom du groupe Hyper-V), mot de passe, langue et fuseau horaire.
 3. Carte **Réseau** : le commutateur, à choisir dans la liste ou à saisir (un nom inconnu est créé en commutateur interne), et le NAT créé avec lui, avec sa passerelle et son préfixe.
-4. Carte **Domaine Active Directory** : le domaine, le compte autorisé à joindre et l'unité d'organisation. La VM cochée **Contrôleur** crée le domaine ; seules les VM cochées **Domaine** le rejoignent.
+4. Carte **Domaine Active Directory** : **Utiliser un domaine** affiche le **nom DNS du domaine** (libre, `lab.local` par défaut), le compte autorisé à joindre et l'unité d'organisation. Cocher **Contrôleur** sur une VM active cette carte. Le texte sous la carte dit ce qui se passera :
+    - **Nouveau domaine** quand une VM est **Contrôleur** : elle le crée au déploiement, puis les VM cochées **Membre** le rejoignent ;
+    - **Domaine existant** sinon : les VM cochées **Membre** rejoignent un domaine qui existe déjà, qu'elles trouvent par leur DNS.
+
+    Le nom NetBIOS est la première partie du nom DNS, en majuscules.
 5. Carte **Machines virtuelles**, une ligne par VM :
     - **Nom** et **Image de base**, choisie parmi les images de l'hôte ; `*` remplace n'importe quoi et la version la plus récente est prise ;
     - **RAM (Mo)**, **vCPU**, **IP fixe** et **DNS** ;
-    - **Contrôleur** et **Domaine** pour une VM Windows, **Utilisateur** pour une VM Linux ;
+    - **Contrôleur** et **Membre** pour une VM Windows, **Utilisateur** pour une VM Linux ;
     - **Étiquettes**, séparées par des virgules, écrites dans les notes de la VM ;
     - pour une VM Linux, les **commandes au premier démarrage**, une par ligne ;
     - les flèches changent l'ordre de création, la corbeille retire la VM ;
@@ -111,7 +115,7 @@ Cochez **Contrôleur** sur une VM Windows Server en IP fixe (`"domainController"
 2. la démarre et attend la fin de l'installation de Windows ;
 3. installe AD DS et crée une nouvelle forêt avec son serveur DNS, par [PowerShell Direct](virtual-machines.md#automatisation-invites-windows) ;
 4. la redémarre et attend que le domaine réponde ;
-5. crée ensuite les autres VM : celles cochées **Domaine** rejoignent le domaine à leur premier démarrage.
+5. crée ensuite les autres VM : celles cochées **Membre** rejoignent le domaine à leur premier démarrage.
 
 Comptez 10 à 15 minutes pour un contrôleur et ses membres. Les autres VM du lab utilisent le contrôleur comme serveur DNS, sauf si leur champ **DNS** est rempli.
 

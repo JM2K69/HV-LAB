@@ -11,11 +11,15 @@ Open the **Labs** page from the left menu, or with the **Labs** button of the **
     - **AD, member server and Linux web server**: the same, plus `WEB01` on a Linux base.
 2. **Lab** card: lab name (it becomes the Hyper-V group name), password, language and time zone.
 3. **Network** card: the switch, picked from the list or typed (an unknown name is created as an internal switch), and the NAT created with it, with its gateway and prefix.
-4. **Active Directory domain** card: the domain, the account allowed to join and the organizational unit. The VM ticked **Controller** creates the domain; only the VMs ticked **Domain** join it.
+4. **Active Directory domain** card: **Use a domain** shows the **domain DNS name** (free, `lab.local` by default), the account allowed to join and the organizational unit. Ticking **Controller** on a VM turns this card on. The text under the card says what will happen:
+    - **New domain** when a VM is **Controller**: it creates the domain when deploying, then the VMs ticked **Member** join it;
+    - **Existing domain** otherwise: the VMs ticked **Member** join a domain that already exists, found through their DNS.
+
+    The NetBIOS name is the first part of the DNS name, in uppercase.
 5. **Virtual machines** card, one row per VM:
     - **Name** and **Base image**, picked from the images of the host; `*` matches anything and the newest version is used;
     - **RAM (MB)**, **vCPU**, **Static IP** and **DNS**;
-    - **Controller** and **Domain** for a Windows VM, **User** for a Linux VM;
+    - **Controller** and **Member** for a Windows VM, **User** for a Linux VM;
     - **Tags**, comma-separated, written into the VM notes;
     - for a Linux VM, the **commands at first boot**, one per line;
     - the arrows change the creation order, the bin removes the VM;
@@ -111,7 +115,7 @@ Tick **Controller** on a Windows Server VM with a static IP (`"domainController"
 2. starts it and waits for Windows setup to finish;
 3. installs AD DS and creates a new forest with its DNS server, through [PowerShell Direct](virtual-machines.md#automation-windows-guests);
 4. restarts it and waits until the domain answers;
-5. then creates the other VMs: the ones ticked **Domain** join the domain on their first boot.
+5. then creates the other VMs: the ones ticked **Member** join the domain on their first boot.
 
 Allow 10 to 15 minutes for a controller and its members. The other VMs of the lab use the controller as DNS server, unless their **DNS** field is filled in.
 

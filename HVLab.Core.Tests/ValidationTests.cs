@@ -57,6 +57,18 @@ public class InputValidatorTests
         => Assert.Equal(valid, InputValidator.CheckProductKey(key) is null);
 
     [Theory]
+    [InlineData("Insider", true)]
+    [InlineData("WindowsServerInsider*", true)]
+    [InlineData("*Insider*Azure*", true)]
+    [InlineData("WindowsServer2025Standard(DesktopExperience)", true)]
+    [InlineData("*", false)]                 // would replace every key of the catalog
+    [InlineData("", false)]
+    [InlineData("Insider Preview", false)]
+    [InlineData("Insider';rm", false)]
+    public void Product_key_pattern_of_the_settings(string pattern, bool valid)
+        => Assert.Equal(valid, InputValidator.CheckKeyPattern(pattern) is null);
+
+    [Theory]
     [InlineData("Win 11_Lab", "Win-11-Lab")]
     [InlineData("SERVER-WITH-A-LONG-NAME", "SERVER-WITH-A-L")]
     [InlineData("2025", "VM-2025")]

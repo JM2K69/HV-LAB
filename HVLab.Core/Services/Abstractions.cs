@@ -182,10 +182,40 @@ public interface IVhdxService
     /// </summary>
     Task<VmDiskCopy> CopyVmDiskAsync(string vmName, string destPath,
         IProgress<string>? progress = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Reads a VHDX or VHD file without changing it (mounted read-only): its partition style (generation), size,
+    /// and for Windows its version and sysprep state. A disk in use is refused.
+    /// </summary>
+    Task<VhdxAnalysis> AnalyzeVhdxAsync(string path);
+
+    /// <summary>
+    /// Copies a VHDX or VHD file into <paramref name="destPath"/> as a standalone dynamic VHDX (a differencing disk
+    /// comes out merged); the source is left untouched. Returns the size in GB.
+    /// </summary>
+    Task<long> CopyVhdxFileAsync(string sourcePath, string destPath, IProgress<string>? progress = null, CancellationToken ct = default);
 }
 
 /// <summary>Result of <see cref="IVhdxService.CopyVmDiskAsync"/>.</summary>
 public sealed record VmDiskCopy(int Generation, bool SecureBoot, string SecureBootTemplate, long SizeGB);
+
+/// <summary>Result of <see cref="IVhdxService.AnalyzeVhdxAsync"/>.</summary>
+/// <param name="Generation">2 for a GPT disk (UEFI), 1 for MBR (BIOS).</param>
+/// <param name="VhdType">Fixed, Dynamic or Differencing.</param>
+/// <param name="WindowsVersion">Version of the Windows kernel (10.0.20348.2849), empty when no Windows was found.</param>
+/// <param name="ImageState">ImageState of Windows\Setup\State\State.ini, empty when unknown.</param>
+public sealed record VhdxAnalysis(int Generation, long SizeGB, string VhdType, bool IsWindows, string WindowsVersion, string ImageState)
+{
+    /// <summary>
+    /// No setup state: an image applied from a WIM and never started (as HV-LAB's own bases), which is as good as
+    /// sysprepped.
+    /// </summary>
+    public bool NeverStarted => ImageState.Length == 0;
+
+    /// <summary>Sysprepped (generalize, then OOBE) or never started: each clone runs its own setup with the answer file.</summary>
+    public bool IsGeneralized => NeverStarted || ImageState.Contains("GENERALIZE_RESEAL_TO_OOBE", StringComparison.OrdinalIgnoreCase);
+    public bool IsDifferencing => VhdType.Equals("Differencing", StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>NetNat networks.</summary>
 public interface INatService

@@ -1,10 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Page
     x:Class="HVLab.Views.SettingsPage"
+    x:Name="PageRoot"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ctk="using:CommunityToolkit.WinUI.Controls"
     xmlns:helpers="using:HVLab.Helpers"
+    xmlns:models="using:HVLab.Models"
     NavigationCacheMode="Required"
     Background="Transparent">
 
@@ -91,6 +93,68 @@
                               IsEnabled="{x:Bind ViewModel.EnhancedSessionLoaded, Mode=OneWay}"
                               AutomationProperties.Name="{Binding [SET_Enhanced], Source={StaticResource Loc}}"/>
             </ctk:SettingsCard>
+
+            <!-- ══ Product keys (Windows Insider builds…) ══════════════════ -->
+            <TextBlock Text="{Binding [SET_SecKeys], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Margin="0,20,0,4"/>
+
+            <ctk:SettingsExpander Header="{Binding [SET_ProductKeys], Source={StaticResource Loc}}"
+                                  Description="{Binding [SET_ProductKeysDesc], Source={StaticResource Loc}}"
+                                  ItemsSource="{x:Bind ViewModel.ProductKeys}">
+                <ctk:SettingsExpander.HeaderIcon>
+                    <FontIcon Glyph="&#xE8D7;"/>
+                </ctk:SettingsExpander.HeaderIcon>
+                <ctk:SettingsExpander.ItemTemplate>
+                    <DataTemplate x:DataType="models:CustomProductKey">
+                        <ctk:SettingsCard Header="{x:Bind DisplayName}" Description="{x:Bind Pattern}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{x:Bind Key}" FontFamily="Consolas" IsTextSelectionEnabled="True"
+                                           VerticalAlignment="Center"/>
+                                <Button Command="{Binding ViewModel.RemoveProductKeyCommand, ElementName=PageRoot}" CommandParameter="{x:Bind}"
+                                        Width="32" Height="32" Padding="0"
+                                        AutomationProperties.Name="{x:Bind helpers:A11y.Action('Btn_Delete', DisplayName)}"
+                                        ToolTipService.ToolTip="{Binding [Btn_Delete], Source={StaticResource Loc}}">
+                                    <FontIcon Glyph="&#xE74D;" FontSize="12"/>
+                                </Button>
+                            </StackPanel>
+                        </ctk:SettingsCard>
+                    </DataTemplate>
+                </ctk:SettingsExpander.ItemTemplate>
+                <ctk:SettingsExpander.ItemsFooter>
+                    <ctk:SettingsCard ContentAlignment="Left">
+                        <StackPanel Spacing="8" HorizontalAlignment="Stretch">
+                            <TextBlock Text="{Binding [SET_KeyAddInfo], Source={StaticResource Loc}}" TextWrapping="Wrap"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="1.4*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Header="{Binding [SET_KeyName], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.NewKeyName, Mode=TwoWay}"
+                                         PlaceholderText="{Binding [SET_KeyNamePlaceholder], Source={StaticResource Loc}}"/>
+                                <TextBox Grid.Column="1" Header="{Binding [SET_KeyPattern], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.NewKeyPattern, Mode=TwoWay}"
+                                         PlaceholderText="Insider" FontFamily="Consolas"/>
+                                <TextBox Grid.Column="2" Header="{Binding [CVM_ProductKey], Source={StaticResource Loc}}"
+                                         Text="{x:Bind ViewModel.NewKeyValue, Mode=TwoWay}"
+                                         PlaceholderText="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" FontFamily="Consolas"
+                                         CharacterCasing="Upper"/>
+                            </Grid>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button Content="{Binding [SET_KeyAdd], Source={StaticResource Loc}}"
+                                        Command="{x:Bind ViewModel.AddProductKeyCommand}"/>
+                                <TextBlock Text="{x:Bind ViewModel.ProductKeyStatus, Mode=OneWay}" VerticalAlignment="Center"
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ctk:SettingsCard>
+                </ctk:SettingsExpander.ItemsFooter>
+            </ctk:SettingsExpander>
 
             <!-- ══ Security ═══════════════════════════════════════════════ -->
             <TextBlock Text="{Binding [SET_SecSecurity], Source={StaticResource Loc}}" FontSize="14" FontWeight="SemiBold"

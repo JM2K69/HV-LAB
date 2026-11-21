@@ -295,6 +295,136 @@ public partial class BaseVhdxViewModel : PageViewModelBase
         finally { IsCreating = false; IsLoading = false; _cts.Dispose(); _cts = null; }
     }
 
+    // ─── Base from a VHDX file (a sysprepped Windows, or a Linux disk with cloud-init) ──
+
+    [ObservableProperty] private string importPath = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ImportSummary), nameof(ImportWarning), nameof(HasImportWarning),
+                                                  nameof(ImportPreviewFileName), nameof(CanImport))]
+    private VhdxAnalysis? importAnalysis;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanImport))] private bool isAnalyzingImport;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ImportPreviewFileName))] private string importFamily = "Windows";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ImportPreviewFileName))] private string importOsName = "";
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ImportPreviewFileName))] private string importVersion = "";
+
+    private bool ImportIsLinux => ImportFamily == "Linux";
+    private string ImportOsIdentifier => ImportIsLinux
+        ? BaseVhdx.LinuxIdentifier(ImportOsName)
+        : new string(ImportOsName.Where(char.IsAsciiLetterOrDigit).ToArray());
+
+    public string ImportPreviewFileName
+        => $"BASE_{ImportOsIdentifier}_{BaseVhdx.NormalizeVersion(ImportVersion) ?? "?"}_{ImportAnalysis?.SizeGB.ToString() ?? "<GB>"}";
+
+    /// <summary>"Generation 2 · 60 GB · Windows 10.0.20348.2849, sysprepped".</summary>
+    public string ImportSummary => ImportAnalysis is not { } a ? ""
+        : T("BV_ImportSummary", a.Generation, a.SizeGB,
+            !a.IsWindows ? T("BV_ImportNoWindows")
+            : T(a.NeverStarted ? "BV_ImportWindowsFresh" : a.IsGeneralized ? "BV_ImportWindowsSysprep" : "BV_ImportWindows",
+                a.WindowsVersion));
+
+    /// <summary>A Windows that was not sysprepped (its clones would share its SID and skip the answer file), or a differencing disk.</summary>
+    public string ImportWarning => ImportAnalysis is not { } a ? ""
+        : a.IsWindows && !a.IsGeneralized ? T("BV_ImportNotSysprep", a.ImageState.Length > 0 ? a.ImageState : "?")
+        : a.IsDifferencing ? T("BV_ImportDifferencing")
+        : "";
+    public bool HasImportWarning => ImportWarning.Length > 0;
+    public bool CanImport => ImportAnalysis is not null && !IsAnalyzingImport;
+
+    partial void OnImportPathChanged(string value)
+    {
+        ImportAnalysis = null;
+        if (!string.IsNullOrWhiteSpace(value)) _ = AnalyzeImportAsync();
+    }
+
+    /// <summary>Reads the picked file (mounted read-only) and fills the family, the version and a name to start from.</summary>
+    public async Task AnalyzeImportAsync()
+    {
+        var path = ImportPath;
+        IsAnalyzingImport = true;
+        ClearActionError();
+        BuildStatus = T("BV_ImportAnalyzing");
+        try
+        {
+            var analysis = await _vhdxService.AnalyzeVhdxAsync(path);
+            if (path != ImportPath) return;   // another file was picked meanwhile
+            ImportAnalysis = analysis;
+            ImportFamily = analysis.IsWindows ? "Windows" : "Linux";
+            if (analysis.IsWindows && BaseVhdx.NormalizeVersion(analysis.WindowsVersion) is { } version) ImportVersion = version;
+            var named = BaseVhdx.FromFile(path);
+            if (ImportOsName.Trim().Length == 0)
+                ImportOsName = named.IsBuilt && named.OsIdentifier.Length > 0
+                    ? named.OsIdentifier
+                    : new string(Path.GetFileNameWithoutExtension(path).Where(char.IsAsciiLetterOrDigit).ToArray());
+            if (named.IsBuilt && ImportVersion.Length == 0) ImportVersion = named.OsVersion;
+            BuildStatus = "";
+        }
+        catch (Exception ex) { BuildStatus = ""; ShowActionError(ex); }
+        finally { IsAnalyzingImport = false; }
+    }
+
+    [RelayCommand]
+    public async Task ImportBaseAsync()
+    {
+        if (ImportAnalysis is not { } analysis || string.IsNullOrWhiteSpace(ImportPath)) { Status = T("BV_ImportPickFirst"); return; }
+        if (ImportOsIdentifier is "" or "Linux")                         { Status = T("BV_EnterDistribution"); return; }
+        if (BaseVhdx.NormalizeVersion(ImportVersion) is not { } version) { Status = T("BV_EnterVersion"); return; }
+        if (analysis.IsWindows && !analysis.IsGeneralized
+            && !await _dialogs.ConfirmAsync(T("BV_ImportNotSysprepTitle"), ImportWarning, T("BV_BtnImportAnyway")))
+            return;
+
+        var source   = ImportPath;
+        var copyPath = System.IO.Path.Combine(BaseFolder, $"~building_{Guid.NewGuid():N}.vhdx");
+        IsCreating = true; IsLoading = true;
+        ErrorMessage = string.Empty;
+        _cts = new CancellationTokenSource();
+        try
+        {
+            BuildStatus = T("Prg_CopyFile", System.IO.Path.GetFileName(source));
+            var sizeGB = await _vhdxService.CopyVhdxFileAsync(source, copyPath,
+                new Progress<string>(line => BuildStatus = TranslateProgress(line)), _cts.Token);
+
+            var vhdxPath = System.IO.Path.Combine(BaseFolder, BaseVhdx.BuildFileName(ImportOsIdentifier, version, sizeGB) + ".vhdx");
+            if (File.Exists(vhdxPath)
+                && !await _dialogs.ConfirmAsync(T("BV_OverwriteTitle"),
+                       T("BV_OverwriteConfirm", System.IO.Path.GetFileName(vhdxPath)), T("BV_BtnOverwrite")))
+            {
+                await _vhdxService.DiscardPartialVhdxAsync(copyPath);
+                BuildStatus = T("Op_Cancelled");
+                return;
+            }
+
+            await MoveWithRetryAsync(copyPath, vhdxPath);
+            new BaseImageInfo
+            {
+                OsFamily           = ImportFamily,
+                Distribution       = ImportOsName.Trim(),
+                Generation         = analysis.Generation,
+                SecureBoot         = analysis.Generation == 2,
+                SecureBootTemplate = ImportIsLinux ? BaseImageInfo.LinuxSecureBootTemplate : BaseImageInfo.WindowsSecureBootTemplate,
+                SourceFile         = source,
+            }.Save(vhdxPath);
+
+            BuildStatus = T("BV_BuildOk");
+            Status = T("BV_Created", vhdxPath);
+            ImportPath = "";
+            ImportOsName = "";
+            ImportVersion = "";
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            var cancelled = ex is OperationCanceledException;
+            BuildStatus = cancelled ? T("Op_Cancelled") : T("BV_BuildError", ex.Message);
+            if (!cancelled)
+            {
+                CrashLogger.Log($"Base image import failed ({source})",
+                                ex is PowerShellException pse ? new Exception($"{pse.Message}\n{pse.Details}", ex) : ex);
+                ErrorMessage = T("BV_BuildFailedLog", ex.Message, CrashLogger.LogFolder);
+            }
+            try { await _vhdxService.DiscardPartialVhdxAsync(copyPath); } catch { /* best effort */ }
+        }
+        finally { IsCreating = false; IsLoading = false; _cts.Dispose(); _cts = null; }
+    }
+
     // ─── Commands ────────────────────────────────────────────────────────────
 
     [RelayCommand]

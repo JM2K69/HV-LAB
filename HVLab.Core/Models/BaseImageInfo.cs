@@ -4,7 +4,7 @@ namespace HVLab.Models;
 
 /// <summary>
 /// Sidecar of a base image (<c>BASE_….json</c> next to <c>BASE_….vhdx</c>): what the file name cannot say.
-/// Written when a base is made from an existing VM, so its clones get the same firmware settings.
+/// Written when a base is made from an existing VM or imported from a VHDX file, so its clones get the right firmware.
 /// Bases built from a WIM have none and keep the Windows defaults.
 /// </summary>
 public sealed class BaseImageInfo
@@ -20,6 +20,8 @@ public sealed class BaseImageInfo
     public string  SecureBootTemplate { get; set; } = WindowsSecureBootTemplate;
     /// <summary>VM the base was copied from, for information.</summary>
     public string? SourceVm           { get; set; }
+    /// <summary>VHDX file the base was imported from, for information.</summary>
+    public string? SourceFile         { get; set; }
 
     public bool IsLinux => OsFamily.Equals("Linux", StringComparison.OrdinalIgnoreCase);
 

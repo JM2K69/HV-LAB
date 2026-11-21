@@ -41,6 +41,13 @@ public sealed partial class BaseVhdxPage : Page
         if (file is not null) ViewModel.WimPath = file;
     }
 
+    private void BrowseImport_Click(object sender, RoutedEventArgs e)
+    {
+        var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);
+        var file = Win32FolderPicker.PickFile(hwnd, Loc["BV_ImportBrowseTitle"], "VHDX / VHD", "*.vhdx;*.vhd");
+        if (file is not null) ViewModel.ImportPath = file;
+    }
+
     private void BrowseBaseFolder_Click(object sender, RoutedEventArgs e)
     {
         var hwnd   = WinRT.Interop.WindowNative.GetWindowHandle(App.MainAppWindow);

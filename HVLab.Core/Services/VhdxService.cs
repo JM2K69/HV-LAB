@@ -143,6 +143,96 @@ public class VhdxService(IPowerShellRunner ps) : IVhdxService
         catch (JsonException ex) { throw HyperVService.ParseError("copie du disque", json, ex); }
     }
 
+    public async Task<VhdxAnalysis> AnalyzeVhdxAsync(string path)
+    {
+        // Read-only mount, no drive letter (no Explorer window); the Windows volume is reached through an
+        // admin-only mount folder, else through its volume path
+        var script = $$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $path = '{{Esc(path)}}'
+            if (-not (Test-Path -LiteralPath $path)) { throw "##Err_FileNotFound|$path" }
+            $vhd = Get-VHD -Path $path -ErrorAction Stop
+            if ($vhd.Attached) { throw "##Err_VhdxInUse|$path" }
+            $gen = 2; $isWin = $false; $version = ''; $state = ''
+            $mount = Mount-DiskImage -ImagePath $path -Access ReadOnly -NoDriveLetter -PassThru -ErrorAction Stop
+            $folder = Join-Path $env:ProgramData ('HV-LAB\mnt\' + [guid]::NewGuid().ToString('N'))
+            # Returns what it found (never sets outer variables: the worker runs scripts in a child scope)
+            function Read-Windows($root) {
+                $kernel = Join-Path $root 'Windows\System32\ntoskrnl.exe'
+                if (-not (Test-Path -LiteralPath $kernel)) { return $null }
+                $v = (Get-Item -LiteralPath $kernel).VersionInfo
+                $found = [PSCustomObject]@{ Version = "$($v.FileMajorPart).$($v.FileMinorPart).$($v.FileBuildPart).$($v.FilePrivatePart)"; State = '' }
+                $ini = Join-Path $root 'Windows\Setup\State\State.ini'
+                if (Test-Path -LiteralPath $ini) {
+                    $line = @(Get-Content -LiteralPath $ini | Where-Object { $_ -match '^\s*ImageState\s*=' }) | Select-Object -First 1
+                    if ($line) { $found.State = ($line -split '=', 2)[1].Trim() }
+                }
+                return $found
+            }
+            try {
+                $disk = $mount | Get-Disk
+                if ("$($disk.PartitionStyle)" -eq 'MBR') { $gen = 1 }
+                New-Item -Path $folder -ItemType Directory -Force | Out-Null
+                & icacls.exe $folder /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' | Out-Null
+                foreach ($part in @(Get-Partition -DiskNumber $disk.Number -ErrorAction SilentlyContinue | Where-Object { $_.Size -gt 1GB })) {
+                    $mounted = $false
+                    $found = $null
+                    try {
+                        $part | Add-PartitionAccessPath -AccessPath $folder -ErrorAction Stop
+                        $mounted = $true
+                        $found = Read-Windows $folder
+                    } catch {
+                        $volume = ($part | Get-Volume -ErrorAction SilentlyContinue).Path
+                        if ($volume) { $found = Read-Windows $volume }
+                    } finally {
+                        if ($mounted) { $part | Remove-PartitionAccessPath -AccessPath $folder -ErrorAction SilentlyContinue }
+                    }
+                    if ($found) { $isWin = $true; $version = $found.Version; $state = $found.State; break }
+                }
+            } finally {
+                Remove-Item -LiteralPath $folder -Force -ErrorAction SilentlyContinue
+                Dismount-DiskImage -ImagePath $path -ErrorAction SilentlyContinue | Out-Null
+            }
+            [PSCustomObject]@{
+                Generation = $gen; SizeGB = [long][math]::Ceiling($vhd.Size / 1GB); VhdType = "$($vhd.VhdType)"
+                IsWindows = $isWin; WindowsVersion = $version; ImageState = "$state"
+            } | ConvertTo-Json -Compress
+            """;
+        var json = HyperVService.ExtractJson(await ps.RunAsync(script, timeout: TimeSpan.FromMinutes(5)));
+        try
+        {
+            return JsonSerializer.Deserialize<VhdxAnalysis>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                   ?? throw new JsonException("null");
+        }
+        catch (JsonException ex) { throw HyperVService.ParseError("analyse du VHDX", json, ex); }
+    }
+
+    public async Task<long> CopyVhdxFileAsync(string sourcePath, string destPath, IProgress<string>? progress = null,
+                                              CancellationToken ct = default)
+    {
+        // Convert-VHD reads the disk as a VM would (a differencing chain comes out merged) and writes a new file
+        var script = $$"""
+            Import-Module Hyper-V -ErrorAction Stop
+            $source   = '{{Esc(sourcePath)}}'
+            $destPath = '{{Esc(destPath)}}'
+            if ((Get-VHD -Path $source -ErrorAction Stop).Attached) { throw "##Err_VhdxInUse|$source" }
+            Write-Output "##Prg_CopyFile|$(Split-Path $source -Leaf)"
+            $dir = Split-Path $destPath -Parent
+            if (-not (Test-Path $dir)) { New-Item -Path $dir -ItemType Directory -Force | Out-Null }
+            if (Test-Path $destPath) { Remove-Item $destPath -Force }
+            Convert-VHD -Path $source -DestinationPath $destPath -VHDType Dynamic -ErrorAction Stop
+            [PSCustomObject]@{ SizeGB = [long][math]::Ceiling((Get-VHD -Path $destPath).Size / 1GB) } | ConvertTo-Json -Compress
+            """;
+        var json = HyperVService.ExtractJson(await ps.RunAsync(script, progress, ct: ct));
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.GetProperty("SizeGB").GetInt64();
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        { throw HyperVService.ParseError("copie du VHDX", json, ex); }
+    }
+
     public async Task<List<BaseVhdx>> GetBaseVhdxListAsync(string folder)
     {
         var result = new List<BaseVhdx>();

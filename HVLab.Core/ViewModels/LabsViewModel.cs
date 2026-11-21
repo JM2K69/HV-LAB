@@ -131,7 +131,16 @@ public partial class LabsViewModel(LabBlueprintService labs, IHyperVService hv, 
         PlanChecked = false;
         Plan.Clear();
         OnPropertyChanged(nameof(JsonPreview));
+        OnPropertyChanged(nameof(DomainHint));
     }
+
+    /// <summary>
+    /// What happens to the domain: a new one, created by the lab's controller, or an existing one that the members
+    /// join (no controller in the lab).
+    /// </summary>
+    public string DomainHint => Vms.FirstOrDefault(r => r.IsWindows && r.DomainController) is { } dc
+        ? T("LABS_DomainNew", dc.Name.Trim().Length > 0 ? dc.Name.Trim() : "?")
+        : T("LABS_DomainExisting");
 
     /// <summary>The JSON the form generates (what Save writes), the password masked.</summary>
     public string JsonPreview
@@ -148,7 +157,13 @@ public partial class LabsViewModel(LabBlueprintService labs, IHyperVService hv, 
     public bool HasFiles => Files.Count > 0;
     public bool HasPath  => _path is not null;
 
-    private void Row_PropertyChanged(object? sender, PropertyChangedEventArgs e) => Touch();
+    private void Row_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // A controller creates the lab domain: its card opens, with its name to check
+        if (e.PropertyName == nameof(LabVmRow.DomainController) && sender is LabVmRow { DomainController: true } && !UseDomain)
+            UseDomain = true;
+        Touch();
+    }
 
     private void AddRow(LabVmRow row)
     {
@@ -248,7 +263,9 @@ public partial class LabsViewModel(LabBlueprintService labs, IHyperVService hv, 
         Password = lab.Password;
         Language = lab.Language;
         TimeZone = lab.TimeZone;
-        UseDomain = lab.Domain is not null;
+        // A file with a controller but no domain (written by hand, or before controllers existed) opens with the
+        // domain card on, on its default name, instead of an error at the first save
+        UseDomain = lab.Domain is not null || lab.Vms.Any(v => v.DomainController);
         DomainName = lab.Domain?.Name ?? "lab.local";
         DomainUser = lab.Domain?.User ?? "Administrator";
         DomainOu = lab.Domain?.Ou ?? "";
@@ -261,6 +278,7 @@ public partial class LabsViewModel(LabBlueprintService labs, IHyperVService hv, 
         EditorOpen = true;
         _loadingEditor = false;
         OnPropertyChanged(nameof(JsonPreview));
+        OnPropertyChanged(nameof(DomainHint));
         OnPropertyChanged(nameof(HasPath));
         _changingSelection = true;
         SelectedFile = path is null ? null : Files.FirstOrDefault(f => f.Path == path);

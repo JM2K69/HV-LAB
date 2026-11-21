@@ -217,6 +217,77 @@ public class LinuxBaseTests
         Assert.Equal(BaseImageInfo.LinuxSecureBootTemplate, b.SecureBootTemplate);
     }
 
+    private static FakePowerShellRunner ImportRunner(string imageState) => new(script =>
+    {
+        if (script.Contains("-Access ReadOnly"))
+            return $$"""{"Generation":2,"SizeGB":60,"VhdType":"Dynamic","IsWindows":true,"WindowsVersion":"10.0.20348.2849","ImageState":"{{imageState}}"}""";
+        var dest = Regex.Match(script, @"\$destPath = '([^']+)'");
+        if (!dest.Success) return "";
+        File.WriteAllBytes(dest.Groups[1].Value, []);
+        return """{"SizeGB":60}""";
+    });
+
+    private static async Task<BaseVhdxViewModel> PickAsync(FakePowerShellRunner runner, FakeDialogService dialogs, string folder, string source)
+    {
+        var vm = new BaseVhdxViewModel(new VhdxService(runner), dialogs, new FakeHyperVService()) { BaseFolder = folder };
+        vm.ImportPath = source;
+        for (var i = 0; i < 200 && (vm.ImportAnalysis is null || vm.IsAnalyzingImport); i++) await Task.Delay(10);
+        return vm;
+    }
+
+    [Fact]
+    public async Task A_sysprepped_windows_vhdx_is_imported_as_a_base()
+    {
+        var folder = TempDir();
+        var source = Path.Combine(TempDir(), "Win2022-Template.vhdx");
+        File.WriteAllBytes(source, [1]);
+        var vm = await PickAsync(ImportRunner("IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE"), new FakeDialogService(), folder, source);
+
+        // The analysis fills the family, the Windows version, and a name from the file
+        Assert.Equal(("Windows", "10.0.20348.2849", "Win2022Template"), (vm.ImportFamily, vm.ImportVersion, vm.ImportOsName));
+        Assert.False(vm.HasImportWarning);
+        Assert.Contains("10.0.20348.2849", vm.ImportSummary);
+
+        vm.ImportOsName = "WindowsServer2022Standard";
+        Assert.Equal("BASE_WindowsServer2022Standard_10.0.20348.2849_60", vm.ImportPreviewFileName);
+        await vm.ImportBaseAsync();
+
+        var path = Path.Combine(folder, "BASE_WindowsServer2022Standard_10.0.20348.2849_60.vhdx");
+        Assert.True(File.Exists(path), vm.ErrorMessage);
+        Assert.Empty(Directory.GetFiles(folder, "~building_*"));
+        var info = BaseImageInfo.Load(path)!;
+        Assert.Equal((2, true, "Windows", BaseImageInfo.WindowsSecureBootTemplate, source),
+                     (info.Generation, info.SecureBoot, info.OsFamily, info.SecureBootTemplate, info.SourceFile));
+        Assert.True(File.Exists(source));                                        // the original is left alone
+    }
+
+    [Theory]
+    [InlineData("IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE", true, false)]
+    [InlineData("", true, true)]                                        // applied from a WIM, never started (HV-LAB's own bases)
+    [InlineData("IMAGE_STATE_COMPLETE", false, false)]
+    public void The_setup_state_tells_whether_clones_run_their_own_setup(string state, bool generalized, bool neverStarted)
+    {
+        var a = new VhdxAnalysis(2, 60, "Dynamic", true, "10.0.26100.9549", state);
+        Assert.Equal((generalized, neverStarted), (a.IsGeneralized, a.NeverStarted));
+    }
+
+    [Fact]
+    public async Task A_windows_that_was_not_sysprepped_is_only_imported_after_a_warning()
+    {
+        var folder = TempDir();
+        var source = Path.Combine(TempDir(), "BASE_WindowsServer2022Standard_10.0.20348.1_60.vhdx");
+        File.WriteAllBytes(source, [1]);
+        var runner = ImportRunner("IMAGE_STATE_COMPLETE");
+        var vm = await PickAsync(runner, new FakeDialogService(answer: false), folder, source);
+
+        Assert.Equal("WindowsServer2022Standard", vm.ImportOsName);              // a BASE_ file name gives its OS identifier
+        Assert.True(vm.HasImportWarning);
+        Assert.Contains("IMAGE_STATE_COMPLETE", vm.ImportWarning);
+        await vm.ImportBaseAsync();                                              // refused in the dialog
+        Assert.DoesNotContain(runner.Scripts, s => s.Contains("Convert-VHD"));
+        Assert.Empty(Directory.GetFiles(folder, "*.vhdx"));
+    }
+
     [Fact]
     public async Task Linux_clones_get_a_seed_an_incremented_ip_and_the_uefi_template()
     {

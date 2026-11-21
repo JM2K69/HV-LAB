@@ -133,6 +133,19 @@ public static partial class InputValidator
         return null;
     }
 
+    /// <summary>
+    /// Pattern of a product key of the settings: a word or a pattern of an OS identifier ("Insider", "WindowsServerInsider*"),
+    /// with at least one letter or digit (a lone "*" would replace every key of the catalog).
+    /// </summary>
+    public static string? CheckKeyPattern(string? pattern)
+    {
+        var p = pattern?.Trim() ?? "";
+        return p.Length is > 0 and <= 100
+               && p.All(c => char.IsAsciiLetterOrDigit(c) || "*?()._-".Contains(c))
+               && p.Any(char.IsAsciiLetterOrDigit)
+            ? null : "Val_KeyPattern";
+    }
+
     /// <summary>Empty (no key) or the 5×5 product key format.</summary>
     public static string? CheckProductKey(string? key)
         => string.IsNullOrWhiteSpace(key) || ProductKeyRegex().IsMatch(key.Trim()) ? null : "Val_ProductKey";

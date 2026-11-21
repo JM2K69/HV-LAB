@@ -76,8 +76,18 @@ public static class KmsKeyCatalog
     public static IEnumerable<IGrouping<string, KmsKeyEntry>> Grouped()
         => All.GroupBy(k => k.Group);
 
+    /// <summary>The keys the user added in the settings, then the GVLK catalog.</summary>
+    public static IReadOnlyList<KmsKeyEntry> WithCustom() => WithCustom(AppSettings.Current.ProductKeys);
+
+    public static IReadOnlyList<KmsKeyEntry> WithCustom(IEnumerable<CustomProductKey> custom)
+        => [.. custom.Where(k => k.Key.Trim().Length > 0).Select(k => k.ToEntry()), .. All];
+
+    /// <summary>Suggests a key for a base: a matching key of the settings first, else the GVLK catalog.</summary>
+    public static KmsKeyEntry? SuggestForOs(string? osIdentifier) => SuggestForOs(osIdentifier, AppSettings.Current.ProductKeys);
+
     /// <summary>
-    /// Suggests the best matching KMS key from a BaseVhdx.OsIdentifier string.
+    /// Suggests the best matching key from a BaseVhdx.OsIdentifier string: the most specific matching
+    /// <paramref name="custom"/> key (Windows Insider builds…), else the GVLK of the edition.
     /// Examples of identifiers:
     ///   "WindowsServer2025Standard(DesktopExperience)"
     ///   "WindowsServer2022Datacenter"
@@ -85,9 +95,14 @@ public static class KmsKeyCatalog
     ///   "Windows10Enterprise"
     /// Returns null if no match found.
     /// </summary>
-    public static KmsKeyEntry? SuggestForOs(string? osIdentifier)
+    public static KmsKeyEntry? SuggestForOs(string? osIdentifier, IEnumerable<CustomProductKey> custom)
     {
         if (string.IsNullOrWhiteSpace(osIdentifier)) return null;
+
+        var own = custom.Where(k => k.Key.Trim().Length > 0 && k.Matches(osIdentifier))
+                        .OrderByDescending(k => k.Specificity)   // stable: the first of equally specific keys wins
+                        .FirstOrDefault();
+        if (own is not null) return own.ToEntry();
 
         // Normalize: lowercase, remove spaces/parentheses/hyphens for fuzzy matching
         var norm = osIdentifier.ToLowerInvariant()

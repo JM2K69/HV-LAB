@@ -36,7 +36,7 @@ Leave **Use an answer file** checked to get an unattended setup.
 | Administrator password | **Required**. Use the eye button to show or hide it. |
 | Language / Locale | `fr-FR`, `en-US`, `en-GB`, `de-DE`, `es-ES` or `it-IT`. Sets the UI language, system locale, user locale and keyboard. |
 | Time zone | For example `Romance Standard Time` (Paris) or `Pacific Standard Time`. |
-| KMS key (GVLK) | Microsoft's public KMS client keys. The key that matches the base image is suggested and copied into **Product key**. |
+| KMS key (GVLK) | Microsoft's public KMS client keys, after your [custom keys](settings.md#custom-product-keys). The key that matches the base image is suggested and copied into **Product key**. |
 | Product key (optional) | Any key, set during the *specialize* pass. Leave it empty to skip it. |
 
 ### Static IP address

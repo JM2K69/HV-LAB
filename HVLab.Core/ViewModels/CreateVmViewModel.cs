@@ -108,7 +108,8 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         var norm = vhdx.OsIdentifier.ToLowerInvariant();
         _detectedOsFamily = norm.Contains("server") ? OsFamily.Server : OsFamily.Client;
 
-        // Auto-suggest matching KMS key
+        // Auto-suggest matching KMS key (keys added in the settings first)
+        RefreshKmsKeys();
         var suggested = KmsKeyCatalog.SuggestForOs(vhdx.OsIdentifier);
         if (suggested is not null)
             SelectedKmsKey = suggested;
@@ -117,7 +118,19 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         UpdateAnswerPreview();
     }
 
-    public IReadOnlyList<KmsKeyEntry> KmsKeys { get; } = KmsKeyCatalog.All;
+    /// <summary>The keys of the settings, then the GVLK catalog; refreshed on each visit (a key may have been added meanwhile).</summary>
+    [ObservableProperty] private IReadOnlyList<KmsKeyEntry> kmsKeys = KmsKeyCatalog.WithCustom();
+
+    private void RefreshKmsKeys()
+    {
+        var keys = KmsKeyCatalog.WithCustom();
+        if (keys.SequenceEqual(KmsKeys)) return;
+        var selected = SelectedKmsKey;   // the ComboBox clears it when its items change
+        KmsKeys = keys;
+        SelectedKmsKey = selected is not null && keys.Contains(selected) ? selected : null;
+    }
+
+    protected override void OnDataLoadedCore() => RefreshKmsKeys();
 
     public IReadOnlyList<string> Languages     => LabCatalog.Languages;
     public IReadOnlyList<string> TimeZones     => LabCatalog.TimeZones;

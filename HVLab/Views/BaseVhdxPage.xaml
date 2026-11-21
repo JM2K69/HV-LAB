@@ -72,6 +72,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <!-- Column headers -->
@@ -497,6 +498,81 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE8C8;" FontSize="14"/>
                             <TextBlock Text="{Binding [BV_BtnCreateFromVm], Source={StaticResource Loc}}"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Expander>
+
+            <!-- Base from a VHDX file: read first (mounted read-only), then copied -->
+            <Expander Grid.Row="4" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <Expander.Header>
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE8B5;" FontSize="14"/>
+                        <TextBlock Text="{Binding [BV_ImportTitle], Source={StaticResource Loc}}" FontSize="14"/>
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="16" Padding="0,10,0,6">
+                    <InfoBar IsOpen="True" Severity="Informational" IsClosable="False"
+                             Message="{Binding [BV_ImportInfo], Source={StaticResource Loc}}"/>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{Binding [BV_ImportFile], Source={StaticResource Loc}}" FontSize="12"/>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox AutomationProperties.Name="{Binding [BV_ImportFile], Source={StaticResource Loc}}"
+                                     Text="{x:Bind ViewModel.ImportPath, Mode=OneWay}" IsReadOnly="True" FontFamily="Consolas"/>
+                            <Button Grid.Column="1" Content="{Binding [Btn_Browse], Source={StaticResource Loc}}" Click="BrowseImport_Click"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <ProgressBar IsIndeterminate="True" Visibility="{x:Bind ViewModel.IsAnalyzingImport, Mode=OneWay}"/>
+                    <TextBlock Text="{x:Bind ViewModel.ImportSummary, Mode=OneWay}" FontFamily="Consolas" TextWrapping="Wrap"/>
+                    <InfoBar IsOpen="{x:Bind ViewModel.HasImportWarning, Mode=OneWay}" Severity="Warning" IsClosable="False"
+                             Message="{x:Bind ViewModel.ImportWarning, Mode=OneWay}"/>
+
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="160"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding [BV_SourceFamily], Source={StaticResource Loc}}" FontSize="12"/>
+                            <ComboBox AutomationProperties.Name="{Binding [BV_SourceFamily], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.SourceFamilies}"
+                                      SelectedItem="{x:Bind ViewModel.ImportFamily, Mode=TwoWay}" HorizontalAlignment="Stretch"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="{Binding [BV_Distribution], Source={StaticResource Loc}}" FontSize="12"/>
+                            <TextBox AutomationProperties.Name="{Binding [BV_Distribution], Source={StaticResource Loc}}"
+                                     Text="{x:Bind ViewModel.ImportOsName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PlaceholderText="WindowsServer2022Standard"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Text="{Binding [BV_SourceVersion], Source={StaticResource Loc}}" FontSize="12"/>
+                            <TextBox AutomationProperties.Name="{Binding [BV_SourceVersion], Source={StaticResource Loc}}"
+                                     Text="{x:Bind ViewModel.ImportVersion, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PlaceholderText="10.0.20348.1" FontFamily="Consolas"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Background="{ThemeResource SubtleFillColorTertiaryBrush}" CornerRadius="6" Padding="12,8">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="{Binding [BV_Preview], Source={StaticResource Loc}}" FontSize="11"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{x:Bind ViewModel.ImportPreviewFileName, Mode=OneWay}"
+                                       FontFamily="Consolas" FontSize="13" FontWeight="SemiBold"
+                                       IsTextSelectionEnabled="True" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Border>
+
+                    <Button Command="{x:Bind ViewModel.ImportBaseCommand}" Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.CanImport, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE8B5;" FontSize="14"/>
+                            <TextBlock Text="{Binding [BV_BtnImport], Source={StaticResource Loc}}"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>

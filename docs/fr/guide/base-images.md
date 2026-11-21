@@ -2,8 +2,8 @@
 
 Une image de base est une installation Windows généralisée dans un fichier `BASE_*.vhdx`. Les VM sont ensuite créées en **disque différentiel** sur ce fichier. Chaque VM ne stocke que ses propres modifications, donc créer une VM prend quelques secondes.
 
-!!! tip "Linux, ou une VM Windows personnalisée"
-    Une base peut aussi être copiée depuis une VM existante. Voir [Bases Linux](linux.md).
+!!! tip "Linux, une VM Windows personnalisée, ou un fichier VHDX"
+    Une base peut aussi être copiée depuis une VM existante (voir [Bases Linux](linux.md)), ou [importée depuis un fichier VHDX](#importer-un-fichier-vhdx).
 
 La page **Images de base VHDX** liste les images du dossier des images de base (voir [Paramètres](settings.md)). Pour chaque image, la liste affiche l'OS, la version, l'édition, la taille et la date, ainsi que **Utilisée par N VM** : le nombre de VM construites dessus. Survolez-le pour voir leurs noms. Sous la liste se trouve le formulaire de construction d'une nouvelle image.
 
@@ -76,6 +76,22 @@ Le bandeau d'erreur donne la raison et le chemin du journal de construction, qui
 - l'ISO a été démonté pendant la construction ;
 - le disque de destination est plein ;
 - le fichier de destination est verrouillé, par exemple par une VM démarrée.
+
+## Importer un fichier VHDX
+
+**Importer un fichier VHDX** fait une base d'un disque déjà prêt : un Windows généralisé, ou un Linux avec cloud-init (voir [Bases Linux](linux.md)).
+
+1. **Parcourir** : choisissez le fichier `.vhdx` ou `.vhd`. HV-LAB le lit monté en lecture seule et affiche :
+    - sa génération : 2 pour un disque GPT (UEFI), 1 pour un disque MBR (BIOS) ;
+    - sa taille ;
+    - pour Windows, sa version et s'il est généralisé.
+2. Vérifiez la **famille**, le **nom** de l'OS (par exemple `WindowsServer2022Standard`) et la **version**, déjà remplis par l'analyse. L'aperçu montre le nom du fichier `BASE_…`.
+3. **Importer comme base** copie le disque dans le dossier des images de base, avec sa fiche (génération, Secure Boot).
+
+Le fichier d'origine n'est jamais modifié. Un disque différentiel est fusionné à la copie, et un `.vhd` est converti en `.vhdx`. Un disque utilisé par une VM démarrée, ou monté, est refusé.
+
+!!! warning "Windows doit être généralisé"
+    Lancez `sysprep /generalize /oobe /shutdown` dans la VM d'origine avant de copier son disque, et ne la redémarrez pas. Sinon les clones gardent le même SID et ignorent le fichier de réponse : nom, mot de passe, IP et domaine ne sont pas appliqués. HV-LAB vous prévient et demande confirmation dans ce cas.
 
 ## Supprimer une image
 

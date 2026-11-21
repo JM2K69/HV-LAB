@@ -117,6 +117,45 @@ public class HyperVLiveLabTests
     }
 
     [LiveGuestFact]
+    public async Task A_windows_vhdx_is_copied_then_read_like_an_import()
+    {
+        var b = PickWindowsBase(await Vhdx.GetBaseVhdxListAsync(BasesFolder));
+        Directory.CreateDirectory(Folder);
+        var copy = Path.Combine(Folder, $"HVLT-IMPORT-{Tag()}.vhdx");
+        try
+        {
+            Assert.True(await Vhdx.CopyVhdxFileAsync(b.FilePath, copy) > 0);
+            var read = await Vhdx.AnalyzeVhdxAsync(copy);
+            Assert.True(read.IsWindows, "no Windows found on the copy");
+            Assert.Equal((2, "Dynamic"), (read.Generation, read.VhdType));
+            Assert.True(read.IsGeneralized, $"ImageState: '{read.ImageState}'");     // a base never booted is sysprepped
+            Assert.StartsWith(string.Join('.', b.OsVersion.Split('.').Take(3)), read.WindowsVersion);
+            Assert.Equal("False", (await Ps.RunAsync($"(Get-VHD -Path '{PowerShellRunner.Esc(copy)}').Attached")).Trim());   // dismounted
+
+            // Disks dropped in the bases folder without a BASE_ name (downloaded images): read only, and reported in
+            // livetests\import-report.txt, the way the import page would show them
+            var report = new List<string>();
+            foreach (var file in Directory.EnumerateFiles(BasesFolder, "*.vhd*")
+                                          .Where(f => !Path.GetFileName(f).StartsWith("BASE_", StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    var a = await Vhdx.AnalyzeVhdxAsync(file);
+                    report.Add($"{Path.GetFileName(file)} | gen {a.Generation} | {a.SizeGB} GB | {a.VhdType} | " +
+                               $"windows={a.IsWindows} {a.WindowsVersion} | state={a.ImageState} | sysprepped={a.IsGeneralized}");
+                }
+                catch (Exception ex) { report.Add($"{Path.GetFileName(file)} | ERROR {ex.Message}"); }
+            }
+            File.WriteAllLines(Path.Combine(Folder, "import-report.txt"), report);
+        }
+        finally
+        {
+            await Ps.RunAsync($"Dismount-DiskImage -ImagePath '{PowerShellRunner.Esc(copy)}' -ErrorAction SilentlyContinue | Out-Null; " +
+                              $"Remove-Item -LiteralPath '{PowerShellRunner.Esc(copy)}' -Force -ErrorAction SilentlyContinue");
+        }
+    }
+
+    [LiveGuestFact]
     public async Task A_cancelled_creation_leaves_nothing_behind()
     {
         var tag = Tag(); var sw = $"HVLT-SW-{tag}"; var name = $"HVLT-CXL-{tag}";

@@ -57,6 +57,8 @@ public abstract partial class VmCreationViewModelBase : PageViewModelBase
     partial void OnSelectedBaseVhdxChanged(string? value) => OnSelectedBaseVhdxChangedCore(value);
     protected virtual void OnVmNameChangedCore(string value) { }
     protected virtual void OnSelectedBaseVhdxChangedCore(string? value) { }
+    /// <summary>After each (re)load of the switches and bases, e.g. on every visit of the page.</summary>
+    protected virtual void OnDataLoadedCore() { }
 
     // ── Bulk mode ───────────────────────────────────────────────────────────
 
@@ -111,6 +113,7 @@ public abstract partial class VmCreationViewModelBase : PageViewModelBase
 
             if (prevSwitch is not null && VirtualSwitches.Contains(prevSwitch)) SelectedSwitch   = prevSwitch;
             if (prevVhdx   is not null && BaseVhdxList.Contains(prevVhdx))     SelectedBaseVhdx = prevVhdx;
+            OnDataLoadedCore();
 
             Status = T("St_Ready");
             MarkLoaded();

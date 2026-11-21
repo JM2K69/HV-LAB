@@ -2,8 +2,8 @@
 
 A base image is a generalized Windows installation in a `BASE_*.vhdx` file. VMs are then created on **differencing disks** of this file: each VM stores only its own changes, so creating a VM takes seconds.
 
-!!! tip "Linux, or a customized Windows VM"
-    A base can also be copied from an existing VM. See [Linux bases](linux.md).
+!!! tip "Linux, a customized Windows VM, or a VHDX file"
+    A base can also be copied from an existing VM (see [Linux bases](linux.md)), or [imported from a VHDX file](#import-a-vhdx-file).
 
 The **Base VHDX Images** page lists the images found in the base images folder (see [Settings](settings.md)). The list shows the OS, version, edition, size and date of each image, and **Used by N VM(s)**: the number of VMs built on it. Hover over it to see their names. Below the list is the form that builds a new image.
 
@@ -76,6 +76,22 @@ The error banner gives the reason and the path of the build log, which has the f
 - the ISO was dismounted during the build;
 - the destination disk is full;
 - the destination file is locked, for example by a running VM.
+
+## Import a VHDX file
+
+**Import a VHDX file** makes a base out of a disk that is already prepared: a sysprepped Windows, or a Linux with cloud-init (see [Linux bases](linux.md)).
+
+1. **Browse**: choose the `.vhdx` or `.vhd` file. HV-LAB reads it mounted read-only and shows:
+    - its generation: 2 for a GPT disk (UEFI), 1 for an MBR disk (BIOS);
+    - its size;
+    - for Windows, its version and whether it is sysprepped.
+2. Check the **family**, the OS **name** (for example `WindowsServer2022Standard`) and the **version**, already filled by the analysis. The preview shows the `BASE_…` file name.
+3. **Import as a base** copies the disk into the base images folder, with its sidecar (generation, Secure Boot).
+
+The original file is never changed. A differencing disk is merged during the copy, and a `.vhd` is converted to `.vhdx`. A disk used by a running VM, or mounted, is refused.
+
+!!! warning "Windows must be sysprepped"
+    Run `sysprep /generalize /oobe /shutdown` in the original VM before copying its disk, and do not start it again. Otherwise the clones keep the same SID and skip the answer file: name, password, IP and domain are not applied. HV-LAB warns you and asks for a confirmation in that case.
 
 ## Delete an image
 

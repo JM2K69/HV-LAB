@@ -206,9 +206,9 @@
                                          Text="{x:Bind ViewModel.DomainUser, Mode=TwoWay}" PlaceholderText="Administrator"/>
                                 <TextBox Grid.Row="1" Grid.ColumnSpan="2" Header="{Binding [LABS_DomainOu], Source={StaticResource Loc}}"
                                          FontFamily="Consolas" Text="{x:Bind ViewModel.DomainOu, Mode=TwoWay}"
-                                         PlaceholderText="OU=Servers,DC=lab,DC=local"/>
+                                         PlaceholderText="{Binding [LABS_OuPlaceholder], Source={StaticResource Loc}}"/>
                             </Grid>
-                            <TextBlock Text="{Binding [LABS_DomainHint], Source={StaticResource Loc}}" TextWrapping="Wrap"
+                            <TextBlock Text="{x:Bind ViewModel.DomainHint, Mode=OneWay}" TextWrapping="Wrap"
                                        Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Visibility="{x:Bind ViewModel.UseDomain, Mode=OneWay}"/>
                         </StackPanel>
@@ -295,17 +295,18 @@
                                                            Value="{x:Bind Cpu, Mode=TwoWay}" Minimum="1" Maximum="64" SpinButtonPlacementMode="Compact"/>
                                                 <TextBox Grid.Row="1" Grid.Column="3" Width="130" FontFamily="Consolas"
                                                          Header="{Binding [LABS_ColIp], Source={StaticResource Loc}}"
-                                                         Text="{x:Bind Ip, Mode=TwoWay}" PlaceholderText="192.168.100.10"/>
+                                                         Text="{x:Bind Ip, Mode=TwoWay}" PlaceholderText="{Binding [LABS_IpPlaceholder], Source={StaticResource Loc}}"/>
                                                 <TextBox Grid.Row="1" Grid.Column="4" FontFamily="Consolas" MinWidth="120"
                                                          Header="{Binding [LABS_ColDns], Source={StaticResource Loc}}"
-                                                         Text="{x:Bind Dns, Mode=TwoWay}" PlaceholderText="192.168.100.1"/>
+                                                         Text="{x:Bind Dns, Mode=TwoWay}" PlaceholderText="{Binding [LABS_DnsPlaceholder], Source={StaticResource Loc}}"/>
                                                 <Grid Grid.Row="1" Grid.Column="5" Width="120">
                                                     <StackPanel VerticalAlignment="Bottom" Visibility="{x:Bind IsWindows, Mode=OneWay}">
                                                         <CheckBox Content="{Binding [LABS_ColDc], Source={StaticResource Loc}}"
                                                                   IsChecked="{x:Bind DomainController, Mode=TwoWay}" IsEnabled="{x:Bind CanBeDc, Mode=OneWay}"
                                                                   ToolTipService.ToolTip="{Binding [LABS_DcTip], Source={StaticResource Loc}}"/>
                                                         <CheckBox Content="{Binding [LABS_ColJoin], Source={StaticResource Loc}}"
-                                                                  IsChecked="{x:Bind Join, Mode=TwoWay}" IsEnabled="{x:Bind CanJoin, Mode=OneWay}"/>
+                                                                  IsChecked="{x:Bind Join, Mode=TwoWay}" IsEnabled="{x:Bind CanJoin, Mode=OneWay}"
+                                                                  ToolTipService.ToolTip="{Binding [LABS_JoinTip], Source={StaticResource Loc}}"/>
                                                     </StackPanel>
                                                     <TextBox Header="{Binding [LABS_ColUser], Source={StaticResource Loc}}" FontFamily="Consolas"
                                                              Text="{x:Bind User, Mode=TwoWay}" Visibility="{x:Bind IsLinux, Mode=OneWay}"/>
@@ -314,7 +315,7 @@
                                                 <!-- Line 3: tags, written into the VM notes -->
                                                 <TextBox Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4"
                                                          Header="{Binding [LABS_ColTags], Source={StaticResource Loc}}"
-                                                         Text="{x:Bind Tags, Mode=TwoWay}" PlaceholderText="web, prod"/>
+                                                         Text="{x:Bind Tags, Mode=TwoWay}" PlaceholderText="{Binding [LABS_TagsPlaceholder], Source={StaticResource Loc}}"/>
 
                                                 <!-- Line 4 (Linux): first-boot commands, cloud-init runcmd -->
                                                 <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4"
@@ -323,7 +324,7 @@
                                                          Text="{x:Bind Commands, Mode=TwoWay}" Visibility="{x:Bind IsLinux, Mode=OneWay}"
                                                          AcceptsReturn="True" TextWrapping="NoWrap" Height="96"
                                                          FontFamily="Consolas" FontSize="12"
-                                                         PlaceholderText="dnf -y install nginx&#x0a;systemctl enable --now nginx"/>
+                                                         PlaceholderText="{Binding [LABS_NonePlaceholder], Source={StaticResource Loc}}"/>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>

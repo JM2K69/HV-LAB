@@ -82,6 +82,35 @@ public class LabsViewModelTests
     }
 
     [Fact]
+    public async Task Ticking_a_controller_turns_the_lab_domain_on()
+    {
+        var (vm, _, _, folder) = Editor();
+        await vm.LoadAsync();
+        // A file with a controller and no domain (as the user had): it opens with the domain on
+        var file = Path.Combine(folder, "Blueprints", "AD-Group.json");
+        Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+        File.WriteAllText(file, """
+            { "name": "AD-Group", "switch": "LAN", "nat": { "gateway": "172.19.0.1" }, "password": "",
+              "vms": [ { "name": "Core", "base": "WindowsServer2025*", "ip": "172.19.0.10", "domainController": true } ] }
+            """);
+        await vm.LoadAsync();
+        vm.SelectedFile = vm.Files.Single(f => f.Name == "AD-Group");
+        for (var i = 0; i < 50 && !vm.HasEditor; i++) await Task.Delay(10);
+        Assert.True(vm.UseDomain);
+        Assert.Equal("lab.local", vm.DomainName);
+
+        Assert.Equal(LocalizationService.T("LABS_DomainNew", "Core"), vm.DomainHint);   // a new domain, created by Core
+
+        // Without a controller the members join an existing domain; ticking one opens the domain card again
+        vm.UseDomain = false;
+        vm.Vms[0].DomainController = false;
+        Assert.Equal(LocalizationService.T("LABS_DomainExisting"), vm.DomainHint);
+        vm.Vms[0].DomainController = true;
+        Assert.True(vm.UseDomain);
+        Assert.Null(vm.ToBlueprint().Validate(requirePassword: false));
+    }
+
+    [Fact]
     public async Task Rows_keep_the_creation_order_and_drop_what_does_not_apply()
     {
         var (vm, _, _, _) = Editor();

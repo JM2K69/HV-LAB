@@ -349,7 +349,7 @@
                                     Visibility="{x:Bind ViewModel.ShowWindowsOptions, Mode=OneWay,
                                                   Converter={StaticResource BoolToVisibilityConverter}}">
                             <TextBlock Text="{Binding [CVM_KmsKey], Source={StaticResource Loc}}" FontSize="12"/>
-                            <ComboBox AutomationProperties.Name="{Binding [CVM_KmsKey], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.KmsKeys}"
+                            <ComboBox AutomationProperties.Name="{Binding [CVM_KmsKey], Source={StaticResource Loc}}" ItemsSource="{x:Bind ViewModel.KmsKeys, Mode=OneWay}"
                                       SelectedItem="{x:Bind ViewModel.SelectedKmsKey, Mode=TwoWay}"
                                       PlaceholderText="{Binding [CVM_KmsPlaceholder], Source={StaticResource Loc}}"
                                       HorizontalAlignment="Stretch">
