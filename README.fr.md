@@ -113,10 +113,10 @@ La version a une source unique : `VersionPrefix` dans `Directory.Build.props`. L
 1. Modifiez `VersionPrefix`, commitez et poussez.
 2. Poussez un tag correspondant :
    ```powershell
-   git tag -a v2.3.0 -m "HV-LAB Manager 2.3.0"
-   git push origin v2.3.0
+   git tag -a v2.3.1 -m "HV-LAB Manager 2.3.1"
+   git push origin v2.3.1
    ```
-   Un tag du type `v2.3.0-beta.1` publie une pré-version.
+   Un tag du type `v2.3.1-beta.1` publie une pré-version.
 
 Le [workflow Release](.github/workflows/release.yml) se charge ensuite de :
 - lancer les tests ;
