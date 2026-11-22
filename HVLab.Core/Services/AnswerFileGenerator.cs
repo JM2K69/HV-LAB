@@ -40,8 +40,17 @@ public class AnswerFileConfig
 
 public static class AnswerFileGenerator
 {
-    /// <summary>Built-in account name of the English images HV-LAB builds its bases from (the only account set).</summary>
+    /// <summary>Built-in account name of the English images HV-LAB builds its bases from (the account of Windows Server).</summary>
     public const string AdministratorAccount = "Administrator";
+
+    /// <summary>
+    /// Local administrator created on Windows 10/11, whose built-in Administrator stays disabled as Microsoft
+    /// recommends (and as their OOBE requires: without an account of its own, Windows 11 asks "Who's going to use this device?").
+    /// </summary>
+    public const string ClientAccount = "Admins";
+
+    /// <summary>The account of the notes and of PowerShell Direct: Administrator on Windows Server, Admins on Windows 10/11.</summary>
+    public static string AccountFor(OsFamily family) => family == OsFamily.Client ? ClientAccount : AdministratorAccount;
 
     public static string Generate(AnswerFileConfig c)
     {
@@ -67,7 +76,7 @@ public static class AnswerFileGenerator
         var networkBlock = NetworkBlock(c);
         var joinBlock    = JoinBlock(c);
 
-        var autoLogonUser = AdministratorAccount;
+        var autoLogonUser = AccountFor(c.OsFamily);
 
         var autoLogon = c.AutoLogon ? $"""
                     <AutoLogon>
@@ -80,8 +89,7 @@ public static class AnswerFileGenerator
             """ : string.Empty;
 
         // OOBE block: keep only cross-version safe nodes to reduce client/server OOBE parsing issues.
-        // Windows 10/11 (client only): no account-creation screens, since no extra account is created; with
-        // HideLocalAccountScreen and an AdministratorPassword, Setup enables the built-in Administrator.
+        // Windows 10/11 (client only): no account-creation screens, the Admins account below is the user's account.
         // Windows 11 also asks for a network (no DHCP on a lab NAT) unless its wireless page is hidden.
         var clientOobe = c.OsFamily == OsFamily.Client
             ? """
@@ -111,11 +119,24 @@ public static class AnswerFileGenerator
                         </OOBE>
               """;
 
-        // Only the built-in Administrator (no extra local account). AdministratorPassword locates it by its SID,
-        // so its localized name does not matter; Windows Server OOBE otherwise stops to ask for its password.
+        // Windows Server: the built-in Administrator, which AdministratorPassword locates by its SID (its localized
+        // name does not matter); its OOBE otherwise stops to ask for that password.
+        // Windows 10/11: an "Admins" member of Administrators with the same password; their built-in Administrator
+        // keeps the password but stays disabled. Schema order: AdministratorPassword, then LocalAccounts.
+        var clientAccount = c.OsFamily == OsFamily.Client ? $"""
+
+                            <LocalAccounts>
+                                <LocalAccount wcm:action="add">
+                                    <Password><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></Password>
+                                    <Group>Administrators</Group>
+                                    <DisplayName>{ClientAccount}</DisplayName>
+                                    <Name>{ClientAccount}</Name>
+                                </LocalAccount>
+                            </LocalAccounts>
+              """ : string.Empty;
         var userAccounts = $"""
                         <UserAccounts>
-                            <AdministratorPassword><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></AdministratorPassword>
+                            <AdministratorPassword><Value>{X(c.AdminPassword)}</Value><PlainText>true</PlainText></AdministratorPassword>{clientAccount}
                         </UserAccounts>
               """;
 

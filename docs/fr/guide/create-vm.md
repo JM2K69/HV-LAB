@@ -33,7 +33,7 @@ Laissez **Utiliser un fichier de réponse** coché pour une installation automat
 | Champ | Remarques |
 |---|---|
 | Nom de l'ordinateur | 15 caractères maximum. En mode lot, chaque VM reçoit son propre nom. |
-| Mot de passe Administrateur | **Obligatoire**. Le bouton en forme d'œil l'affiche ou le masque. |
+| Mot de passe Administrateur | **Obligatoire**. Le mot de passe du [compte](#comptes) `Administrator`, ou `Admins` sous Windows 10/11. Le bouton en forme d'œil l'affiche ou le masque. |
 | Langue / Locale | `fr-FR`, `en-US`, `en-GB`, `de-DE`, `es-ES` ou `it-IT`. Définit la langue de l'interface, les paramètres régionaux système et utilisateur, et le clavier. |
 | Fuseau horaire | Par exemple `Romance Standard Time` (Paris) ou `Pacific Standard Time`. |
 | Clé KMS (GVLK) | Les clés client KMS publiques de Microsoft, précédées de vos [clés personnalisées](settings.md#cles-produit-personnalisees). La clé qui correspond à l'image de base est proposée et recopiée dans **Clé produit**. |
@@ -68,7 +68,7 @@ La VM doit pouvoir contacter un contrôleur de domaine pendant l'installation. A
 ### Options
 
 - **Ouverture de session automatique** :
-    - ouvre la session Administrateur lors des trois premières connexions ;
+    - ouvre la session du [compte](#comptes) (`Administrator`, ou `Admins` sous Windows 10/11) lors des trois premières connexions ;
     - désactivée par défaut, car Windows stocke alors le mot de passe en clair dans le registre de la VM.
 - **Initialiser le cache CBS des fonctionnalités** (Windows Server uniquement). À la première ouverture de session, une fenêtre console :
     1. lance `Get-WindowsFeature` et `Get-WindowsOptionalFeature` ;
@@ -84,12 +84,14 @@ L'**aperçu unattend.xml** affiche le fichier exactement tel qu'il sera injecté
 
 ## Comptes
 
-HV-LAB **ne crée aucun compte supplémentaire**. Le fichier de réponse définit seulement le mot de passe du compte **Administrateur** intégré :
+Le compte dépend de la version de Windows de la base :
 
-- sous **Windows Server**, l'installation ne demande plus le mot de passe Administrateur ;
-- sous **Windows 10/11**, les écrans de création de compte sont masqués, et le programme d'installation active l'Administrateur intégré.
+| Base | Compte | Remarques |
+|---|---|---|
+| **Windows Server** | `Administrator`, le compte intégré | Le fichier de réponse définit son mot de passe : l'installation ne le demande plus. Aucun autre compte n'est créé. |
+| **Windows 10/11** | `Admins`, un administrateur local créé par le fichier de réponse | Le compte `Administrator` intégré reste désactivé, comme Microsoft le recommande. Les écrans de création de compte sont masqués : Windows 11 ne demande plus « Qui va utiliser cet appareil ? ». |
 
-Connectez-vous en `Administrator` avec le mot de passe saisi.
+Connectez-vous avec ce compte et le mot de passe saisi. Les [notes de la VM](#notes-de-la-vm) indiquent le compte.
 
 ## Notes de la VM
 

@@ -86,7 +86,8 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
 
     public string AnswerSectionTitle => T(IsLinuxBase ? "CVM_CloudInit" : "CVM_AnswerFile");
     public string AnswerSectionInfo  => T(IsLinuxBase ? "CVM_CloudInitInfo" : "CVM_AnswerInfo");
-    public string PasswordLabel      => T(IsLinuxBase ? "CVM_UserPwd" : "CVM_AdminPwd");
+    /// <summary>The account the password is for: the Linux user, Admins on Windows 10/11, Administrator on Windows Server.</summary>
+    public string PasswordLabel      => T(IsLinuxBase ? "CVM_UserPwd" : _detectedOsFamily == OsFamily.Client ? "CVM_ClientPwd" : "CVM_AdminPwd");
     public string PreviewTitle       => T(IsLinuxBase ? "CVM_CloudInitPreview" : "CVM_XmlPreview");
 
     /// <summary>Base selected in the form (firmware settings of Linux bases made from a VM).</summary>
@@ -107,6 +108,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
         // Detect OS family from OsIdentifier
         var norm = vhdx.OsIdentifier.ToLowerInvariant();
         _detectedOsFamily = norm.Contains("server") ? OsFamily.Server : OsFamily.Client;
+        OnPropertyChanged(nameof(PasswordLabel));
 
         // Auto-suggest matching KMS key (keys added in the settings first)
         RefreshKmsKeys();
@@ -293,7 +295,7 @@ public partial class CreateVmViewModel : VmCreationViewModelBase
                     ? AnswerFileGenerator.Generate(BuildConfig(BulkMode ? InputValidator.ToComputerName(name) : null, winIp, mac ?? ""))
                     : null;
                 var notes = UseAnswerFile
-                    ? VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, AdminPassword, winIp)
+                    ? VmNotes.Build(DateTime.Now, AnswerFileGenerator.AccountFor(_detectedOsFamily), AdminPassword, winIp)
                     : VmNotes.Build(DateTime.Now);
                 return HvService.CreateVMWithDifferencingDiskAsync(
                     name, parent, sw, MemoryMB, CpuCount, Generation, VmFolder,

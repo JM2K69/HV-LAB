@@ -228,6 +228,78 @@ public class HyperVLiveLabTests
         finally { await CleanupAsync(names, sw: lab.Switch, nat: $"{lab.Name}-NAT", group: lab.Name); }
     }
 
+    /// <summary>
+    /// Issue #2: Windows 11 stopped in OOBE on its region, keyboard and account pages. Without an address on a NAT
+    /// that has no DHCP (the worst case: no network at all), its setup must still run to the end on the answer file,
+    /// in the lab language, with the Admins account of the notes only and the KMS key of its edition.
+    /// </summary>
+    [LiveGuestFact]
+    public async Task A_windows_11_client_finishes_its_setup_without_stopping_in_oobe()
+    {
+        var tag = Tag();
+        var client = (await Vhdx.GetBaseVhdxListAsync(BasesFolder))
+                         .Where(b => b.IsBuilt && !b.IsLinux && b.OsIdentifier.StartsWith("Windows11", StringComparison.OrdinalIgnoreCase))
+                         .OrderByDescending(b => Version.TryParse(b.OsVersion, out var v) ? v : new Version())
+                         .FirstOrDefault() ?? throw new Xunit.Sdk.XunitException($"no BASE_Windows11*.vhdx in {BasesFolder}");
+        var lab = new LabBlueprint
+        {
+            Name = $"HVLT-W11-{tag}", Switch = $"HVLT-W11SW-{tag}",
+            Nat = new LabNat { Gateway = "172.31.251.1", PrefixLength = 24 },
+            Password = $"Hv!{tag}-Lab9",
+            Vms = [new LabVm { Name = $"HVLT-C-{tag}", Base = client.OsIdentifier, MemoryMB = 4096 }],
+        };
+        var name = lab.Vms[0].Name;
+        var svc = new LabBlueprintService(Hv, Nat, Vhdx) { BaseFolder = () => BasesFolder, VmsFolder = () => Folder };
+        try
+        {
+            Assert.Null(lab.Validate());
+            await svc.DeployAsync(lab);
+            var vm = await GetAsync(name);
+            await Hv.PowerAsync(vm.Id, VmPowerAction.Start);
+
+            // Each failed attempt goes to livetests\win11-oobe.log, readable while the test waits
+            Directory.CreateDirectory(Folder);
+            var trace = Path.Combine(Folder, "win11-oobe.log");
+            void Trace(string line)
+            {
+                try { File.AppendAllText(trace, $"{DateTime.Now:HH:mm:ss} {line}{Environment.NewLine}"); }
+                catch (IOException) { /* the log is only a help */ }
+            }
+            var creds = vm.Credentials;
+            Task<string> Guest(string script) => Hv.InvokeInGuestAsync(vm.Id, creds.Account, creds.Password, script);
+
+            // Setup is over when the image state is complete; a page waiting in OOBE leaves it at OOBE until the timeout
+            // (Windows 11 reaches its desktop in about 5 minutes)
+            Trace($"waiting for {name} ({client.Name})");
+            await UntilAsync(async () =>
+            {
+                try
+                {
+                    var state = await Guest(@"(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State').ImageState");
+                    Trace($"image state: {state}");
+                    return state == "IMAGE_STATE_COMPLETE" ? state : throw new InvalidOperationException($"image state: {state}");
+                }
+                catch (Exception ex) when (ex is not InvalidOperationException) { Trace(ex.Message); throw; }
+            }, TimeSpan.FromMinutes(15));
+
+            // Then each setting once, so that a failing check shows its own error
+            Assert.Equal(lab.Language, await Guest("(Get-WinSystemLocale).Name"));
+            Assert.Equal(AnswerFileGenerator.GetInputLocale(lab.Language),
+                         await Guest("(Get-WinUserLanguageList)[0].InputMethodTips -join ','"), ignoreCase: true);
+            // The Admins account of the notes, alone: the built-in Administrator stays disabled
+            Assert.Equal(AnswerFileGenerator.ClientAccount, creds.Account);
+            Assert.Equal(AnswerFileGenerator.ClientAccount,
+                         await Guest("@(Get-LocalUser | Where-Object Enabled | ForEach-Object Name) -join ','"), ignoreCase: true);
+            Assert.Equal("True", await Guest("[bool](Get-LocalGroupMember -SID 'S-1-5-32-544' | Where-Object Name -like '*\\Admins')"));
+            Assert.Equal(KmsKeyCatalog.SuggestForOs(client.OsIdentifier, [])!.Key[^5..], await Guest("""
+                (Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" |
+                 Select-Object -First 1).PartialProductKey
+                """), ignoreCase: true);
+            Trace("all checks passed");
+        }
+        finally { await CleanupAsync([name], sw: lab.Switch, nat: $"{lab.Name}-NAT", group: lab.Name); }
+    }
+
     [LiveGuestFact]
     public async Task A_lab_deploys_boots_and_answers_through_powershell_direct()
     {

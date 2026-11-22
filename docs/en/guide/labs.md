@@ -81,7 +81,7 @@ Comments (`//`) and trailing commas are allowed.
 | `name` | Name of the lab, and of its Hyper-V group | Required |
 | `switch` | Switch of every VM: used if it exists, else created as an internal switch | Required |
 | `nat` | `gateway` and `prefixLength`: NAT network created with the switch. Its gateway is also the gateway of the static IPs. | None |
-| `password` | Administrator password of the Windows VMs, user password of the Linux VMs, and password of the domain join account | Required |
+| `password` | Password of the account of the Windows VMs (`Administrator`, or `Admins` on Windows 10/11), user password of the Linux VMs, and password of the domain join account | Required |
 | `language` | Language and keyboard of the VMs | `fr-FR` |
 | `timeZone` | Time zone of the VMs | `Romance Standard Time` |
 | `domain` | `name`, `user` (the account allowed to join, `Administrator` by default) and `ou` (optional): the domain joined by the VMs that have `join` | None |

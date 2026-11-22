@@ -33,7 +33,7 @@ Leave **Use an answer file** checked to get an unattended setup.
 | Field | Notes |
 |---|---|
 | Computer name | 15 characters at most. In bulk mode each VM gets its own name. |
-| Administrator password | **Required**. Use the eye button to show or hide it. |
+| Administrator password | **Required**. The password of the `Administrator` [account](#accounts), or `Admins` on Windows 10/11. Use the eye button to show or hide it. |
 | Language / Locale | `fr-FR`, `en-US`, `en-GB`, `de-DE`, `es-ES` or `it-IT`. Sets the UI language, system locale, user locale and keyboard. |
 | Time zone | For example `Romance Standard Time` (Paris) or `Pacific Standard Time`. |
 | KMS key (GVLK) | Microsoft's public KMS client keys, after your [custom keys](settings.md#custom-product-keys). The key that matches the base image is suggested and copied into **Product key**. |
@@ -68,7 +68,7 @@ The VM must reach a domain controller during setup. With a static IP, put the ad
 ### Options
 
 - **Automatic logon**:
-    - logs on as Administrator for the first three logons;
+    - logs on with the [account](#accounts) (`Administrator`, or `Admins` on Windows 10/11) for the first three logons;
     - off by default, because Windows then stores the password in plain text in the VM's registry.
 - **Build the CBS feature cache on first boot** (Windows Server only). At the first logon, a console window:
     1. runs `Get-WindowsFeature` and `Get-WindowsOptionalFeature`;
@@ -84,12 +84,14 @@ The **unattend.xml preview** shows the file exactly as it will be injected, with
 
 ## Accounts
 
-HV-LAB **does not create any extra account**. The answer file only sets the password of the built-in **Administrator** account:
+The account depends on the Windows version of the base:
 
-- on **Windows Server**, the setup no longer asks for the Administrator password;
-- on **Windows 10/11**, the account-creation screens are hidden, and Windows Setup enables the built-in Administrator.
+| Base | Account | Remarks |
+|---|---|---|
+| **Windows Server** | `Administrator`, the built-in account | The answer file sets its password, so the setup no longer asks for it. No other account is created. |
+| **Windows 10/11** | `Admins`, a local administrator created by the answer file | The built-in `Administrator` account stays disabled, as Microsoft recommends. The account-creation screens are hidden: Windows 11 no longer asks "Who's going to use this device?". |
 
-Log on as `Administrator` with the password you entered.
+Log on with that account and the password you entered. The [VM notes](#vm-notes) show the account.
 
 ## VM notes
 

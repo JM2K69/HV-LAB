@@ -241,20 +241,21 @@ public sealed class LabBlueprintService(IHyperVService hv, INatService nat, IVhd
         }
 
         var mac = ip is null ? null : InputValidator.NewHyperVMac();
+        var family = b.OsIdentifier.Contains("server", StringComparison.OrdinalIgnoreCase) ? OsFamily.Server : OsFamily.Client;
         var answer = AnswerFileGenerator.Generate(new AnswerFileConfig
         {
             ComputerName = InputValidator.ToComputerName(vm.Name), AdminPassword = lab.Password,
             ProductKey = KmsKeyCatalog.SuggestForOs(b.OsIdentifier)?.Key ?? "",
             UILanguage = lab.Language, InputLocale = AnswerFileGenerator.GetInputLocale(lab.Language),
             SystemLocale = lab.Language, UserLocale = lab.Language, TimeZone = lab.TimeZone,
-            OsFamily = b.OsIdentifier.Contains("server", StringComparison.OrdinalIgnoreCase) ? OsFamily.Server : OsFamily.Client,
+            OsFamily = family,
             StaticIp = ip, MacAddress = mac ?? "",
             JoinDomain = vm.Join && !vm.DomainController && lab.Domain is { } d ? d.Name : "",
             DomainUser = lab.Domain?.User ?? "", DomainPassword = lab.Password, DomainOu = lab.Domain?.Ou ?? "",
         });
         await hv.CreateVMWithDifferencingDiskAsync(vm.Name, b.FilePath, lab.Switch, vm.MemoryMB, vm.Cpu, b.Generation ?? 2,
             VmsFolder(), answer, true, false,
-            VmNotes.Build(DateTime.Now, AnswerFileGenerator.AdministratorAccount, lab.Password, vm.Ip, tags: vm.Tags),
+            VmNotes.Build(DateTime.Now, AnswerFileGenerator.AccountFor(family), lab.Password, vm.Ip, tags: vm.Tags),
             ct: ct, staticMac: mac);
     }
 

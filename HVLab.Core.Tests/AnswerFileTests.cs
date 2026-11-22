@@ -24,9 +24,14 @@ public class AnswerFileTests
         Assert.Empty(Generate().Descendants(U + "AutoLogon"));
     }
 
-    [Fact]
-    public void AutoLogon_is_emitted_only_when_enabled()
-        => Assert.Single(Generate(c => c.AutoLogon = true).Descendants(U + "AutoLogon"));
+    [Theory]
+    [InlineData(OsFamily.Server, false, null)]
+    [InlineData(OsFamily.Server, true, "Administrator")]
+    [InlineData(OsFamily.Client, false, null)]
+    [InlineData(OsFamily.Client, true, "Admins")]
+    public void AutoLogon_is_emitted_only_when_enabled_for_the_account_of_the_family(OsFamily family, bool enabled, string? user)
+        => Assert.Equal(user, Generate(c => { c.OsFamily = family; c.AutoLogon = enabled; })
+                                  .Descendants(U + "AutoLogon").SingleOrDefault()?.Element(U + "Username")?.Value);
 
     [Fact]
     public void Special_characters_in_password_are_escaped()
@@ -36,14 +41,23 @@ public class AnswerFileTests
         Assert.Equal("a<b&\"c>", value);
     }
 
-    [Theory]
-    [InlineData(OsFamily.Server)]
-    [InlineData(OsFamily.Client)]
-    public void Only_the_built_in_administrator_is_used(OsFamily family)
+    [Fact]
+    public void Windows_server_only_uses_its_built_in_administrator()
     {
-        var doc = Generate(c => { c.OsFamily = family; c.AutoLogon = true; });
-        Assert.Empty(doc.Descendants(U + "LocalAccounts"));
-        Assert.Equal("Administrator", doc.Descendants(U + "AutoLogon").Single().Element(U + "Username")!.Value);
+        Assert.Empty(Generate(c => c.OsFamily = OsFamily.Server).Descendants(U + "LocalAccounts"));
+        Assert.Equal("Administrator", AnswerFileGenerator.AccountFor(OsFamily.Server));
+    }
+
+    [Fact]
+    public void A_windows_client_gets_an_admins_account_with_the_password()
+    {
+        // Windows 11 OOBE asks "Who's going to use this device?" without an account of its own
+        var account = Generate(c => { c.OsFamily = OsFamily.Client; c.AdminPassword = "P<w&d"; })
+                          .Descendants(U + "LocalAccount").Single();
+        Assert.Equal("Admins", account.Element(U + "Name")!.Value);
+        Assert.Equal("Administrators", account.Element(U + "Group")!.Value);
+        Assert.Equal("P<w&d", account.Element(U + "Password")!.Element(U + "Value")!.Value);
+        Assert.Equal("Admins", AnswerFileGenerator.AccountFor(OsFamily.Client));
     }
 
     [Theory]

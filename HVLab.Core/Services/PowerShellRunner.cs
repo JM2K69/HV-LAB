@@ -261,6 +261,26 @@ internal sealed class PowerShellWorker : IDisposable
         get { try { return !_proc.HasExited; } catch { return false; } }
     }
 
+    /// <summary>
+    /// The module path of Windows PowerShell 5.1 (user, then machine folders). Started from a PowerShell 7 console,
+    /// HV-LAB would hand down the PSModulePath of PowerShell 7: powershell.exe then finds the PowerShell 7 copies of
+    /// its own modules first, cannot load them, and fails on ConvertTo-SecureString, Get-Acl…
+    /// </summary>
+    internal static string WindowsPowerShellModulePath()
+    {
+        var system = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\Modules");
+        var folders = new List<string>
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"WindowsPowerShell\Modules"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), @"WindowsPowerShell\Modules"),
+            system,
+        };
+        // Machine-wide additions of installed products (never the PowerShell 7 folders, which live in the process value)
+        var machine = Environment.GetEnvironmentVariable("PSModulePath", EnvironmentVariableTarget.Machine) ?? "";
+        folders.AddRange(machine.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        return string.Join(';', folders.Where(f => f.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
     /// <summary>Starts powershell.exe and waits until Hyper-V is imported (blocking: call from a worker thread).</summary>
     public static PowerShellWorker Start()
     {
@@ -277,6 +297,7 @@ internal sealed class PowerShellWorker : IDisposable
             StandardOutputEncoding = Encoding.UTF8,
             StandardErrorEncoding  = Encoding.UTF8,
         };
+        psi.Environment["PSModulePath"] = WindowsPowerShellModulePath();
         var proc = Process.Start(psi)
             ?? throw new InvalidOperationException(LocalizationService.Instance["Err_PsStart"]);
 

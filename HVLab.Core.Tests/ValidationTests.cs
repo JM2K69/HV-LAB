@@ -14,6 +14,16 @@ public class PowerShellEscapeTests
     [InlineData(null, "")]
     public void Esc_doubles_every_single_quote_variant(string? input, string expected)
         => Assert.Equal(expected, PowerShellRunner.Esc(input));
+
+    [Fact]
+    public void Windows_powershell_gets_its_own_module_path_and_never_the_one_of_powershell_7()
+    {
+        var path = PowerShellWorker.WindowsPowerShellModulePath().Split(';');
+        Assert.Contains(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\Modules"),
+                        path, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(path, p => p.Contains(@"\PowerShell\7", StringComparison.OrdinalIgnoreCase)
+                                      || p.EndsWith(@"Documents\PowerShell\Modules", StringComparison.OrdinalIgnoreCase));
+    }
 }
 
 public class InputValidatorTests

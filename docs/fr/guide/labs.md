@@ -81,7 +81,7 @@ Les commentaires (`//`) et les virgules finales sont acceptés.
 | `name` | Nom du lab, et de son groupe Hyper-V | Obligatoire |
 | `switch` | Commutateur de toutes les VM : utilisé s'il existe, sinon créé en commutateur interne | Obligatoire |
 | `nat` | `gateway` et `prefixLength` : réseau NAT créé avec le commutateur. Sa passerelle est aussi celle des IP fixes. | Aucun |
-| `password` | Mot de passe Administrateur des VM Windows, mot de passe de l'utilisateur des VM Linux, et mot de passe du compte qui joint le domaine | Obligatoire |
+| `password` | Mot de passe du compte des VM Windows (`Administrator`, ou `Admins` sous Windows 10/11), mot de passe de l'utilisateur des VM Linux, et mot de passe du compte qui joint le domaine | Obligatoire |
 | `language` | Langue et clavier des VM | `fr-FR` |
 | `timeZone` | Fuseau horaire des VM | `Romance Standard Time` |
 | `domain` | `name`, `user` (le compte autorisé à joindre, `Administrator` par défaut) et `ou` (facultatif) : le domaine que rejoignent les VM qui ont `join` | Aucun |
